@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -12,8 +11,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight } from "lucide-react";
+import {
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  Loader2,
+  ArrowRight,
+  Github,
+  CalendarCheck2,
+  LayoutDashboard,
+  Sparkles,
+} from "lucide-react";
 import Image from "next/image";
+import { signInWithGoogle, signInWithGithub } from "@/lib/auth-client";
 
 const signInSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -23,12 +34,28 @@ const signInSchema = z.object({
 
 type SignInValues = z.infer<typeof signInSchema>;
 
+const signInHighlights = [
+  {
+    icon: CalendarCheck2,
+    title: "Resume your campus calendar",
+    description:
+      "Pick up saved registrations, upcoming sessions, and the events that matter this week.",
+  },
+  {
+    icon: LayoutDashboard,
+    title: "Jump back into your dashboard",
+    description:
+      "Students, organizers, and admins all land in a cleaner workspace built for the next action.",
+  },
+];
+
 export function SignInForm() {
-  const router = useRouter();
   const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState<"google" | "github" | null>(
+    null,
+  );
 
   const {
     register,
@@ -48,11 +75,11 @@ export function SignInForm() {
     try {
       const result = await login(data.email, data.password, data.rememberMe);
       if (result.meta.requestStatus === "fulfilled") {
-        setIsRedirecting(true);
         toast.success("Welcome back!", {
           description: "You have been signed in successfully.",
         });
-        router.push("/dashboard");
+        // GuestGuard detects isAuthenticated: true and handles the redirect.
+        // No router.push needed here — avoids double navigation.
       } else {
         const errorMsg = (result.payload as string) || "Invalid credentials";
         toast.error("Sign in failed", { description: errorMsg });
@@ -66,78 +93,160 @@ export function SignInForm() {
     }
   };
 
+  const handleOAuthSignIn = async (provider: "google" | "github") => {
+    setOauthLoading(provider);
+    try {
+      if (provider === "google") {
+        await signInWithGoogle("/dashboard");
+      } else {
+        await signInWithGithub("/dashboard");
+      }
+    } catch {
+      toast.error("OAuth sign-in failed", {
+        description: "Please try again or use email & password.",
+      });
+      setOauthLoading(null);
+    }
+  };
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#f6f6f8] dark:bg-[#0f0a1e]">
-      {/* Redirect overlay */}
-      {isRedirecting && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-4">
-            <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            <p className="text-lg font-semibold text-slate-800 dark:text-white">
-              Taking you to your dashboard...
+    <div className="relative min-h-screen px-4 py-8 sm:px-6">
+      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden opacity-50">
+        <div className="absolute left-[-10%] top-[-10%] h-[34rem] w-[34rem] rounded-full bg-primary/12 blur-[160px]" />
+        <div className="absolute bottom-[-12%] right-[-8%] h-[28rem] w-[28rem] rounded-full bg-teal-400/12 blur-[160px]" />
+      </div>
+
+      <div className="mx-auto grid max-w-6xl overflow-hidden rounded-[36px] border border-white/60 bg-white/45 shadow-[0_40px_120px_-48px_rgba(12,20,33,0.45)] backdrop-blur-xl xl:grid-cols-[0.95fr_1.05fr] dark:border-white/10 dark:bg-slate-950/25">
+        <div className="relative hidden overflow-hidden bg-slate-950 px-10 py-12 text-white xl:flex xl:flex-col xl:justify-between">
+          <div className="absolute left-0 top-0 h-40 w-40 rounded-full bg-primary/20 blur-3xl" />
+          <div className="absolute bottom-0 right-0 h-48 w-48 rounded-full bg-teal-400/20 blur-3xl" />
+
+          <div className="relative">
+            <div className="flex items-center gap-3">
+              <Image
+                src="/logo.jpg"
+                alt="CollegeEventAggregator Logo"
+                width={48}
+                height={48}
+                className="rounded-2xl ring-1 ring-white/20"
+              />
+              <div>
+                <p className="font-display text-2xl font-bold leading-none text-white">
+                  CollegeEvent
+                </p>
+                <p className="text-xs uppercase tracking-[0.22em] text-primary">
+                  Aggregator
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-10 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-white/75 backdrop-blur-xl">
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
+              Premium campus access
+            </div>
+            <h2 className="mt-6 text-5xl font-bold leading-[0.96] text-white">
+              Pick up where your campus momentum left off.
+            </h2>
+            <p className="mt-5 max-w-md text-base leading-8 text-white/72">
+              Get back into registrations, dashboards, and your upcoming
+              schedule with an interface that feels sharper from the first
+              screen.
             </p>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              Please wait a moment
-            </p>
+
+            <div className="mt-10 space-y-4">
+              {signInHighlights.map((item) => (
+                <div
+                  key={item.title}
+                  className="rounded-[26px] border border-white/12 bg-white/8 p-5 backdrop-blur-xl"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-white/10 text-primary">
+                      <item.icon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white">
+                        {item.title}
+                      </h3>
+                      <p className="mt-2 text-sm leading-7 text-white/68">
+                        {item.description}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="relative grid grid-cols-2 gap-4">
+            <div className="rounded-[24px] border border-white/12 bg-white/8 p-5 backdrop-blur-xl">
+              <p className="text-xs uppercase tracking-[0.18em] text-white/60">
+                Students
+              </p>
+              <p className="mt-2 text-3xl font-bold">1-click</p>
+              <p className="mt-2 text-sm text-white/65">Registration flow</p>
+            </div>
+            <div className="rounded-[24px] border border-white/12 bg-white/8 p-5 backdrop-blur-xl">
+              <p className="text-xs uppercase tracking-[0.18em] text-white/60">
+                Teams
+              </p>
+              <p className="mt-2 text-3xl font-bold">1</p>
+              <p className="mt-2 text-sm text-white/65">
+                Shared dashboard workspace
+              </p>
+            </div>
           </div>
         </div>
-      )}
-      {/* Background decoration */}
-      <div className="fixed inset-0 -z-10 pointer-events-none opacity-40 overflow-hidden">
-        <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
-      </div>
 
-      {/* Brand Logo */}
-      <div className="mb-8 text-center animate-fade-in">
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <Image
-            src="/logo.jpg"
-            alt="CollegeEventAggregator Logo"
-            width={48}
-            height={48}
-            className="rounded-lg"
-          />
-          <span className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-            CollegeEvent<span className="text-primary">Aggregator</span>
-          </span>
-        </div>
-        <p className="text-slate-500 dark:text-slate-400 text-sm">
-          Your centralized campus event ecosystem
-        </p>
-      </div>
+        <div className="surface-card-strong px-6 py-8 md:px-10 md:py-10">
+          <div className="mb-8 flex items-center gap-3 xl:hidden">
+            <Image
+              src="/logo.jpg"
+              alt="CollegeEventAggregator Logo"
+              width={44}
+              height={44}
+              className="rounded-2xl ring-1 ring-white/60"
+            />
+            <div>
+              <p className="font-display text-xl font-bold leading-none text-foreground">
+                CollegeEvent
+              </p>
+              <p className="text-xs uppercase tracking-[0.22em] text-primary">
+                Aggregator
+              </p>
+            </div>
+          </div>
 
-      {/* Sign In Card */}
-      <div className="w-full max-w-[450px] bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-fade-in-up">
-        <div className="p-8">
           <div className="mb-8">
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
-              Sign In
+            <p className="section-eyebrow text-xs font-semibold text-slate-500 dark:text-slate-400">
+              Welcome back
+            </p>
+            <h1 className="mt-3 text-3xl font-bold text-foreground md:text-4xl">
+              Sign in to continue planning your semester.
             </h1>
-            <p className="text-slate-500 dark:text-slate-400">
-              Access your college events and dashboard.
+            <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
+              Access your college events, organizer tools, and personalized
+              dashboard from one polished workspace.
             </p>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {/* Email */}
             <div className="space-y-2">
               <Label
                 htmlFor="email"
-                className="text-sm font-medium text-slate-700 dark:text-slate-300"
+                className="text-sm font-medium text-slate-700 dark:text-slate-200"
               >
                 Email Address
               </Label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
                   <Mail className="h-4 w-4 text-slate-400" />
                 </div>
                 <Input
                   id="email"
                   type="email"
                   placeholder="name@university.edu"
-                  className="pl-10 py-3 h-12 border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-primary"
-                  disabled={isSubmitting || isRedirecting}
+                  className="h-12 pl-11"
+                  disabled={isSubmitting || oauthLoading !== null}
                   {...register("email")}
                 />
               </div>
@@ -146,30 +255,29 @@ export function SignInForm() {
               )}
             </div>
 
-            {/* Password */}
             <div className="space-y-2">
               <Label
                 htmlFor="password"
-                className="text-sm font-medium text-slate-700 dark:text-slate-300"
+                className="text-sm font-medium text-slate-700 dark:text-slate-200"
               >
                 Password
               </Label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
                   <Lock className="h-4 w-4 text-slate-400" />
                 </div>
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
-                  className="pl-10 pr-10 py-3 h-12 border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-primary"
-                  disabled={isSubmitting || isRedirecting}
+                  className="h-12 pl-11 pr-11"
+                  disabled={isSubmitting || oauthLoading !== null}
                   {...register("password")}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                  className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-200"
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -185,7 +293,6 @@ export function SignInForm() {
               )}
             </div>
 
-            {/* Remember Me */}
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Checkbox
@@ -197,63 +304,124 @@ export function SignInForm() {
                 />
                 <label
                   htmlFor="rememberMe"
-                  className="text-sm text-slate-700 dark:text-slate-300 cursor-pointer"
+                  className="cursor-pointer text-sm text-slate-700 dark:text-slate-300"
                 >
                   Remember me
                 </label>
               </div>
             </div>
 
-            {/* Submit */}
             <Button
               type="submit"
-              disabled={isSubmitting || isRedirecting}
-              className="w-full h-12 bg-primary hover:bg-primary/90 text-white font-semibold shadow-lg shadow-primary/25 transition-all"
+              disabled={isSubmitting || oauthLoading !== null}
+              className="h-12 w-full justify-center"
             >
-              {isRedirecting ? (
+              {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Redirecting to dashboard...
-                </>
-              ) : isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Verifying credentials...
+                  Signing in...
                 </>
               ) : (
                 <>
-                  Sign In
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                  Sign in
+                  <ArrowRight className="h-4 w-4" />
                 </>
               )}
             </Button>
           </form>
-        </div>
 
-        {/* Footer */}
-        <div className="bg-slate-50 dark:bg-slate-800/50 py-4 px-8 border-t border-slate-200 dark:border-slate-800">
-          <p className="text-center text-sm text-slate-600 dark:text-slate-400">
-            Don&apos;t have an account?{" "}
-            <Link
-              href="/sign-up"
-              className="font-semibold text-primary hover:text-primary/80 transition-colors"
-            >
-              Sign up
-            </Link>
-          </p>
+          <div className="mt-6 rounded-[28px] border border-white/60 bg-white/70 p-5 shadow-[0_18px_40px_-28px_rgba(12,20,33,0.28)] backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/60 dark:border-white/10" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white/95 px-3 font-medium tracking-wide text-slate-400 dark:bg-slate-950/95 dark:text-slate-500">
+                  Or continue with
+                </span>
+              </div>
+            </div>
+
+            <p className="mt-4 text-center text-xs text-slate-500 dark:text-slate-400">
+              OAuth sign-in is available for{" "}
+              <span className="font-semibold text-primary">students only</span>.{" "}
+              Admins and organizers must use email and password.
+            </p>
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleOAuthSignIn("google")}
+                disabled={isSubmitting || oauthLoading !== null}
+                className="h-11 justify-center"
+              >
+                {oauthLoading === "google" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <svg
+                      className="mr-2 h-4 w-4"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                        fill="#4285F4"
+                      />
+                      <path
+                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                        fill="#34A853"
+                      />
+                      <path
+                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                        fill="#FBBC05"
+                      />
+                      <path
+                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                        fill="#EA4335"
+                      />
+                    </svg>
+                    Google
+                  </>
+                )}
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleOAuthSignIn("github")}
+                disabled={isSubmitting || oauthLoading !== null}
+                className="h-11 justify-center"
+              >
+                {oauthLoading === "github" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Github className="mr-2 h-4 w-4" />
+                    GitHub
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-8 border-t border-white/60 pt-6 text-center dark:border-white/10">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              Don&apos;t have an account?{" "}
+              <Link
+                href="/sign-up"
+                className="font-semibold text-primary transition-colors hover:text-primary/80"
+              >
+                Sign up
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Footer links */}
-      <footer className="mt-8 text-center text-xs text-slate-400">
-        <div className="flex gap-4 justify-center mb-2">
-          <span className="hover:underline cursor-pointer">Privacy Policy</span>
-          <span className="hover:underline cursor-pointer">
-            Terms of Service
-          </span>
-          <span className="hover:underline cursor-pointer">Help Center</span>
-        </div>
-        <p>&copy; 2026 CampusConnect. All rights reserved.</p>
+      <footer className="mt-8 text-center text-xs text-slate-500 dark:text-slate-400">
+        <p>&copy; 2026 CollegeEventAggregator. All rights reserved.</p>
       </footer>
     </div>
   );

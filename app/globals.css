@@ -6,8 +6,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-jakarta);
+  --font-display: var(--font-space-grotesk);
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -47,81 +48,207 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: #f6f6f8;
-  --foreground: #0f172a;
-  --card: #ffffff;
-  --card-foreground: #0f172a;
-  --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  --primary: #5048e5;
-  --primary-foreground: #ffffff;
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b;
-  --accent: #f1f5f9;
-  --accent-foreground: #0f172a;
-  --destructive: #ef4444;
-  --border: #e2e8f0;
-  --input: #e2e8f0;
-  --ring: #5048e5;
-  --chart-1: #5048e5;
-  --chart-2: #10b981;
-  --chart-3: #f59e0b;
-  --chart-4: #ef4444;
-  --chart-5: #8b5cf6;
-  --sidebar: #ffffff;
-  --sidebar-foreground: #0f172a;
-  --sidebar-primary: #5048e5;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f1f5f9;
-  --sidebar-accent-foreground: #0f172a;
-  --sidebar-border: #e2e8f0;
-  --sidebar-ring: #5048e5;
+  --radius: 1.5rem;
+  --background: #f6efe4;
+  --foreground: #10243f;
+  --card: #fff8f0;
+  --card-foreground: #10243f;
+  --popover: rgba(255, 250, 245, 0.96);
+  --popover-foreground: #10243f;
+  --primary: #ff6b35;
+  --primary-foreground: #fffaf5;
+  --secondary: #dfeef5;
+  --secondary-foreground: #10243f;
+  --muted: #ebe0d1;
+  --muted-foreground: #5a6778;
+  --accent: #d8f3ec;
+  --accent-foreground: #113844;
+  --destructive: #d94831;
+  --border: rgba(16, 36, 63, 0.12);
+  --input: rgba(255, 255, 255, 0.74);
+  --ring: rgba(255, 107, 53, 0.35);
+  --chart-1: #ff6b35;
+  --chart-2: #1f9d8b;
+  --chart-3: #e7a83b;
+  --chart-4: #0e7490;
+  --chart-5: #d46b2f;
+  --sidebar: rgba(255, 250, 245, 0.84);
+  --sidebar-foreground: #10243f;
+  --sidebar-primary: #10243f;
+  --sidebar-primary-foreground: #fffaf5;
+  --sidebar-accent: rgba(216, 243, 236, 0.7);
+  --sidebar-accent-foreground: #113844;
+  --sidebar-border: rgba(16, 36, 63, 0.1);
+  --sidebar-ring: rgba(255, 107, 53, 0.4);
+  --surface: rgba(255, 250, 245, 0.74);
+  --surface-strong: rgba(255, 255, 255, 0.9);
+  --surface-border: rgba(255, 255, 255, 0.62);
+  --headline-start: #10243f;
+  --headline-mid: #1f9d8b;
+  --headline-end: #ff6b35;
 }
 
 .dark {
-  --background: #0f0a1e;
-  --foreground: #f1f5f9;
-  --card: #1e1b3a;
-  --card-foreground: #f1f5f9;
-  --popover: #1e1b3a;
-  --popover-foreground: #f1f5f9;
-  --primary: #6c63ff;
-  --primary-foreground: #ffffff;
-  --secondary: #1e293b;
-  --secondary-foreground: #f1f5f9;
-  --muted: #1e293b;
-  --muted-foreground: #94a3b8;
-  --accent: #1e293b;
-  --accent-foreground: #f1f5f9;
-  --destructive: #ef4444;
-  --border: rgba(255, 255, 255, 0.1);
-  --input: rgba(255, 255, 255, 0.15);
-  --ring: #6c63ff;
-  --chart-1: #6c63ff;
-  --chart-2: #34d399;
-  --chart-3: #fbbf24;
-  --chart-4: #f87171;
-  --chart-5: #a78bfa;
-  --sidebar: #1e1b3a;
-  --sidebar-foreground: #f1f5f9;
-  --sidebar-primary: #6c63ff;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #1e293b;
-  --sidebar-accent-foreground: #f1f5f9;
-  --sidebar-border: rgba(255, 255, 255, 0.1);
-  --sidebar-ring: #6c63ff;
+  --background: #07121e;
+  --foreground: #edf3ff;
+  --card: #0f1d31;
+  --card-foreground: #edf3ff;
+  --popover: rgba(9, 18, 31, 0.96);
+  --popover-foreground: #edf3ff;
+  --primary: #ff935c;
+  --primary-foreground: #08121f;
+  --secondary: #14243a;
+  --secondary-foreground: #edf3ff;
+  --muted: #102034;
+  --muted-foreground: #9fb0c6;
+  --accent: #11343a;
+  --accent-foreground: #bbfff0;
+  --destructive: #f2664b;
+  --border: rgba(196, 223, 255, 0.14);
+  --input: rgba(15, 29, 49, 0.74);
+  --ring: rgba(255, 147, 92, 0.45);
+  --chart-1: #ff935c;
+  --chart-2: #50dac3;
+  --chart-3: #ffca67;
+  --chart-4: #7dd3fc;
+  --chart-5: #ff7f50;
+  --sidebar: rgba(7, 18, 31, 0.84);
+  --sidebar-foreground: #edf3ff;
+  --sidebar-primary: #edf3ff;
+  --sidebar-primary-foreground: #08121f;
+  --sidebar-accent: rgba(19, 52, 58, 0.72);
+  --sidebar-accent-foreground: #bbfff0;
+  --sidebar-border: rgba(196, 223, 255, 0.08);
+  --sidebar-ring: rgba(255, 147, 92, 0.35);
+  --surface: rgba(7, 18, 31, 0.72);
+  --surface-strong: rgba(15, 29, 49, 0.9);
+  --surface-border: rgba(196, 223, 255, 0.08);
+  --headline-start: #f7f9ff;
+  --headline-mid: #74e0cb;
+  --headline-end: #ff935c;
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    scroll-behavior: smooth;
+  }
   body {
     @apply bg-background text-foreground;
+    min-height: 100vh;
+    background-image:
+      radial-gradient(
+        circle at top left,
+        rgba(255, 107, 53, 0.18),
+        transparent 28%
+      ),
+      radial-gradient(
+        circle at top right,
+        rgba(31, 157, 139, 0.14),
+        transparent 22%
+      ),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.25), transparent 22%),
+      linear-gradient(180deg, #fbf6ef 0%, #f6efe4 42%, #eee2d4 100%);
+    font-family: var(--font-jakarta), sans-serif;
+    font-feature-settings:
+      "liga" 1,
+      "calt" 1,
+      "ss01" 1;
+    text-rendering: optimizeLegibility;
   }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-space-grotesk), sans-serif;
+    letter-spacing: -0.045em;
+    line-height: 0.98;
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  a {
+    transition:
+      color 180ms ease,
+      opacity 180ms ease;
+  }
+  ::selection {
+    background: rgba(255, 107, 53, 0.22);
+    color: var(--foreground);
+  }
+}
+
+.dark body {
+  background-image:
+    radial-gradient(
+      circle at top left,
+      rgba(255, 147, 92, 0.16),
+      transparent 24%
+    ),
+    radial-gradient(
+      circle at top right,
+      rgba(80, 218, 195, 0.12),
+      transparent 18%
+    ),
+    linear-gradient(180deg, rgba(125, 211, 252, 0.04), transparent 24%),
+    linear-gradient(180deg, #091523 0%, #07121e 48%, #08101a 100%);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.12) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: radial-gradient(circle at center, black 32%, transparent 82%);
+  opacity: 0.18;
+}
+
+.dark body::before {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+}
+
+.surface-card {
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
+  box-shadow: 0 28px 90px -42px rgba(12, 20, 33, 0.28);
+  backdrop-filter: blur(18px);
+}
+
+.surface-card-strong {
+  background: var(--surface-strong);
+  border: 1px solid var(--surface-border);
+  box-shadow: 0 28px 90px -42px rgba(12, 20, 33, 0.34);
+  backdrop-filter: blur(18px);
+}
+
+.text-gradient {
+  background-image: linear-gradient(
+    135deg,
+    var(--headline-start) 0%,
+    var(--headline-mid) 48%,
+    var(--headline-end) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.section-eyebrow {
+  font-family: var(--font-space-grotesk), sans-serif;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
 }
 
 /* Custom animations */
@@ -209,6 +336,16 @@
   }
 }
 
+@keyframes drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(0, -14px, 0) scale(1.03);
+  }
+}
+
 .animate-fade-in {
   animation: fade-in 0.5s ease-out forwards;
 }
@@ -246,6 +383,10 @@
 
 .animate-float {
   animation: float 3s ease-in-out infinite;
+}
+
+.animate-drift {
+  animation: drift 8s ease-in-out infinite;
 }
 
 /* Staggered animation delay utilities */

@@ -22,6 +22,7 @@ import {
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 
 export default function StudentDashboard() {
   const dispatch = useAppDispatch();
@@ -76,71 +77,84 @@ export default function StudentDashboard() {
     return ev && (ev.status === "completed" || ev.status === "closed");
   });
 
+  const stats = [
+    {
+      label: "Total Registrations",
+      value: registrations.length,
+      icon: CalendarCheck2,
+      iconClassName: "bg-primary/10 text-primary",
+    },
+    {
+      label: "Upcoming Events",
+      value: upcoming.length,
+      icon: CalendarClock,
+      iconClassName: "bg-emerald-500/10 text-emerald-600",
+    },
+    {
+      label: "Past Events",
+      value: past.length,
+      icon: History,
+      iconClassName: "bg-amber-500/10 text-amber-600",
+    },
+  ];
+
   return (
-    <div>
-      {/* Header */}
-      <header className="flex justify-between items-center mb-8">
+    <div className="space-y-8">
+      <header className="surface-card-strong flex flex-col gap-6 rounded-[32px] p-6 md:flex-row md:items-end md:justify-between md:p-8">
         <div>
-          <h1 className="text-3xl font-bold">
-            Welcome back, {user?.firstName || "Student"} 👋
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-1">
-            Manage your registrations and event schedule.
+          <p className="section-eyebrow text-xs font-semibold text-slate-500 dark:text-slate-400">
+            Student dashboard
+          </p>
+          <h2 className="mt-3 text-3xl font-bold text-foreground md:text-4xl">
+            Welcome back, {user?.firstName || "Student"}.
+          </h2>
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600 dark:text-slate-300">
+            Track every registration, keep an eye on upcoming sessions, and jump
+            back into discovery when you want something new on the calendar.
           </p>
         </div>
         <Link href="/events">
-          <Button className="bg-primary text-white hover:bg-primary/90 flex items-center gap-2">
+          <Button className="flex items-center gap-2">
             <Compass className="h-4 w-4" />
             Find Events
           </Button>
         </Link>
       </header>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm animate-fade-in-up">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
-              <CalendarCheck2 className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-slate-500 text-sm font-medium">
-                Total Registrations
-              </p>
-              <h3 className="text-2xl font-bold">{registrations.length}</h3>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm animate-fade-in-up delay-100">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-green-500/10 rounded-lg flex items-center justify-center text-green-600">
-              <CalendarClock className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-slate-500 text-sm font-medium">
-                Upcoming Events
-              </p>
-              <h3 className="text-2xl font-bold">{upcoming.length}</h3>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm animate-fade-in-up delay-200">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-orange-500/10 rounded-lg flex items-center justify-center text-orange-600">
-              <History className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-slate-500 text-sm font-medium">Past Events</p>
-              <h3 className="text-2xl font-bold">{past.length}</h3>
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        {stats.map((stat, index) => (
+          <div
+            key={stat.label}
+            className="surface-card rounded-[28px] p-6 animate-fade-in-up"
+            style={{ animationDelay: `${index * 100}ms` }}
+          >
+            <div className="flex items-center gap-4">
+              <div
+                className={cn(
+                  "flex h-12 w-12 items-center justify-center rounded-[18px]",
+                  stat.iconClassName,
+                )}
+              >
+                <stat.icon className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                  {stat.label}
+                </p>
+                <h3 className="text-2xl font-bold text-foreground">
+                  {stat.value}
+                </h3>
+              </div>
             </div>
           </div>
-        </div>
+        ))}
       </div>
 
-      {/* Registered Events Table */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
-          <h2 className="font-bold text-lg">Registered Events</h2>
+      <div className="surface-card-strong overflow-hidden rounded-[32px]">
+        <div className="flex items-center justify-between border-b border-white/50 px-6 py-5 dark:border-white/10">
+          <h2 className="text-lg font-bold text-foreground">
+            Registered Events
+          </h2>
         </div>
 
         {registrations.length === 0 ? (
@@ -157,7 +171,7 @@ export default function StudentDashboard() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50 dark:bg-slate-800/50">
+                <tr className="bg-secondary/60 dark:bg-white/5">
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                     Event Details
                   </th>
@@ -182,10 +196,10 @@ export default function StudentDashboard() {
                   return (
                     <tr
                       key={reg.id}
-                      className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+                      className="transition-colors hover:bg-white/45 dark:hover:bg-white/5"
                     >
                       <td className="px-6 py-5">
-                        <div className="font-bold text-slate-900 dark:text-white">
+                        <div className="font-bold text-foreground">
                           {ev?.title || "Unknown Event"}
                         </div>
                       </td>

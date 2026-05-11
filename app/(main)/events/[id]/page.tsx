@@ -109,7 +109,9 @@ export default function EventDetailPage() {
               src={event.image}
               alt={event.title}
               fill
-              className="object-cover"
+              sizes="(max-width: 1280px) 100vw, 1280px"
+              className="object-cover object-center"
+              priority
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center">

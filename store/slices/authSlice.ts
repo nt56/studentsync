@@ -27,6 +27,7 @@ interface AuthState {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  initialized: boolean;
   error: string | null;
 }
 
@@ -34,6 +35,7 @@ const initialState: AuthState = {
   user: null,
   isAuthenticated: false,
   isLoading: true,
+  initialized: false,
   error: null,
 };
 
@@ -130,11 +132,13 @@ const authSlice = createSlice({
         state.isAuthenticated = true;
         state.user = action.payload;
         state.error = null;
+        state.initialized = true;
       })
       .addCase(fetchCurrentUser.rejected, (state) => {
         state.isLoading = false;
         state.isAuthenticated = false;
         state.user = null;
+        state.initialized = true;
       });
 
     builder
@@ -143,10 +147,17 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(loginUser.fulfilled, (state) => {
-        state.isLoading = false;
+        // Optimistic: session cookie is set, profile fetch is starting.
+        // Keep isLoading: true so AuthGuard shows skeleton while profile loads.
+        // initialized: true prevents double-fetch on dashboard mount.
+        state.isLoading = true;
+        state.isAuthenticated = true;
+        state.initialized = true;
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.isLoading = false;
+        state.isAuthenticated = false;
+        state.initialized = true;
         state.error = action.payload as string;
       });
 
@@ -156,10 +167,15 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(registerUser.fulfilled, (state) => {
-        state.isLoading = false;
+        // Same optimistic pattern as login
+        state.isLoading = true;
+        state.isAuthenticated = true;
+        state.initialized = true;
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.isLoading = false;
+        state.isAuthenticated = false;
+        state.initialized = true;
         state.error = action.payload as string;
       });
 
@@ -167,6 +183,7 @@ const authSlice = createSlice({
       state.user = null;
       state.isAuthenticated = false;
       state.isLoading = false;
+      state.initialized = true;
     });
   },
 });

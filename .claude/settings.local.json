@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd /d \"d:\\\\Profession\\\\Projects\\\\Full Stack\\\\college-event-aggregator\")",
+      "Bash(Get-ChildItem -Path . -Force)",
+      "Bash(Select-Object Name)",
+      "Bash(npx tsc *)",
+      "Bash(Get-ChildItem -Path \"d:\\\\Profession\\\\Projects\\\\Full Stack\\\\college-event-aggregator\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(dir \"d:\\\\Profession\\\\Projects\\\\Full Stack\\\\college-event-aggregator\\\\app\" /s /b)",
+      "Bash(findstr \"\\\\.tsx\")",
+      "Bash(Get-ChildItem \"d:\\\\Profession\\\\Projects\\\\Full Stack\\\\college-event-aggregator\\\\app\" -Recurse -Filter \"*.tsx\")",
+      "Bash(Select-Object FullName)"
+    ]
+  }
+}

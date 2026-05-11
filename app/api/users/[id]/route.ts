@@ -8,6 +8,7 @@ import { formatZodErrors } from "@/lib/validators/utils";
 import { formatUserResponse, IUser } from "@/types";
 import { ZodError } from "zod";
 import mongoose from "mongoose";
+import { createNotification } from "@/lib/notifications";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -97,6 +98,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       { email: updatedUser.email },
       { $set: { role: validatedData.role } },
     );
+
+    // Notify the affected user of their role change (fire-and-forget)
+    createNotification({
+      userId: id,
+      type: "role_changed",
+      title: "Your Role Has Changed",
+      message: `Your account role has been updated to "${validatedData.role}".`,
+      link: `/dashboard`,
+    });
 
     return successResponse(
       formatUserResponse(updatedUser),

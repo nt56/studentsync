@@ -18,6 +18,7 @@ import {
 } from "@/types";
 import { ZodError } from "zod";
 import mongoose from "mongoose";
+import { createNotification } from "@/lib/notifications";
 
 /**
  * GET /api/registrations
@@ -257,6 +258,28 @@ export async function POST(request: NextRequest) {
       registeredAt: new Date(),
     });
 
+    // Fire-and-forget notifications
+    const eventDate = event.date.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+    createNotification({
+      userId: authResult.mongoUserId,
+      type: "registration_confirmed",
+      title: "Registration Confirmed!",
+      message: `You're registered for "${event.title}" on ${eventDate}.`,
+      link: `/events/${event._id}`,
+    });
+    createNotification({
+      userId: event.organizerId.toString(),
+      type: "new_registration",
+      title: "New Registration",
+      message: `A student just registered for "${event.title}".`,
+      link: `/dashboard/manage-events`,
+    });
+
     return successResponse(
       formatRegistrationResponse(registration.toObject() as IRegistration),
       "Successfully registered for the event",
@@ -355,6 +378,18 @@ export async function DELETE(request: NextRequest) {
 
     if (!result) {
       return ApiErrors.notFound("Registration");
+    }
+
+    // Notify organizer of cancellation (fire-and-forget)
+    const cancelledEvent = await Event.findById(result.eventId).select("title organizerId").lean<{ title: string; organizerId: mongoose.Types.ObjectId }>();
+    if (cancelledEvent && authResult.userRole === "student") {
+      createNotification({
+        userId: cancelledEvent.organizerId.toString(),
+        type: "registration_cancelled",
+        title: "Registration Cancelled",
+        message: `A student cancelled their registration for "${cancelledEvent.title}".`,
+        link: `/dashboard/manage-events`,
+      });
     }
 
     return successResponse(null, "Registration cancelled successfully");

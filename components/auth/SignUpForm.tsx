@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -73,15 +72,34 @@ const signUpSchema = z
 
 type SignUpValues = z.infer<typeof signUpSchema>;
 
+const signUpHighlights = [
+  {
+    icon: GraduationCap,
+    title: "Built for students first",
+    description:
+      "Create your profile once, then move through campus registrations without the usual friction.",
+  },
+  {
+    icon: Search,
+    title: "Discover the right events faster",
+    description:
+      "Find workshops, cultural programs, sports, and career moments from one polished feed.",
+  },
+  {
+    icon: CheckCircle2,
+    title: "Stronger trust signals",
+    description:
+      "Verified colleges and clearer event details make it easier to know what is worth your time.",
+  },
+];
+
 export function SignUpForm() {
-  const router = useRouter();
   const { register: registerUser } = useAuth();
   const dispatch = useAppDispatch();
   const colleges = useAppSelector((s) => s.colleges.items);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isRedirecting, setIsRedirecting] = useState(false);
   const [collegeSearch, setCollegeSearch] = useState("");
   const [selectedCollegeName, setSelectedCollegeName] = useState("");
 
@@ -122,6 +140,9 @@ export function SignUpForm() {
   const filteredColleges = colleges.filter((c) =>
     c.name.toLowerCase().includes(collegeSearch.toLowerCase()),
   );
+  const fieldClassName = "h-12";
+  const labelClassName =
+    "mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200";
 
   const onSubmit = useCallback(
     async (data: SignUpValues) => {
@@ -133,11 +154,11 @@ export function SignUpForm() {
           dateOfBirth: data.dateOfBirth || "",
         });
         if (result.meta.requestStatus === "fulfilled") {
-          setIsRedirecting(true);
           toast.success("Account created!", {
-            description: "Welcome to CampusConnect. You are now signed in.",
+            description:
+              "Welcome to CollegeEventAggregator. You are now signed in.",
           });
-          router.push("/dashboard");
+          // GuestGuard detects isAuthenticated: true and handles the redirect.
         } else {
           const errorMsg = (result.payload as string) || "Registration failed";
           toast.error("Registration failed", { description: errorMsg });
@@ -150,394 +171,431 @@ export function SignUpForm() {
         setIsSubmitting(false);
       }
     },
-    [registerUser, router],
+    [registerUser],
   );
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[#f6f6f8] dark:bg-[#0f0a1e]">
-      {/* Redirect overlay */}
-      {isRedirecting && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-4">
-            <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            <p className="text-lg font-semibold text-slate-800 dark:text-white">
-              Account created! Setting things up...
-            </p>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              Taking you to your dashboard
-            </p>
-          </div>
-        </div>
-      )}
-      {/* Background decoration */}
-      <div className="fixed inset-0 -z-10 pointer-events-none opacity-40 overflow-hidden">
-        <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
+    <div className="relative min-h-screen px-4 py-8 sm:px-6">
+      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden opacity-50">
+        <div className="absolute left-[-10%] top-[-10%] h-[34rem] w-[34rem] rounded-full bg-primary/12 blur-[160px]" />
+        <div className="absolute bottom-[-12%] right-[-8%] h-[30rem] w-[30rem] rounded-full bg-teal-400/12 blur-[160px]" />
       </div>
 
-      <div className="max-w-2xl w-full">
-        {/* Main Card */}
-        <div className="bg-white dark:bg-slate-900 shadow-xl rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 animate-fade-in-up">
-          <div className="p-8 md:p-12">
-            {/* Header */}
-            <div className="text-center mb-10">
+      <div className="mx-auto grid max-w-7xl overflow-hidden rounded-[36px] border border-white/60 bg-white/45 shadow-[0_40px_120px_-48px_rgba(12,20,33,0.45)] backdrop-blur-xl xl:grid-cols-[0.88fr_1.12fr] dark:border-white/10 dark:bg-slate-950/25">
+        <div className="relative hidden overflow-hidden bg-slate-950 px-10 py-12 text-white xl:flex xl:flex-col xl:justify-between">
+          <div className="absolute left-0 top-0 h-40 w-40 rounded-full bg-primary/20 blur-3xl" />
+          <div className="absolute bottom-0 right-0 h-52 w-52 rounded-full bg-teal-400/20 blur-3xl" />
+
+          <div className="relative">
+            <div className="flex items-center gap-3">
               <Image
                 src="/logo.jpg"
                 alt="CollegeEventAggregator Logo"
-                width={56}
-                height={56}
-                className="mx-auto mb-4 rounded-lg"
+                width={48}
+                height={48}
+                className="rounded-2xl ring-1 ring-white/20"
               />
-              <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
-                Join CollegeEventAggregator Today
-              </h1>
-              <p className="text-slate-500 dark:text-slate-400 mt-2">
-                Start discovering college events near you today.
-              </p>
-            </div>
-
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              {/* Personal Info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                    First Name
-                  </Label>
-                  <Input
-                    placeholder="John"
-                    className="h-11 border-slate-300 dark:border-slate-700"
-                    {...register("firstName")}
-                  />
-                  {errors.firstName && (
-                    <p className="text-xs text-red-500 mt-1">
-                      {errors.firstName.message}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                    Last Name
-                  </Label>
-                  <Input
-                    placeholder="Doe"
-                    className="h-11 border-slate-300 dark:border-slate-700"
-                    {...register("lastName")}
-                  />
-                  {errors.lastName && (
-                    <p className="text-xs text-red-500 mt-1">
-                      {errors.lastName.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-
               <div>
-                <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                  Email Address
-                </Label>
-                <Input
-                  type="email"
-                  placeholder="john@university.edu"
-                  className="h-11 border-slate-300 dark:border-slate-700"
-                  {...register("email")}
-                />
-                {errors.email && (
-                  <p className="text-xs text-red-500 mt-1">
-                    {errors.email.message}
-                  </p>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                    Gender
-                  </Label>
-                  <Select
-                    onValueChange={(val) =>
-                      setValue(
-                        "gender",
-                        val as
-                          | "male"
-                          | "female"
-                          | "other"
-                          | "prefer-not-to-say",
-                        { shouldValidate: true },
-                      )
-                    }
-                  >
-                    <SelectTrigger className="h-11 border-slate-300 dark:border-slate-700">
-                      <SelectValue placeholder="Select gender" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="male">Male</SelectItem>
-                      <SelectItem value="female">Female</SelectItem>
-                      <SelectItem value="other">Other / Non-binary</SelectItem>
-                      <SelectItem value="prefer-not-to-say">
-                        Prefer not to say
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {errors.gender && (
-                    <p className="text-xs text-red-500 mt-1">
-                      {errors.gender.message}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                    Date of Birth
-                  </Label>
-                  <Input
-                    type="date"
-                    className="h-11 border-slate-300 dark:border-slate-700"
-                    {...register("dateOfBirth")}
-                  />
-                  {errors.dateOfBirth && (
-                    <p className="text-xs text-red-500 mt-1">
-                      {errors.dateOfBirth.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                    Phone Number
-                  </Label>
-                  <Input
-                    type="tel"
-                    placeholder="+1 (555) 000-0000"
-                    className="h-11 border-slate-300 dark:border-slate-700"
-                    {...register("phone")}
-                  />
-                  {errors.phone && (
-                    <p className="text-xs text-red-500 mt-1">
-                      {errors.phone.message}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                    College / University
-                  </Label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                    <Input
-                      placeholder="Search institution..."
-                      className="h-11 pl-10 border-slate-300 dark:border-slate-700"
-                      value={selectedCollegeName || collegeSearch}
-                      onChange={(e) => {
-                        setCollegeSearch(e.target.value);
-                        setSelectedCollegeName("");
-                        if (!e.target.value) setValue("collegeId", "");
-                      }}
-                    />
-                  </div>
-                  {!selectedCollegeName &&
-                    collegeSearch &&
-                    filteredColleges.length > 0 && (
-                      <div className="mt-1 max-h-40 overflow-y-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-10 relative">
-                        {filteredColleges.map((college) => (
-                          <button
-                            key={college.id || college._id}
-                            type="button"
-                            className="w-full text-left px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-                            onClick={() => {
-                              setValue("collegeId", college.id || college._id);
-                              setSelectedCollegeName(college.name);
-                              setCollegeSearch("");
-                            }}
-                          >
-                            {college.name}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                </div>
-              </div>
-
-              {/* Passwords */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                    Password
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      className={`h-11 pr-10 ${
-                        password &&
-                        (!passwordChecks.uppercase ||
-                          !passwordChecks.lowercase ||
-                          !passwordChecks.number)
-                          ? "border-red-400 dark:border-red-500"
-                          : "border-slate-300 dark:border-slate-700"
-                      }`}
-                      {...register("password")}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
-                  {password && (
-                    <div className="mt-3 space-y-1">
-                      <div
-                        className={`flex items-center text-xs ${
-                          passwordChecks.length
-                            ? "text-green-600 dark:text-green-400"
-                            : "text-red-600 dark:text-red-400"
-                        }`}
-                      >
-                        {passwordChecks.length ? (
-                          <CheckCircle2 className="h-3 w-3 mr-1" />
-                        ) : (
-                          <XCircle className="h-3 w-3 mr-1" />
-                        )}
-                        <span>At least 8 characters</span>
-                      </div>
-                      <div
-                        className={`flex items-center text-xs ${
-                          passwordChecks.uppercase
-                            ? "text-green-600 dark:text-green-400"
-                            : "text-red-600 dark:text-red-400"
-                        }`}
-                      >
-                        {passwordChecks.uppercase ? (
-                          <CheckCircle2 className="h-3 w-3 mr-1" />
-                        ) : (
-                          <XCircle className="h-3 w-3 mr-1" />
-                        )}
-                        <span>At least one uppercase letter</span>
-                      </div>
-                      <div
-                        className={`flex items-center text-xs ${
-                          passwordChecks.lowercase
-                            ? "text-green-600 dark:text-green-400"
-                            : "text-red-600 dark:text-red-400"
-                        }`}
-                      >
-                        {passwordChecks.lowercase ? (
-                          <CheckCircle2 className="h-3 w-3 mr-1" />
-                        ) : (
-                          <XCircle className="h-3 w-3 mr-1" />
-                        )}
-                        <span>At least one lowercase letter</span>
-                      </div>
-                      <div
-                        className={`flex items-center text-xs ${
-                          passwordChecks.number
-                            ? "text-green-600 dark:text-green-400"
-                            : "text-red-600 dark:text-red-400"
-                        }`}
-                      >
-                        {passwordChecks.number ? (
-                          <CheckCircle2 className="h-3 w-3 mr-1" />
-                        ) : (
-                          <XCircle className="h-3 w-3 mr-1" />
-                        )}
-                        <span>At least one number</span>
-                      </div>
-                    </div>
-                  )}
-                  {errors.password && (
-                    <p className="text-xs text-red-500 mt-1">
-                      {errors.password.message}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
-                    Confirm Password
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      type={showConfirmPassword ? "text" : "password"}
-                      placeholder="••••••••"
-                      className="h-11 pr-10 border-slate-300 dark:border-slate-700"
-                      {...register("confirmPassword")}
-                    />
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setShowConfirmPassword(!showConfirmPassword)
-                      }
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
-                    >
-                      {showConfirmPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
-                  {errors.confirmPassword && (
-                    <p className="text-xs text-red-500 mt-1">
-                      {errors.confirmPassword.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                disabled={isSubmitting || isRedirecting}
-                className="w-full h-12 bg-primary hover:bg-primary/90 text-white font-bold shadow-lg shadow-primary/25 transition-all mt-4"
-              >
-                {isRedirecting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Taking you to your dashboard...
-                  </>
-                ) : isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating your account...
-                  </>
-                ) : (
-                  "Create Student Account"
-                )}
-              </Button>
-            </form>
-
-            {/* Divider */}
-            <div className="relative my-10">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200 dark:border-slate-800" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white dark:bg-slate-900 text-slate-500">
-                  Already have an account?
-                </span>
+                <p className="font-display text-2xl font-bold leading-none text-white">
+                  CollegeEvent
+                </p>
+                <p className="text-xs uppercase tracking-[0.22em] text-primary">
+                  Aggregator
+                </p>
               </div>
             </div>
 
-            <Link href="/sign-in" className="block">
-              <Button
-                variant="outline"
-                className="w-full h-12 font-semibold border-slate-300 dark:border-slate-700 hover:border-primary hover:text-primary transition-all"
-              >
-                Sign In Instead
-              </Button>
-            </Link>
+            <div className="mt-10 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-white/75 backdrop-blur-xl">
+              <GraduationCap className="h-3.5 w-3.5 text-primary" />
+              Student onboarding
+            </div>
+            <h2 className="mt-6 text-5xl font-bold leading-[0.96] text-white">
+              Join the campus event network with a profile built to move fast.
+            </h2>
+            <p className="mt-5 max-w-md text-base leading-8 text-white/72">
+              Set up your account once, discover better events, and keep your
+              academic, cultural, and community plans in one place.
+            </p>
+
+            <div className="mt-10 space-y-4">
+              {signUpHighlights.map((item) => (
+                <div
+                  key={item.title}
+                  className="rounded-[26px] border border-white/12 bg-white/8 p-5 backdrop-blur-xl"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-white/10 text-primary">
+                      <item.icon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white">
+                        {item.title}
+                      </h3>
+                      <p className="mt-2 text-sm leading-7 text-white/68">
+                        {item.description}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="relative rounded-[28px] border border-white/12 bg-white/8 p-5 backdrop-blur-xl">
+            <p className="text-xs uppercase tracking-[0.18em] text-white/60">
+              Why students stay
+            </p>
+            <p className="mt-3 text-2xl font-bold">
+              One account. Every campus moment.
+            </p>
+            <p className="mt-3 text-sm leading-7 text-white/68">
+              From workshops and club fairs to concerts and career events, the
+              experience stays consistent from first browse to final
+              registration.
+            </p>
           </div>
         </div>
 
-        {/* Footer */}
-        <footer className="mt-8 text-center text-xs text-slate-400">
-          <p>&copy; 2026 CampusConnect. All rights reserved.</p>
-        </footer>
+        <div className="surface-card-strong px-6 py-8 md:px-10 md:py-10 xl:max-h-[calc(100vh-4rem)] xl:overflow-y-auto">
+          <div className="mb-8 flex items-center gap-3 xl:hidden">
+            <Image
+              src="/logo.jpg"
+              alt="CollegeEventAggregator Logo"
+              width={44}
+              height={44}
+              className="rounded-2xl ring-1 ring-white/60"
+            />
+            <div>
+              <p className="font-display text-xl font-bold leading-none text-foreground">
+                CollegeEvent
+              </p>
+              <p className="text-xs uppercase tracking-[0.22em] text-primary">
+                Aggregator
+              </p>
+            </div>
+          </div>
+
+          <div className="mb-10">
+            <p className="section-eyebrow text-xs font-semibold text-slate-500 dark:text-slate-400">
+              Create your account
+            </p>
+            <h1 className="mt-3 text-3xl font-bold text-foreground md:text-4xl">
+              Start discovering better campus events today.
+            </h1>
+            <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
+              Build your student profile once so registrations, recommendations,
+              and dashboard access feel seamless from here on out.
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            {/* Personal Info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <Label className={labelClassName}>First Name</Label>
+                <Input
+                  placeholder="John"
+                  className={fieldClassName}
+                  {...register("firstName")}
+                />
+                {errors.firstName && (
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.firstName.message}
+                  </p>
+                )}
+              </div>
+              <div>
+                <Label className={labelClassName}>Last Name</Label>
+                <Input
+                  placeholder="Doe"
+                  className={fieldClassName}
+                  {...register("lastName")}
+                />
+                {errors.lastName && (
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.lastName.message}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <Label className={labelClassName}>Email Address</Label>
+              <Input
+                type="email"
+                placeholder="john@university.edu"
+                className={fieldClassName}
+                {...register("email")}
+              />
+              {errors.email && (
+                <p className="text-xs text-red-500 mt-1">
+                  {errors.email.message}
+                </p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <Label className={labelClassName}>Gender</Label>
+                <Select
+                  onValueChange={(val) =>
+                    setValue(
+                      "gender",
+                      val as "male" | "female" | "other" | "prefer-not-to-say",
+                      { shouldValidate: true },
+                    )
+                  }
+                >
+                  <SelectTrigger className={fieldClassName}>
+                    <SelectValue placeholder="Select gender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                    <SelectItem value="other">Other / Non-binary</SelectItem>
+                    <SelectItem value="prefer-not-to-say">
+                      Prefer not to say
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                {errors.gender && (
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.gender.message}
+                  </p>
+                )}
+              </div>
+              <div>
+                <Label className={labelClassName}>Date of Birth</Label>
+                <Input
+                  type="date"
+                  className={fieldClassName}
+                  {...register("dateOfBirth")}
+                />
+                {errors.dateOfBirth && (
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.dateOfBirth.message}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <Label className={labelClassName}>Phone Number</Label>
+                <Input
+                  type="tel"
+                  placeholder="+1 (555) 000-0000"
+                  className={fieldClassName}
+                  {...register("phone")}
+                />
+                {errors.phone && (
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.phone.message}
+                  </p>
+                )}
+              </div>
+              <div>
+                <Label className={labelClassName}>College / University</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    placeholder="Search institution..."
+                    className="h-12 pl-11"
+                    value={selectedCollegeName || collegeSearch}
+                    onChange={(e) => {
+                      setCollegeSearch(e.target.value);
+                      setSelectedCollegeName("");
+                      if (!e.target.value) setValue("collegeId", "");
+                    }}
+                  />
+                </div>
+                {!selectedCollegeName &&
+                  collegeSearch &&
+                  filteredColleges.length > 0 && (
+                    <div className="surface-card-strong relative z-10 mt-2 max-h-48 overflow-y-auto rounded-[22px] p-2">
+                      {filteredColleges.map((college) => (
+                        <button
+                          key={college.id || college._id}
+                          type="button"
+                          className="w-full rounded-2xl px-4 py-2 text-left text-sm transition-colors hover:bg-secondary/70 dark:hover:bg-white/10"
+                          onClick={() => {
+                            setValue("collegeId", college.id || college._id);
+                            setSelectedCollegeName(college.name);
+                            setCollegeSearch("");
+                          }}
+                        >
+                          {college.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+              </div>
+            </div>
+
+            {/* Passwords */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <Label className={labelClassName}>Password</Label>
+                <div className="relative">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    className={`h-12 pr-10 ${
+                      password &&
+                      (!passwordChecks.uppercase ||
+                        !passwordChecks.lowercase ||
+                        !passwordChecks.number)
+                        ? "border-red-400 dark:border-red-500"
+                        : "border-slate-300 dark:border-slate-700"
+                    }`}
+                    {...register("password")}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                {password && (
+                  <div className="mt-3 space-y-1">
+                    <div
+                      className={`flex items-center text-xs ${
+                        passwordChecks.length
+                          ? "text-green-600 dark:text-green-400"
+                          : "text-red-600 dark:text-red-400"
+                      }`}
+                    >
+                      {passwordChecks.length ? (
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                      ) : (
+                        <XCircle className="h-3 w-3 mr-1" />
+                      )}
+                      <span>At least 8 characters</span>
+                    </div>
+                    <div
+                      className={`flex items-center text-xs ${
+                        passwordChecks.uppercase
+                          ? "text-green-600 dark:text-green-400"
+                          : "text-red-600 dark:text-red-400"
+                      }`}
+                    >
+                      {passwordChecks.uppercase ? (
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                      ) : (
+                        <XCircle className="h-3 w-3 mr-1" />
+                      )}
+                      <span>At least one uppercase letter</span>
+                    </div>
+                    <div
+                      className={`flex items-center text-xs ${
+                        passwordChecks.lowercase
+                          ? "text-green-600 dark:text-green-400"
+                          : "text-red-600 dark:text-red-400"
+                      }`}
+                    >
+                      {passwordChecks.lowercase ? (
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                      ) : (
+                        <XCircle className="h-3 w-3 mr-1" />
+                      )}
+                      <span>At least one lowercase letter</span>
+                    </div>
+                    <div
+                      className={`flex items-center text-xs ${
+                        passwordChecks.number
+                          ? "text-green-600 dark:text-green-400"
+                          : "text-red-600 dark:text-red-400"
+                      }`}
+                    >
+                      {passwordChecks.number ? (
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                      ) : (
+                        <XCircle className="h-3 w-3 mr-1" />
+                      )}
+                      <span>At least one number</span>
+                    </div>
+                  </div>
+                )}
+                {errors.password && (
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.password.message}
+                  </p>
+                )}
+              </div>
+              <div>
+                <Label className={labelClassName}>Confirm Password</Label>
+                <div className="relative">
+                  <Input
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    className="h-12 pr-10"
+                    {...register("confirmPassword")}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                {errors.confirmPassword && (
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.confirmPassword.message}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="mt-4 h-12 w-full justify-center"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating your account...
+                </>
+              ) : (
+                "Create Student Account"
+              )}
+            </Button>
+          </form>
+
+          {/* Divider */}
+          <div className="relative my-10">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-white/60 dark:border-white/10" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="bg-white/95 px-3 text-slate-500 dark:bg-slate-950/95">
+                Already have an account?
+              </span>
+            </div>
+          </div>
+
+          <Link href="/sign-in" className="block">
+            <Button variant="outline" className="h-12 w-full justify-center">
+              Sign In Instead
+            </Button>
+          </Link>
+        </div>
       </div>
+
+      <footer className="mt-8 text-center text-xs text-slate-500 dark:text-slate-400">
+        <p>&copy; 2026 CollegeEventAggregator. All rights reserved.</p>
+      </footer>
     </div>
   );
 }

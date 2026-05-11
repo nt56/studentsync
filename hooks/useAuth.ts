@@ -13,23 +13,24 @@ import type { AuthUser, UserRole } from "@/store/slices/authSlice";
 
 export function useAuth() {
   const dispatch = useAppDispatch();
-  const { user, isLoading, isAuthenticated, error } = useAppSelector(
-    (s) => s.auth,
-  );
+  const { user, isLoading, isAuthenticated, error, initialized } =
+    useAppSelector((s) => s.auth);
 
-  // Fetch current user on mount if not yet loaded
+  // Run the initial session check exactly once (before initialized is set to true).
+  // After login/register, initialized is already true so this never double-fires.
   useEffect(() => {
-    if (!user && isLoading) {
+    if (!initialized) {
       dispatch(fetchCurrentUser());
     }
-  }, [dispatch, user, isLoading]);
+  }, [dispatch, initialized]);
 
   const login = useCallback(
-    async (email: string, password: string, rememberMe?: boolean) => {
+    async (email: string, password: string, _rememberMe?: boolean) => {
       const result = await dispatch(loginUser({ email, password }));
       if (loginUser.fulfilled.match(result)) {
-        // After successful login, fetch the full user profile
-        await dispatch(fetchCurrentUser());
+        // Fire-and-forget: GuestGuard waits for isLoading:false before redirecting,
+        // which happens when this fetchCurrentUser resolves.
+        dispatch(fetchCurrentUser());
       }
       return result;
     },
@@ -50,8 +51,8 @@ export function useAuth() {
     }) => {
       const result = await dispatch(registerUser(data));
       if (registerUser.fulfilled.match(result)) {
-        // After successful registration, fetch the full user profile
-        await dispatch(fetchCurrentUser());
+        // Fire-and-forget: same pattern as login
+        dispatch(fetchCurrentUser());
       }
       return result;
     },
@@ -70,6 +71,7 @@ export function useAuth() {
     user: user as AuthUser | null,
     isLoading,
     isAuthenticated,
+    initialized,
     error,
     login,
     register,

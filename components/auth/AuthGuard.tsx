@@ -56,7 +56,7 @@ function AuthLoadingSkeleton() {
 /** Redirect authenticated users away from auth pages */
 export function GuestGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { isLoading, isAuthenticated } = useAuth();
+  const { isLoading, isAuthenticated, initialized } = useAuth();
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
@@ -64,10 +64,12 @@ export function GuestGuard({ children }: { children: React.ReactNode }) {
     }
   }, [isLoading, isAuthenticated, router]);
 
-  if (isLoading) {
-    return <AuthLoadingSkeleton />;
-  }
+  // Show a skeleton only during the very first auth check (before we know the session state).
+  // Once initialized, show children immediately — the form handles its own loading states.
+  if (!initialized) return <AuthLoadingSkeleton />;
 
+  // Authenticated (optimistic from loginUser or confirmed from fetchCurrentUser):
+  // return null so the page goes blank while the redirect effect fires.
   if (isAuthenticated) return null;
 
   return <>{children}</>;

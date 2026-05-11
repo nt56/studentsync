@@ -9,6 +9,7 @@ import {
   formatZodErrors,
   ApiErrors,
 } from "@/lib/api-response";
+import { notifyAdmins } from "@/lib/notifications";
 
 /**
  * POST /api/auth/register
@@ -93,7 +94,15 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return successResponse(
+    // Notify admins of new user registration (fire-and-forget)
+    notifyAdmins({
+      type: "new_user",
+      title: "New User Registered",
+      message: `${firstName} ${lastName} (${email}) just joined as a student.`,
+      link: `/dashboard/users`,
+    });
+
+    const response = successResponse(
       {
         user: {
           id: authData.user?.id,
@@ -106,6 +115,23 @@ export async function POST(request: NextRequest) {
       "Registration successful! Welcome aboard.",
       201,
     );
+
+    // Forward session cookies from Better Auth so the client is immediately
+    // authenticated after registration (same fix as the login route).
+    const headerObj = authResponse.headers as Headers & {
+      getSetCookie?: () => string[];
+    };
+    const setCookies =
+      headerObj.getSetCookie?.() ??
+      (authResponse.headers.get("set-cookie")
+        ? [authResponse.headers.get("set-cookie")!]
+        : []);
+
+    for (const cookie of setCookies) {
+      response.headers.append("set-cookie", cookie);
+    }
+
+    return response;
   } catch (error) {
     console.error("Registration error:", error);
     return ApiErrors.internalError();

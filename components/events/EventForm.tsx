@@ -243,17 +243,18 @@ export default function EventForm({
               Event Image
             </label>
             {imageUrl ? (
-              <div className="relative w-full max-w-md h-48 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
+              <div className="relative w-full h-56 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
                 <Image
                   src={imageUrl}
                   alt="Event"
                   fill
-                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 768px"
+                  className="object-cover object-center"
                 />
                 <button
                   type="button"
                   onClick={() => setImageUrl(null)}
-                  className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white rounded-full p-1 transition-colors"
+                  className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white rounded-full p-1 transition-colors z-10"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -263,7 +264,7 @@ export default function EventForm({
                 type="button"
                 onClick={() => imageInputRef.current?.click()}
                 disabled={uploadingImage}
-                className="w-full max-w-md h-48 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-primary dark:hover:border-primary flex flex-col items-center justify-center gap-2 text-slate-500 dark:text-slate-400 transition-colors bg-slate-50 dark:bg-slate-800"
+                className="w-full h-56 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-primary dark:hover:border-primary flex flex-col items-center justify-center gap-2 text-slate-500 dark:text-slate-400 transition-colors bg-slate-50 dark:bg-slate-800"
               >
                 {uploadingImage ? (
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />

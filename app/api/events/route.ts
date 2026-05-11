@@ -12,6 +12,7 @@ import { formatZodErrors } from "@/lib/validators/utils";
 import { formatEventResponse, createPaginatedResponse, IEvent } from "@/types";
 import { ZodError } from "zod";
 import mongoose from "mongoose";
+import { notifyAdmins } from "@/lib/notifications";
 
 /**
  * GET /api/events
@@ -176,6 +177,14 @@ export async function POST(request: NextRequest) {
       collegeId: new mongoose.Types.ObjectId(validatedData.collegeId),
       organizerId: new mongoose.Types.ObjectId(authResult.mongoUserId),
       status: "upcoming",
+    });
+
+    // Notify admins of new event (fire-and-forget)
+    notifyAdmins({
+      type: "new_event",
+      title: "New Event Created",
+      message: `A new event "${event.title}" has been created.`,
+      link: `/dashboard/all-events`,
     });
 
     return successResponse(

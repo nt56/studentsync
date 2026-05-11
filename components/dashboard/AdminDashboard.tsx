@@ -68,21 +68,27 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div>
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-        <p className="text-slate-500 dark:text-slate-400 mt-1">
-          Overview of platform activity and management.
+    <div className="space-y-8">
+      <header className="surface-card-strong rounded-[32px] p-6 md:p-8">
+        <p className="section-eyebrow text-xs font-semibold text-slate-500 dark:text-slate-400">
+          Admin dashboard
+        </p>
+        <h1 className="mt-3 text-3xl font-bold text-foreground md:text-4xl">
+          Platform visibility, approvals, and control in one view.
+        </h1>
+        <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600 dark:text-slate-300">
+          Monitor adoption, review activity, and move directly into the
+          operational areas that keep the campus event ecosystem credible and
+          well-managed.
         </p>
       </header>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat, i) => (
           <Link
             key={stat.label}
             href={stat.href}
-            className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all animate-fade-in-up group"
+            className="surface-card rounded-[28px] p-6 transition-all hover:-translate-y-1 animate-fade-in-up group"
             style={{ animationDelay: `${i * 100}ms` }}
           >
             <div className="flex items-center gap-4">
@@ -102,11 +108,10 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Link
           href="/dashboard/users"
-          className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group"
+          className="surface-card rounded-[28px] p-6 transition-all hover:-translate-y-1 group"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -120,7 +125,7 @@ export default function AdminDashboard() {
         </Link>
         <Link
           href="/dashboard/colleges"
-          className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group"
+          className="surface-card rounded-[28px] p-6 transition-all hover:-translate-y-1 group"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -134,7 +139,7 @@ export default function AdminDashboard() {
         </Link>
         <Link
           href="/dashboard/all-events"
-          className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group"
+          className="surface-card rounded-[28px] p-6 transition-all hover:-translate-y-1 group"
         >
           <div className="flex items-center justify-between">
             <div>

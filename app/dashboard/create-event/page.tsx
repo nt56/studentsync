@@ -5,13 +5,19 @@ import EventForm from "@/components/events/EventForm";
 export default function CreateEventPage() {
   return (
     <div>
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold">Create New Event</h1>
-        <p className="text-slate-500 dark:text-slate-400 mt-1">
-          Fill in the details below to create a new campus event.
+      <header className="surface-card-strong mb-8 rounded-[32px] p-6 md:p-8">
+        <p className="section-eyebrow text-xs font-semibold text-slate-500 dark:text-slate-400">
+          Event publishing
+        </p>
+        <h1 className="mt-3 text-3xl font-bold text-foreground md:text-4xl">
+          Create a new event
+        </h1>
+        <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600 dark:text-slate-300">
+          Build a polished event page with a strong title, a sharp visual, and
+          all the details students need to register confidently.
         </p>
       </header>
-      <div className="bg-white dark:bg-slate-900 p-8 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+      <div className="surface-card-strong rounded-[32px] p-6 md:p-8">
         <EventForm />
       </div>
     </div>

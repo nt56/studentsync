@@ -4,6 +4,7 @@ import eventsReducer from "./slices/eventsSlice";
 import registrationsReducer from "./slices/registrationsSlice";
 import collegesReducer from "./slices/collegesSlice";
 import usersReducer from "./slices/usersSlice";
+import notificationsReducer from "./slices/notificationsSlice";
 
 export const store = configureStore({
   reducer: {
@@ -12,6 +13,7 @@ export const store = configureStore({
     registrations: registrationsReducer,
     colleges: collegesReducer,
     users: usersReducer,
+    notifications: notificationsReducer,
   },
 });
 

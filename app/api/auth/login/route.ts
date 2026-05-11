@@ -60,18 +60,26 @@ export async function POST(request: NextRequest) {
 
     const authData = await authResponse.json();
 
-    // Get cookies from Better Auth response to forward to client
-    const cookies = authResponse.headers.get("set-cookie");
-
     const response = successResponse(
       { user: authData.user, session: authData.session },
       "Login successful! Welcome back.",
       200,
     );
 
-    // Forward auth cookies
-    if (cookies) {
-      response.headers.set("set-cookie", cookies);
+    // Forward every Set-Cookie header from Better Auth individually.
+    // Using append (not set) preserves multiple cookies (session_token + session_data).
+    // getSetCookie() is the WHATWG standard API available in Node 18.14+.
+    const headerObj = authResponse.headers as Headers & {
+      getSetCookie?: () => string[];
+    };
+    const setCookies =
+      headerObj.getSetCookie?.() ??
+      (authResponse.headers.get("set-cookie")
+        ? [authResponse.headers.get("set-cookie")!]
+        : []);
+
+    for (const cookie of setCookies) {
+      response.headers.append("set-cookie", cookie);
     }
 
     return response;

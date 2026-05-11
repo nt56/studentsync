@@ -19,80 +19,98 @@ export function EventCard({ event }: EventCardProps) {
     typeof event.collegeId === "object" && event.collegeId
       ? (event.collegeId as { _id: string; name: string }).name
       : "";
+  const capacity = event.capacity || 0;
+  const registrationCount = event.registrationCount || 0;
+  const fillPercent = capacity
+    ? Math.min((registrationCount / capacity) * 100, 100)
+    : 0;
 
   return (
-    <div className="group bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 border border-slate-100 dark:border-slate-700 animate-fade-in-up">
-      {/* Image area */}
-      <div className="relative h-48 bg-gradient-to-br from-primary/20 to-primary/5 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent z-10" />
-        {/* Date badge */}
+    <article className="surface-card group flex h-full flex-col overflow-hidden rounded-[28px] border border-white/60 transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 animate-fade-in-up dark:border-white/10">
+      <div className="relative h-52 overflow-hidden bg-gradient-to-br from-primary/20 via-white to-secondary/80 dark:from-primary/20 dark:via-slate-950 dark:to-slate-900">
+        <div className="absolute inset-0 z-10 bg-gradient-to-t from-slate-950/35 to-transparent" />
         {eventDate && (
-          <div className="absolute top-4 left-4 z-20 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm px-3 py-1.5 rounded-lg shadow-sm">
+          <div className="absolute left-4 top-4 z-20 rounded-[18px] border border-white/60 bg-white/85 px-3 py-2 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/70">
             <p className="text-xs font-bold text-primary uppercase">
               {format(eventDate, "MMM dd")}
             </p>
           </div>
         )}
-        {/* Status badge */}
         {event.status && (
           <div className="absolute top-4 right-4 z-20">
             <EventStatusBadge status={event.status} />
           </div>
         )}
-        {/* Event image or placeholder */}
         {event.image ? (
           <Image
             src={event.image}
             alt={event.title}
             fill
-            className="object-cover group-hover:scale-105 transition-transform duration-300"
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
-            <Calendar className="h-16 w-16 text-primary/30 group-hover:scale-110 transition-transform duration-300" />
+            <Calendar className="h-16 w-16 text-primary/30 transition-transform duration-300 group-hover:scale-110" />
           </div>
         )}
+        <div className="absolute bottom-4 left-4 z-20 rounded-full border border-white/20 bg-slate-950/65 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white backdrop-blur-xl">
+          {event.category || "Campus event"}
+        </div>
       </div>
 
-      {/* Content */}
-      <div className="p-6">
-        <div className="flex items-center gap-2 mb-3 flex-wrap">
+      <div className="flex flex-1 flex-col p-6">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
           {event.category && <CategoryBadge category={event.category} />}
           {event.venue && (
-            <span className="text-slate-400 text-xs flex items-center">
-              <MapPin className="h-3 w-3 mr-1" />
+            <span className="flex items-center text-xs text-slate-500 dark:text-slate-400">
+              <MapPin className="mr-1 h-3.5 w-3.5 text-primary" />
               {event.venue}
             </span>
           )}
         </div>
 
-        <h4 className="text-lg font-bold mb-2 text-slate-900 dark:text-white line-clamp-2 group-hover:text-primary transition-colors">
+        <h4 className="text-xl font-bold text-foreground line-clamp-2 transition-colors group-hover:text-primary">
           {event.title}
         </h4>
 
         {event.description && (
-          <p className="text-slate-600 dark:text-slate-400 text-sm mb-4 line-clamp-2">
+          <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300 line-clamp-3">
             {event.description}
           </p>
         )}
 
-        {/* Meta */}
-        <div className="flex items-center justify-between text-xs text-slate-500 mb-4">
-          {collegeName && <span>{collegeName}</span>}
-          {event.capacity && (
-            <span className="flex items-center gap-1">
-              <Users className="h-3 w-3" />
-              {event.registrationCount || 0}/{event.capacity}
+        <div className="mt-5 flex items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
+          <span className="truncate">
+            {collegeName || "Verified college listing"}
+          </span>
+          {capacity > 0 && (
+            <span className="flex items-center gap-1 whitespace-nowrap">
+              <Users className="h-3.5 w-3.5 text-primary" />
+              {registrationCount}/{capacity}
             </span>
           )}
         </div>
 
-        <Link href={`/events/${eventId}`}>
-          <Button className="w-full bg-primary text-white hover:bg-primary/90 font-semibold transition-all">
-            View Details
-          </Button>
+        {capacity > 0 && (
+          <div className="mt-4">
+            <div className="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+              <span>Capacity</span>
+              <span>{Math.round(fillPercent)}% filled</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-secondary/80 dark:bg-white/10">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-primary to-teal-500"
+                style={{ width: `${fillPercent}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        <Link href={`/events/${eventId}`} className="mt-6">
+          <Button className="w-full justify-center">View Details</Button>
         </Link>
       </div>
-    </div>
+    </article>
   );
 }
