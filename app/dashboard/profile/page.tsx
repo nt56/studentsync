@@ -10,6 +10,13 @@ import { uploadService } from "@/services/uploadService";
 import { ProfileSkeleton } from "@/components/common/Skeletons";
 import { RoleBadge } from "@/components/common/Badges";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   User,
   Mail,
   Phone,
@@ -22,6 +29,9 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
+
+const EMPTY_GENDER_VALUE = "__no_gender__";
+const EMPTY_COLLEGE_VALUE = "__no_college__";
 
 export default function ProfilePage() {
   const dispatch = useAppDispatch();
@@ -85,8 +95,22 @@ export default function ProfilePage() {
       });
       dispatch(fetchCurrentUser());
       toast.success("Profile updated successfully");
-    } catch {
-      toast.error("Failed to update profile");
+    } catch (error) {
+      const err = error as {
+        response?: {
+          data?: { message?: string; errors?: Record<string, string[]> };
+        };
+        message?: string;
+      };
+      const data = err.response?.data;
+      if (data?.errors) {
+        const msgs = Object.values(data.errors).flat();
+        toast.error("Profile update failed", {
+          description: msgs[0] || "Please check your inputs",
+        });
+      } else {
+        toast.error(data?.message || err.message || "Failed to update profile");
+      }
     } finally {
       setSaving(false);
     }
@@ -149,8 +173,26 @@ export default function ProfilePage() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-    } catch {
-      toast.error("Failed to change password. Check your current password.");
+    } catch (error) {
+      const err = error as {
+        response?: {
+          data?: { message?: string; errors?: Record<string, string[]> };
+        };
+        message?: string;
+      };
+      const data = err.response?.data;
+      if (data?.errors) {
+        const msgs = Object.values(data.errors).flat();
+        toast.error("Password change failed", {
+          description: msgs[0] || "Please check your inputs",
+        });
+      } else {
+        toast.error(
+          data?.message ||
+            err.message ||
+            "Failed to change password. Check your current password.",
+        );
+      }
     } finally {
       setChangingPw(false);
     }
@@ -261,7 +303,7 @@ export default function ProfilePage() {
             {/* First Name */}
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                First Name
+                First Name <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -274,7 +316,7 @@ export default function ProfilePage() {
             {/* Last Name */}
             <div className="space-y-2">
               <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                Last Name
+                Last Name <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -322,17 +364,27 @@ export default function ProfilePage() {
               <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                 Gender
               </label>
-              <select
-                value={gender}
-                onChange={(e) => setGender(e.target.value)}
-                className="w-full bg-white dark:bg-slate-900 rounded-lg border border-slate-300 dark:border-slate-700 py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+              <Select
+                value={gender || EMPTY_GENDER_VALUE}
+                onValueChange={(value) =>
+                  setGender(value === EMPTY_GENDER_VALUE ? "" : value)
+                }
               >
-                <option value="">Prefer not to say</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="other">Other</option>
-                <option value="prefer-not-to-say">Prefer not to say</option>
-              </select>
+                <SelectTrigger className="h-11 w-full rounded-lg border-slate-300 bg-white px-3 shadow-none dark:border-slate-700 dark:bg-slate-900">
+                  <SelectValue placeholder="Select gender" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={EMPTY_GENDER_VALUE}>
+                    Not specified
+                  </SelectItem>
+                  <SelectItem value="male">Male</SelectItem>
+                  <SelectItem value="female">Female</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="prefer-not-to-say">
+                    Prefer not to say
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Date of Birth */}
@@ -360,18 +412,34 @@ export default function ProfilePage() {
                 <School className="h-3.5 w-3.5" />
                 College Affiliation
               </label>
-              <select
-                value={collegeId}
-                onChange={(e) => setCollegeId(e.target.value)}
-                className="w-full bg-white dark:bg-slate-900 rounded-lg border border-slate-300 dark:border-slate-700 py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+              <Select
+                value={collegeId || EMPTY_COLLEGE_VALUE}
+                onValueChange={(value) =>
+                  setCollegeId(value === EMPTY_COLLEGE_VALUE ? "" : value)
+                }
               >
-                <option value="">Select college</option>
-                {colleges.map((c) => (
-                  <option key={c.id || c._id} value={c.id || c._id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="h-11 w-full rounded-lg border-slate-300 bg-white px-3 shadow-none dark:border-slate-700 dark:bg-slate-900">
+                  <SelectValue placeholder="Select college" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={EMPTY_COLLEGE_VALUE}>
+                    No college selected
+                  </SelectItem>
+                  {colleges.map((college) => {
+                    const collegeValue = college.id ?? college._id;
+
+                    if (!collegeValue) {
+                      return null;
+                    }
+
+                    return (
+                      <SelectItem key={collegeValue} value={collegeValue}>
+                        {college.name}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Role (display only) */}

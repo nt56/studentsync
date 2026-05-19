@@ -93,6 +93,9 @@ const signUpHighlights = [
   },
 ];
 
+const COLLEGE_SEARCH_RESULT_CLASSNAME =
+  "w-full rounded-2xl px-4 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-secondary/70 dark:text-slate-200 dark:hover:bg-white/10";
+
 export function SignUpForm() {
   const { register: registerUser } = useAuth();
   const dispatch = useAppDispatch();
@@ -181,7 +184,7 @@ export function SignUpForm() {
         <div className="absolute bottom-[-12%] right-[-8%] h-[30rem] w-[30rem] rounded-full bg-teal-400/12 blur-[160px]" />
       </div>
 
-      <div className="mx-auto grid max-w-7xl overflow-hidden rounded-[36px] border border-white/60 bg-white/45 shadow-[0_40px_120px_-48px_rgba(12,20,33,0.45)] backdrop-blur-xl xl:grid-cols-[0.88fr_1.12fr] dark:border-white/10 dark:bg-slate-950/25">
+      <div className="mx-auto grid max-w-7xl overflow-hidden rounded-[36px] border border-white/60 bg-white/45 shadow-[0_40px_120px_-48px_rgba(12,20,33,0.45)] backdrop-blur-xl xl:min-h-[calc(100vh-4rem)] xl:grid-cols-[0.88fr_1.12fr] dark:border-white/10 dark:bg-slate-950/25">
         <div className="relative hidden overflow-hidden bg-slate-950 px-10 py-12 text-white xl:flex xl:flex-col xl:justify-between">
           <div className="absolute left-0 top-0 h-40 w-40 rounded-full bg-primary/20 blur-3xl" />
           <div className="absolute bottom-0 right-0 h-52 w-52 rounded-full bg-teal-400/20 blur-3xl" />
@@ -241,7 +244,7 @@ export function SignUpForm() {
             </div>
           </div>
 
-          <div className="relative rounded-[28px] border border-white/12 bg-white/8 p-5 backdrop-blur-xl">
+          <div className="relative rounded-[28px] border border-white/12 bg-white/8 p-5 backdrop-blur-xl mt-4">
             <p className="text-xs uppercase tracking-[0.18em] text-white/60">
               Why students stay
             </p>
@@ -256,7 +259,7 @@ export function SignUpForm() {
           </div>
         </div>
 
-        <div className="surface-card-strong px-6 py-8 md:px-10 md:py-10 xl:max-h-[calc(100vh-4rem)] xl:overflow-y-auto">
+        <div className="surface-card-strong px-6 py-8 md:px-10 md:py-10">
           <div className="mb-8 flex items-center gap-3 xl:hidden">
             <Image
               src="/logo.jpg"
@@ -292,7 +295,9 @@ export function SignUpForm() {
             {/* Personal Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <Label className={labelClassName}>First Name</Label>
+                <Label className={labelClassName}>
+                  First Name <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   placeholder="John"
                   className={fieldClassName}
@@ -305,7 +310,9 @@ export function SignUpForm() {
                 )}
               </div>
               <div>
-                <Label className={labelClassName}>Last Name</Label>
+                <Label className={labelClassName}>
+                  Last Name <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   placeholder="Doe"
                   className={fieldClassName}
@@ -320,7 +327,9 @@ export function SignUpForm() {
             </div>
 
             <div>
-              <Label className={labelClassName}>Email Address</Label>
+              <Label className={labelClassName}>
+                Email Address <span className="text-red-500">*</span>
+              </Label>
               <Input
                 type="email"
                 placeholder="john@university.edu"
@@ -336,7 +345,9 @@ export function SignUpForm() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <Label className={labelClassName}>Gender</Label>
+                <Label className={labelClassName}>
+                  Gender <span className="text-red-500">*</span>
+                </Label>
                 <Select
                   onValueChange={(val) =>
                     setValue(
@@ -365,7 +376,9 @@ export function SignUpForm() {
                 )}
               </div>
               <div>
-                <Label className={labelClassName}>Date of Birth</Label>
+                <Label className={labelClassName}>
+                  Date of Birth <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   type="date"
                   className={fieldClassName}
@@ -417,7 +430,7 @@ export function SignUpForm() {
                         <button
                           key={college.id || college._id}
                           type="button"
-                          className="w-full rounded-2xl px-4 py-2 text-left text-sm transition-colors hover:bg-secondary/70 dark:hover:bg-white/10"
+                          className={COLLEGE_SEARCH_RESULT_CLASSNAME}
                           onClick={() => {
                             setValue("collegeId", college.id || college._id);
                             setSelectedCollegeName(college.name);
@@ -435,7 +448,9 @@ export function SignUpForm() {
             {/* Passwords */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <Label className={labelClassName}>Password</Label>
+                <Label className={labelClassName}>
+                  Password <span className="text-red-500">*</span>
+                </Label>
                 <div className="relative">
                   <Input
                     type={showPassword ? "text" : "password"}
@@ -529,7 +544,9 @@ export function SignUpForm() {
                 )}
               </div>
               <div>
-                <Label className={labelClassName}>Confirm Password</Label>
+                <Label className={labelClassName}>
+                  Confirm Password <span className="text-red-500">*</span>
+                </Label>
                 <div className="relative">
                   <Input
                     type={showConfirmPassword ? "text" : "password"}

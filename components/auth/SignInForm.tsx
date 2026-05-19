@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -51,6 +52,7 @@ const signInHighlights = [
 
 export function SignInForm() {
   const { login } = useAuth();
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<"google" | "github" | null>(
@@ -78,8 +80,9 @@ export function SignInForm() {
         toast.success("Welcome back!", {
           description: "You have been signed in successfully.",
         });
-        // GuestGuard detects isAuthenticated: true and handles the redirect.
-        // No router.push needed here — avoids double navigation.
+        // Navigate directly to dashboard. GuestGuard also watches isAuthenticated
+        // but in production the fetchCurrentUser race can delay that redirect.
+        router.replace("/dashboard");
       } else {
         const errorMsg = (result.payload as string) || "Invalid credentials";
         toast.error("Sign in failed", { description: errorMsg });
@@ -177,7 +180,7 @@ export function SignInForm() {
             </div>
           </div>
 
-          <div className="relative grid grid-cols-2 gap-4">
+          <div className="relative grid grid-cols-2 gap-4 mt-4">
             <div className="rounded-[24px] border border-white/12 bg-white/8 p-5 backdrop-blur-xl">
               <p className="text-xs uppercase tracking-[0.18em] text-white/60">
                 Students
@@ -235,7 +238,7 @@ export function SignInForm() {
                 htmlFor="email"
                 className="text-sm font-medium text-slate-700 dark:text-slate-200"
               >
-                Email Address
+                Email Address <span className="text-red-500">*</span>
               </Label>
               <div className="relative">
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
@@ -260,7 +263,7 @@ export function SignInForm() {
                 htmlFor="password"
                 className="text-sm font-medium text-slate-700 dark:text-slate-200"
               >
-                Password
+                Password <span className="text-red-500">*</span>
               </Label>
               <div className="relative">
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">

@@ -1,4 +1,6 @@
 import { NextRequest } from "next/server";
+import mongoose from "mongoose";
+import { auth } from "@/lib/auth";
 import {
   updateProfileSchema,
   changePasswordSchema,
@@ -68,24 +70,45 @@ export async function PATCH(request: NextRequest) {
 
     // Build Better Auth update (it only knows about "name")
     const betterAuthUpdate: Record<string, string> = {};
-    if (firstName || lastName) {
-      // We need current values if only one is provided
-      const fullName = [firstName, lastName].filter(Boolean).join(" ");
+    if (firstName !== undefined || lastName !== undefined) {
+      const currentNameParts = (authResult.session.user.name || "")
+        .trim()
+        .split(/\s+/);
+      const currentFirstName = currentNameParts[0] || "";
+      const currentLastName = currentNameParts.slice(1).join(" ");
+      const fullName = [
+        firstName ?? currentFirstName,
+        lastName ?? currentLastName,
+      ]
+        .filter(Boolean)
+        .join(" ");
+
       if (fullName) betterAuthUpdate.name = fullName;
     }
 
-    // Update Better Auth user if name changed
+    let authResponse: Response | undefined;
+
+    // Update Better Auth user directly so the route does not depend on a
+    // self-fetch and we can forward any refreshed session cookie back.
     if (Object.keys(betterAuthUpdate).length > 0) {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-      await fetch(`${appUrl}/api/auth/update-user`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Origin: appUrl,
-          Cookie: request.headers.get("cookie") || "",
-        },
-        body: JSON.stringify(betterAuthUpdate),
+      authResponse = await auth.api.updateUser({
+        headers: request.headers,
+        body: betterAuthUpdate,
+        asResponse: true,
       });
+
+      if (!authResponse.ok) {
+        let errorMessage = "Failed to update account details";
+
+        try {
+          const authError = await authResponse.json();
+          errorMessage = authError?.message || authError?.error || errorMessage;
+        } catch {
+          // Ignore non-JSON auth responses and keep the default message.
+        }
+
+        return errorResponse(errorMessage, authResponse.status);
+      }
     }
 
     // Update MongoDB user with all fields
@@ -93,28 +116,54 @@ export async function PATCH(request: NextRequest) {
     const User = (await import("@/models/User")).default;
     await connectDB();
 
-    const updateData: Record<string, unknown> = {};
-    if (firstName) updateData.firstName = firstName;
-    if (lastName) updateData.lastName = lastName;
-    if (phone !== undefined) updateData.phone = phone;
-    if (bio !== undefined) updateData.bio = bio;
-    if (collegeId !== undefined) updateData.collegeId = collegeId || undefined;
-    if (gender !== undefined) updateData.gender = gender;
-    if (dateOfBirth !== undefined)
-      updateData.dateOfBirth = new Date(dateOfBirth);
-    if (profileImage !== undefined) updateData.profileImage = profileImage;
+    const setData: Record<string, unknown> = {};
+    const unsetData: Record<string, ""> = {};
+
+    if (firstName) setData.firstName = firstName;
+    if (lastName) setData.lastName = lastName;
+    if (phone !== undefined) setData.phone = phone;
+    if (bio !== undefined) setData.bio = bio;
+    if (gender !== undefined) setData.gender = gender;
+    if (profileImage !== undefined) setData.profileImage = profileImage;
+
+    if (dateOfBirth !== undefined) {
+      setData.dateOfBirth = new Date(dateOfBirth);
+    }
+
+    if (collegeId !== undefined) {
+      if (!collegeId) {
+        unsetData.collegeId = "";
+      } else if (!mongoose.Types.ObjectId.isValid(collegeId)) {
+        return errorResponse("Invalid college selected", 400);
+      } else {
+        setData.collegeId = new mongoose.Types.ObjectId(collegeId);
+      }
+    }
+
+    const mongoUpdate: {
+      $set?: Record<string, unknown>;
+      $unset?: Record<string, "">;
+    } = {};
+
+    if (Object.keys(setData).length > 0) {
+      mongoUpdate.$set = setData;
+    }
+
+    if (Object.keys(unsetData).length > 0) {
+      mongoUpdate.$unset = unsetData;
+    }
 
     const updatedUser = await User.findOneAndUpdate(
       { email: authResult.userEmail },
-      { $set: updateData },
-      { new: true },
+      mongoUpdate,
+      { new: true, runValidators: true },
     );
 
     if (!updatedUser) {
       return errorResponse("User profile not found", 404);
     }
 
-    return successResponse(
+    const response = successResponse(
       {
         firstName: updatedUser.firstName,
         lastName: updatedUser.lastName,
@@ -128,6 +177,23 @@ export async function PATCH(request: NextRequest) {
       },
       "Profile updated successfully",
     );
+
+    if (authResponse) {
+      const headerObj = authResponse.headers as Headers & {
+        getSetCookie?: () => string[];
+      };
+      const setCookies =
+        headerObj.getSetCookie?.() ??
+        (authResponse.headers.get("set-cookie")
+          ? [authResponse.headers.get("set-cookie")!]
+          : []);
+
+      for (const cookie of setCookies) {
+        response.headers.append("set-cookie", cookie);
+      }
+    }
+
+    return response;
   } catch (error) {
     console.error("Profile update error:", error);
     return ApiErrors.internalError();
@@ -157,19 +223,13 @@ export async function POST(request: NextRequest) {
 
     const { currentPassword, newPassword } = validationResult.data;
 
-    // Forward to Better Auth change password endpoint
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const authResponse = await fetch(`${appUrl}/api/auth/change-password`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Origin: appUrl,
-        Cookie: request.headers.get("cookie") || "",
-      },
-      body: JSON.stringify({
+    const authResponse = await auth.api.changePassword({
+      headers: request.headers,
+      body: {
         currentPassword,
         newPassword,
-      }),
+      },
+      asResponse: true,
     });
 
     const authData = await authResponse.json();
@@ -188,7 +248,22 @@ export async function POST(request: NextRequest) {
       return errorResponse(errorMessage, authResponse.status);
     }
 
-    return successResponse(null, "Password changed successfully");
+    const response = successResponse(null, "Password changed successfully");
+
+    const headerObj = authResponse.headers as Headers & {
+      getSetCookie?: () => string[];
+    };
+    const setCookies =
+      headerObj.getSetCookie?.() ??
+      (authResponse.headers.get("set-cookie")
+        ? [authResponse.headers.get("set-cookie")!]
+        : []);
+
+    for (const cookie of setCookies) {
+      response.headers.append("set-cookie", cookie);
+    }
+
+    return response;
   } catch (error) {
     console.error("Change password error:", error);
     return ApiErrors.internalError();

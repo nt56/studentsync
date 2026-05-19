@@ -181,7 +181,11 @@ export default function EventForm({
       }
       router.push("/dashboard/manage-events");
     } catch (err) {
-      toast.error(typeof err === "string" ? err : "Something went wrong");
+      const msg =
+        typeof err === "string"
+          ? err
+          : (err as { message?: string })?.message || "Something went wrong";
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -199,7 +203,7 @@ export default function EventForm({
               <FormItem>
                 <FormLabel className="flex items-center gap-2">
                   <FileText className="h-4 w-4 text-primary" />
-                  Event Title
+                  Event Title <span className="text-red-500">*</span>
                 </FormLabel>
                 <FormControl>
                   <Input
@@ -221,7 +225,7 @@ export default function EventForm({
               <FormItem>
                 <FormLabel className="flex items-center gap-2">
                   <FileText className="h-4 w-4 text-primary" />
-                  Description
+                  Description <span className="text-red-500">*</span>
                 </FormLabel>
                 <FormControl>
                   <Textarea
@@ -297,7 +301,7 @@ export default function EventForm({
                 <FormItem>
                   <FormLabel className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-primary" />
-                    Event Date & Time
+                    Event Date & Time <span className="text-red-500">*</span>
                   </FormLabel>
                   <FormControl>
                     <Input
@@ -317,7 +321,7 @@ export default function EventForm({
                 <FormItem>
                   <FormLabel className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-primary" />
-                    Registration Deadline
+                    Registration Deadline <span className="text-red-500">*</span>
                   </FormLabel>
                   <FormControl>
                     <Input
@@ -341,7 +345,7 @@ export default function EventForm({
                 <FormItem>
                   <FormLabel className="flex items-center gap-2">
                     <MapPin className="h-4 w-4 text-primary" />
-                    Venue
+                    Venue <span className="text-red-500">*</span>
                   </FormLabel>
                   <FormControl>
                     <Input
@@ -361,7 +365,7 @@ export default function EventForm({
                 <FormItem>
                   <FormLabel className="flex items-center gap-2">
                     <Users className="h-4 w-4 text-primary" />
-                    Capacity
+                    Capacity <span className="text-red-500">*</span>
                   </FormLabel>
                   <FormControl>
                     <Input
@@ -387,7 +391,7 @@ export default function EventForm({
                 <FormItem>
                   <FormLabel className="flex items-center gap-2">
                     <Tag className="h-4 w-4 text-primary" />
-                    Category
+                    Category <span className="text-red-500">*</span>
                   </FormLabel>
                   <Select
                     onValueChange={field.onChange}
@@ -417,7 +421,7 @@ export default function EventForm({
                 <FormItem>
                   <FormLabel className="flex items-center gap-2">
                     <Building2 className="h-4 w-4 text-primary" />
-                    College
+                    College <span className="text-red-500">*</span>
                   </FormLabel>
                   <Select
                     onValueChange={field.onChange}

@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, useDeferredValue, Suspense } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useDeferredValue,
+  Suspense,
+} from "react";
 import { useSearchParams } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchEvents } from "@/store/slices/eventsSlice";
@@ -20,6 +26,13 @@ import {
   CalendarCheck2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const categories = [
   { label: "All Categories", value: "" },
@@ -37,6 +50,9 @@ const statuses = [
   { label: "Completed", value: "completed" },
   { label: "Closed", value: "closed" },
 ];
+
+const ALL_CATEGORIES_VALUE = "__all_categories__";
+const ALL_COLLEGES_VALUE = "__all_colleges__";
 
 function BrowseEventsContent() {
   const dispatch = useAppDispatch();
@@ -197,55 +213,82 @@ function BrowseEventsContent() {
             </div>
 
             <div className="md:col-span-2">
-              <select
-                className={`${filterControlClassName} appearance-none cursor-pointer`}
-                value={category}
-                onChange={(e) => {
-                  setCategory(e.target.value);
+              <Select
+                value={category || ALL_CATEGORIES_VALUE}
+                onValueChange={(value) => {
+                  setCategory(value === ALL_CATEGORIES_VALUE ? "" : value);
                   setPage(1);
                 }}
               >
-                {categories.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="h-12 w-full">
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_CATEGORIES_VALUE}>
+                    All Categories
+                  </SelectItem>
+                  {categories
+                    .filter((item) => item.value)
+                    .map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="md:col-span-2">
-              <select
-                className={`${filterControlClassName} appearance-none cursor-pointer`}
+              <Select
                 value={status}
-                onChange={(e) => {
-                  setStatus(e.target.value);
+                onValueChange={(value) => {
+                  setStatus(value);
                   setPage(1);
                 }}
               >
-                {statuses.map((s) => (
-                  <option key={s.value} value={s.value}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="h-12 w-full">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {statuses.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="md:col-span-3">
-              <select
-                className={`${filterControlClassName} appearance-none cursor-pointer`}
-                value={collegeId}
-                onChange={(e) => {
-                  setCollegeId(e.target.value);
+              <Select
+                value={collegeId || ALL_COLLEGES_VALUE}
+                onValueChange={(value) => {
+                  setCollegeId(value === ALL_COLLEGES_VALUE ? "" : value);
                   setPage(1);
                 }}
               >
-                <option value="">All Colleges</option>
-                {colleges.map((c) => (
-                  <option key={c.id || c._id} value={c.id || c._id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="h-12 w-full">
+                  <SelectValue placeholder="All Colleges" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_COLLEGES_VALUE}>
+                    All Colleges
+                  </SelectItem>
+                  {colleges.map((college) => {
+                    const collegeValue = college.id ?? college._id;
+
+                    if (!collegeValue) {
+                      return null;
+                    }
+
+                    return (
+                      <SelectItem key={collegeValue} value={collegeValue}>
+                        {college.name}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="md:col-span-1">

@@ -6,19 +6,64 @@ import { MongoClient } from "mongodb";
 const client = new MongoClient(process.env.MONGODB_URI!);
 const db = client.db();
 
+const localhostHosts = new Set(["localhost", "127.0.0.1", "0.0.0.0"]);
+
+function normalizeUrl(value?: string) {
+  return value?.trim().replace(/\/$/, "") || undefined;
+}
+
+function isLocalUrl(value?: string) {
+  if (!value) {
+    return false;
+  }
+
+  try {
+    return localhostHosts.has(new URL(value).hostname);
+  } catch {
+    return false;
+  }
+}
+
+const vercelUrl = normalizeUrl(
+  process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined,
+);
+const betterAuthUrl = normalizeUrl(process.env.BETTER_AUTH_URL);
+const publicAppUrl = normalizeUrl(process.env.NEXT_PUBLIC_APP_URL);
+const configuredUrls = [betterAuthUrl, publicAppUrl, vercelUrl].filter(
+  (value): value is string => Boolean(value),
+);
+
+const baseURL =
+  process.env.NODE_ENV === "production"
+    ? configuredUrls.find((url) => !isLocalUrl(url)) ||
+      vercelUrl ||
+      publicAppUrl ||
+      betterAuthUrl ||
+      "http://localhost:3000"
+    : betterAuthUrl || publicAppUrl || vercelUrl || "http://localhost:3000";
+
+const trustedOrigins = Array.from(
+  new Set(
+    configuredUrls.filter(
+      (url) => process.env.NODE_ENV !== "production" || !isLocalUrl(url),
+    ),
+  ),
+);
+
+if (process.env.NODE_ENV !== "production") {
+  trustedOrigins.push("http://localhost:3000");
+}
+
 export const auth = betterAuth({
   database: mongodbAdapter(db),
 
-  // Base URL for Better Auth (required for CSRF origin checks)
-  baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
+  // Base URL for Better Auth — critical for OAuth callbacks and cookie security.
+  // In production, prefer a non-localhost URL even if a local dev value was
+  // accidentally left in env settings.
+  baseURL,
 
   // Trust requests from our own app URL (needed for Postman/API testing)
-  trustedOrigins: [
-    process.env.BETTER_AUTH_URL || "http://localhost:3000",
-    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-    // Auto-trust Vercel deployment URLs (VERCEL_URL is set automatically by Vercel)
-    ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
-  ],
+  trustedOrigins,
 
   // ===========================
   // EMAIL & PASSWORD AUTH
