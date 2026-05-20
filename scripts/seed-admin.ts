@@ -3,53 +3,42 @@
  * ADMIN SEED SCRIPT
  * ============================================================
  *
- * This script creates the FIRST admin user for the system.
- * Admin accounts can ONLY be created through this script or
- * by another admin promoting a user via the API.
+ * Creates (or repairs) the super-admin user.
+ * Works WITHOUT a running dev server — calls Better Auth's
+ * programmatic API directly instead of making an HTTP request.
  *
  * HOW IT WORKS:
- * 1. Creates a Better Auth user (email/password)
- * 2. Updates the Better Auth user's role to "admin" in the database
- * 3. Creates the corresponding MongoDB User document with role="admin"
- *
- * IMPORTANT: The role must be set in BOTH collections:
- * - Better Auth's "user" collection (so session.user.role returns "admin")
- * - Our MongoDB User collection (for extended user data)
+ * 1. Ensures the Better Auth user + credential account exist
+ * 2. Sets role = "admin" in the Better Auth "user" collection
+ * 3. Ensures the corresponding MongoDB User document exists
+ *    with role = "admin"
  *
  * USAGE:
  *   npx tsx scripts/seed-admin.ts
  *
  * ENVIRONMENT VARIABLES (set in .env):
- *   ADMIN_EMAIL     - Admin email address (default: admin@example.com)
- *   ADMIN_PASSWORD  - Admin password (default: Admin@1234)
+ *   ADMIN_EMAIL      - Admin email (default: admin@example.com)
+ *   ADMIN_PASSWORD   - Admin password (default: Admin@1234)
  *   ADMIN_FIRST_NAME - Admin first name (default: Super)
  *   ADMIN_LAST_NAME  - Admin last name (default: Admin)
- *   MONGODB_URI     - MongoDB connection string (required)
- *   NEXT_PUBLIC_APP_URL - App URL (default: http://localhost:3000)
- *
- * NOTE:
- * - The Next.js dev server MUST be running before executing this script,
- *   because it calls the Better Auth sign-up API endpoint.
- * - If the admin already exists, the script will promote them to admin.
+ *   MONGODB_URI      - MongoDB connection string (required)
  * ============================================================
  */
 
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 
-// Load environment variables from .env
+// Load .env BEFORE any other imports that read process.env
 dotenv.config();
 
-// Admin credentials from environment (with safe defaults for development)
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@example.com";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Admin@1234";
 const ADMIN_FIRST_NAME = process.env.ADMIN_FIRST_NAME || "Super";
 const ADMIN_LAST_NAME = process.env.ADMIN_LAST_NAME || "Admin";
 const MONGODB_URI = process.env.MONGODB_URI;
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 // ===========================
-// User Schema (inline to avoid module resolution issues)
+// User Schema (inline — matches models/User.ts, avoids import issues)
 // ===========================
 const userSchema = new mongoose.Schema(
   {
@@ -68,8 +57,9 @@ const userSchema = new mongoose.Schema(
     dateOfBirth: { type: Date },
     phone: { type: String },
     bio: { type: String },
+    profileImage: { type: String, default: null },
     collegeId: { type: mongoose.Schema.Types.ObjectId, ref: "College" },
-    authUserId: { type: String },
+    authUserId: { type: String, sparse: true, unique: true },
   },
   { timestamps: true },
 );
@@ -84,7 +74,6 @@ async function seedAdmin() {
   console.log("   ADMIN SEED SCRIPT");
   console.log("========================================\n");
 
-  // 1. Validate environment
   if (!MONGODB_URI) {
     console.error("❌ MONGODB_URI is not set in .env file");
     process.exit(1);
@@ -92,10 +81,9 @@ async function seedAdmin() {
 
   console.log(`📧 Admin Email:    ${ADMIN_EMAIL}`);
   console.log(`👤 Admin Name:     ${ADMIN_FIRST_NAME} ${ADMIN_LAST_NAME}`);
-  console.log(`🌐 App URL:        ${APP_URL}`);
   console.log("");
 
-  // 2. Connect to MongoDB
+  // Connect to MongoDB
   console.log("🔌 Connecting to MongoDB...");
   try {
     await mongoose.connect(MONGODB_URI);
@@ -105,102 +93,86 @@ async function seedAdmin() {
     process.exit(1);
   }
 
-  // 3. Check if admin already exists in MongoDB User collection
-  const existingUser = await User.findOne({ email: ADMIN_EMAIL });
-  if (existingUser) {
+  // Dynamic import AFTER dotenv.config() so MONGODB_URI is available inside lib/auth.ts
+  // Better Auth creates its own MongoClient; it coexists fine with mongoose.
+  const { auth } = await import("../lib/auth");
+
+  // ─── Step 1: Ensure the Better Auth user + credential account exist ───────
+  const betterAuthUserCollection = mongoose.connection.collection("user");
+  const betterAuthAccountCollection = mongoose.connection.collection("account");
+
+  let betterAuthUserId: string | undefined;
+
+  const existingBaUser = await betterAuthUserCollection.findOne({
+    email: ADMIN_EMAIL,
+  });
+
+  const existingCredentialAccount = await betterAuthAccountCollection.findOne({
+    accountId: ADMIN_EMAIL,
+    providerId: "credential",
+  });
+
+  if (!existingBaUser || !existingCredentialAccount) {
     console.log(
-      `ℹ️  User ${ADMIN_EMAIL} found. Ensuring admin role in both collections...`,
+      "📝 Better Auth user/account missing — creating via auth.api.signUpEmail...",
     );
 
-    // Update MongoDB User document
-    if (existingUser.role !== "admin") {
-      existingUser.role = "admin";
-      await existingUser.save();
-      console.log("✅ MongoDB User role updated to admin");
-    } else {
-      console.log("✓  MongoDB User already has admin role");
-    }
+    try {
+      const signUpResult = await auth.api.signUpEmail({
+        body: {
+          name: `${ADMIN_FIRST_NAME} ${ADMIN_LAST_NAME}`,
+          email: ADMIN_EMAIL,
+          password: ADMIN_PASSWORD,
+        },
+      });
 
-    // Always update Better Auth user collection to ensure consistency
-    const betterAuthUserCollection = mongoose.connection.collection("user");
-    const result = await betterAuthUserCollection.updateOne(
-      { email: ADMIN_EMAIL },
-      { $set: { role: "admin" } },
-    );
+      betterAuthUserId = signUpResult.user?.id;
+      console.log("✅ Better Auth user + credential account created");
+    } catch (signUpError: unknown) {
+      const msg =
+        (signUpError instanceof Error ? signUpError.message : "") || "";
 
-    if (result.modifiedCount > 0) {
-      console.log("✅ Better Auth user role updated to admin");
-    } else {
-      console.log("✓  Better Auth user already has admin role");
-    }
-
-    console.log("\n✅ Admin role confirmed in both collections!\n");
-    await mongoose.disconnect();
-    process.exit(0);
-  }
-
-  // 4. Create Better Auth user via the sign-up API
-  console.log("📝 Creating Better Auth user...");
-  try {
-    const fullName = `${ADMIN_FIRST_NAME} ${ADMIN_LAST_NAME}`;
-
-    const authResponse = await fetch(`${APP_URL}/api/auth/sign-up/email`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Origin: APP_URL,
-      },
-      body: JSON.stringify({
-        name: fullName,
-        email: ADMIN_EMAIL,
-        password: ADMIN_PASSWORD,
-        // role is NOT sent here; Better Auth defaults to "student"
-        // We set "admin" directly in MongoDB below
-      }),
-    });
-
-    const authData = await authResponse.json();
-
-    if (!authResponse.ok) {
-      const msg = authData.message || authData.error || "Unknown error";
       if (
         msg.toLowerCase().includes("already exists") ||
         msg.toLowerCase().includes("already registered")
       ) {
-        console.log(
-          "ℹ️  Better Auth user already exists. Creating MongoDB profile...",
-        );
+        console.log("ℹ️  Better Auth user already exists (race). Continuing...");
+        const baUser = await betterAuthUserCollection.findOne({
+          email: ADMIN_EMAIL,
+        });
+        betterAuthUserId = (baUser?.id as string) || baUser?._id?.toString();
       } else {
-        console.error("❌ Better Auth signup failed:", msg);
+        console.error("❌ Failed to create Better Auth user:", signUpError);
         await mongoose.disconnect();
         process.exit(1);
       }
-    } else {
-      console.log("✅ Better Auth user created");
     }
+  } else {
+    betterAuthUserId =
+      (existingBaUser.id as string) || existingBaUser._id?.toString();
+    console.log("✓  Better Auth user + credential account already exist");
+  }
 
-    // 5. Update Better Auth user role in database
-    // Better Auth stores users in the "user" collection
-    // We need to update the role there so session.user.role returns "admin"
-    console.log("📝 Updating Better Auth user role to admin...");
-    const betterAuthUserCollection = mongoose.connection.collection("user");
-    await betterAuthUserCollection.updateOne(
-      { email: ADMIN_EMAIL },
-      { $set: { role: "admin" } },
-    );
-    console.log("✅ Better Auth user role updated to admin");
+  // ─── Step 2: Set role = "admin" in the Better Auth user collection ─────────
+  await betterAuthUserCollection.updateOne(
+    { email: ADMIN_EMAIL },
+    { $set: { role: "admin" } },
+  );
+  console.log("✅ Better Auth user role = admin");
 
-    // 6. Create MongoDB User document with admin role
-    console.log("📝 Creating MongoDB User document...");
+  // ─── Step 3: Ensure MongoDB User document exists with role = "admin" ───────
+  const existingMongoUser = await User.findOne({ email: ADMIN_EMAIL });
+
+  if (!existingMongoUser) {
     const adminUser = await User.create({
       firstName: ADMIN_FIRST_NAME,
       lastName: ADMIN_LAST_NAME,
       email: ADMIN_EMAIL,
       role: "admin",
-      authUserId: authData.user?.id,
+      authUserId: betterAuthUserId,
     });
 
-    console.log("✅ MongoDB admin user created");
+    console.log("✅ MongoDB User document created");
     console.log("");
     console.log("========================================");
     console.log("   ADMIN CREATED SUCCESSFULLY! 🎉");
@@ -209,42 +181,35 @@ async function seedAdmin() {
     console.log(`   Email: ${adminUser.email}`);
     console.log(`   Role:  ${adminUser.role}`);
     console.log(`   Name:  ${adminUser.firstName} ${adminUser.lastName}`);
-    console.log("========================================\n");
-  } catch (error: unknown) {
-    // Handle duplicate key error (user already in MongoDB)
-    if (
-      error &&
-      typeof error === "object" &&
-      "code" in error &&
-      (error as { code: number }).code === 11000
-    ) {
-      console.log("ℹ️  MongoDB user already exists. Promoting to admin...");
-
-      // Update both Better Auth user and MongoDB User collections
-      const betterAuthUserCollection = mongoose.connection.collection("user");
-      await betterAuthUserCollection.updateOne(
-        { email: ADMIN_EMAIL },
-        { $set: { role: "admin" } },
-      );
-
-      await User.findOneAndUpdate({ email: ADMIN_EMAIL }, { role: "admin" });
-      console.log("✅ Existing user promoted to admin!\n");
-    } else {
-      console.error("❌ Failed to create admin:", error);
-      await mongoose.disconnect();
-      process.exit(1);
+    console.log("========================================");
+  } else {
+    // Repair existing document: ensure role is admin and authUserId is linked
+    const updates: Record<string, unknown> = { role: "admin" };
+    if (!existingMongoUser.authUserId && betterAuthUserId) {
+      updates.authUserId = betterAuthUserId;
     }
+
+    await User.findOneAndUpdate({ email: ADMIN_EMAIL }, { $set: updates });
+    console.log("✅ MongoDB User document updated (role = admin)");
+    console.log("");
+    console.log("========================================");
+    console.log("   ADMIN REPAIRED SUCCESSFULLY! 🎉");
+    console.log("========================================");
+    console.log(`   Email: ${ADMIN_EMAIL}`);
+    console.log(`   Role:  admin`);
+    console.log("========================================");
   }
 
-  // 7. Disconnect
+  console.log("");
+  console.log("💡 Login credentials:");
+  console.log(`   Email:    ${ADMIN_EMAIL}`);
+  console.log(`   Password: ${ADMIN_PASSWORD}`);
+  console.log("");
+
   await mongoose.disconnect();
   console.log("🔌 Disconnected from MongoDB");
-  console.log("\n💡 You can now log in at: POST /api/auth/login");
-  console.log(`   Email:    ${ADMIN_EMAIL}`);
-  console.log(`   Password: ${ADMIN_PASSWORD}\n`);
 }
 
-// Run
 seedAdmin().catch((err) => {
   console.error("❌ Unexpected error:", err);
   process.exit(1);

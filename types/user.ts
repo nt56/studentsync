@@ -16,8 +16,8 @@ export interface IUser {
   profileImage?: string;
   collegeId?: Types.ObjectId;
   authUserId?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface UserResponse {
@@ -77,7 +77,7 @@ export function formatUserResponse(user: IUser): UserResponse {
         | string
         | undefined,
     ),
-    createdAt: user.createdAt.toISOString(),
-    updatedAt: user.updatedAt.toISOString(),
+    createdAt: user.createdAt?.toISOString() ?? new Date(0).toISOString(),
+    updatedAt: user.updatedAt?.toISOString() ?? new Date(0).toISOString(),
   };
 }

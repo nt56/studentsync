@@ -1,5 +1,6 @@
 import { connectDB } from "@/lib/db";
 import User from "@/models/User";
+import "@/models/College"; // register schema so populate("collegeId") works
 import Registration from "@/models/Registration";
 import Event from "@/models/Event";
 import { requireAuth } from "@/lib/auth-guard";
