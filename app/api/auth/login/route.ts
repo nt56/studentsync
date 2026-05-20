@@ -27,10 +27,15 @@ export async function POST(request: NextRequest) {
 
     const { email, password, rememberMe } = validationResult.data;
 
-    // Call Better Auth directly — returns a standard Response with Set-Cookie
+    // Call Better Auth directly — returns a standard Response with Set-Cookie.
+    // Passing request.headers is critical in production: Better Auth reads Host,
+    // X-Forwarded-Proto, and Origin to set the correct Secure/Domain cookie
+    // attributes for the actual HTTPS domain. Without this the session cookie is
+    // misconfigured, the browser discards it, and fetchCurrentUser returns 401.
     const authResponse = await auth.api.signInEmail({
       body: { email, password, rememberMe },
       asResponse: true,
+      headers: request.headers,
     });
 
     if (!authResponse.ok) {

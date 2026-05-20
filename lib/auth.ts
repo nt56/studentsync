@@ -2,8 +2,32 @@ import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { MongoClient } from "mongodb";
 
-// MongoDB client for Better Auth adapter
-const client = new MongoClient(process.env.MONGODB_URI!);
+// ===========================
+// CACHED MONGODB CLIENT
+// ===========================
+// Reuse the same MongoClient across hot-reloads (dev) and warm serverless
+// invocations (prod). Without this, every cold-start opens a new connection
+// that competes with mongoose and can stall while Atlas wakes from auto-pause.
+
+const globalWithMongo = globalThis as typeof globalThis & {
+  _betterAuthMongoClient?: MongoClient;
+};
+
+function getMongoClient(): MongoClient {
+  if (!globalWithMongo._betterAuthMongoClient) {
+    globalWithMongo._betterAuthMongoClient = new MongoClient(
+      process.env.MONGODB_URI!,
+      {
+        serverSelectionTimeoutMS: 10000,
+        connectTimeoutMS: 10000,
+        maxPoolSize: 5,
+      },
+    );
+  }
+  return globalWithMongo._betterAuthMongoClient;
+}
+
+const client = getMongoClient();
 const db = client.db();
 
 const localhostHosts = new Set(["localhost", "127.0.0.1", "0.0.0.0"]);

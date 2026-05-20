@@ -41,11 +41,28 @@ export async function connectDB() {
         bufferCommands: false,
         maxPoolSize: 10,
         serverSelectionTimeoutMS: 10000,
+        connectTimeoutMS: 10000,
       })
       .then((instance) => instance)
-      .catch((error) => {
+      .catch(async (error) => {
         cached.promise = null;
-        throw error;
+        // One automatic retry — Atlas M0 clusters can be waking from auto-pause;
+        // a second attempt a few seconds later usually succeeds.
+        console.warn("MongoDB first connect failed, retrying in 3 s…", error);
+        await new Promise((r) => setTimeout(r, 3000));
+        cached.promise = mongoose
+          .connect(MONGODB_URI, {
+            bufferCommands: false,
+            maxPoolSize: 10,
+            serverSelectionTimeoutMS: 15000,
+            connectTimeoutMS: 15000,
+          })
+          .then((instance) => instance)
+          .catch((retryError) => {
+            cached.promise = null;
+            throw retryError;
+          });
+        return cached.promise;
       });
   }
 
