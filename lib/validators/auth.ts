@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+const hasValidPhoneDigits = (value: string) => {
+  const digits = value.replace(/\D/g, "");
+  return digits.length >= 10 && digits.length <= 15;
+};
+
 // ===========================
 // REGISTRATION SCHEMA
 // ===========================
@@ -52,9 +57,12 @@ export const signUpSchema = z
       ),
     phone: z
       .string()
-      .min(10, "Phone number must be at least 10 digits")
-      .max(15, "Phone number must be less than 15 digits")
-      .optional(),
+      .trim()
+      .min(1, "Phone number is required")
+      .refine(
+        hasValidPhoneDigits,
+        "Phone number must be between 10 and 15 digits",
+      ),
     collegeId: z.string().optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -119,8 +127,11 @@ export const updateProfileSchema = z.object({
     .optional(),
   phone: z
     .string()
-    .min(10, "Phone number must be at least 10 digits")
-    .max(15, "Phone number must be less than 15 digits")
+    .trim()
+    .refine(
+      hasValidPhoneDigits,
+      "Phone number must be between 10 and 15 digits",
+    )
     .optional(),
   bio: z.string().max(500, "Bio must be less than 500 characters").optional(),
   collegeId: z.string().optional(),

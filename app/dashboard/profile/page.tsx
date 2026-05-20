@@ -33,6 +33,23 @@ import { toast } from "sonner";
 const EMPTY_GENDER_VALUE = "__no_gender__";
 const EMPTY_COLLEGE_VALUE = "__no_college__";
 
+const getSelectedCollegeId = (
+  user:
+    | { collegeId?: string; college?: { id: string; name: string } | null }
+    | null
+    | undefined,
+) => {
+  if (user?.college?.id) {
+    return user.college.id;
+  }
+
+  if (user?.collegeId && user.collegeId !== "[object Object]") {
+    return user.collegeId;
+  }
+
+  return "";
+};
+
 export default function ProfilePage() {
   const dispatch = useAppDispatch();
   const { user, isLoading } = useAppSelector((s) => s.auth);
@@ -65,11 +82,13 @@ export default function ProfilePage() {
   // Populate form from user data
   useEffect(() => {
     if (user) {
+      const selectedCollegeId = getSelectedCollegeId(user);
+
       setFirstName(user.firstName || "");
       setLastName(user.lastName || "");
       setPhone(user.phone || "");
       setBio(user.bio || "");
-      setCollegeId(user.collegeId || user.college?.id || "");
+      setCollegeId(selectedCollegeId);
       setGender(user.gender || "");
       setDateOfBirth(
         user.dateOfBirth
@@ -200,11 +219,13 @@ export default function ProfilePage() {
 
   const handleDiscard = () => {
     if (user) {
+      const selectedCollegeId = getSelectedCollegeId(user);
+
       setFirstName(user.firstName || "");
       setLastName(user.lastName || "");
       setPhone(user.phone || "");
       setBio(user.bio || "");
-      setCollegeId(user.collegeId || user.college?.id || "");
+      setCollegeId(selectedCollegeId);
       setGender(user.gender || "");
       setDateOfBirth(
         user.dateOfBirth
@@ -218,8 +239,9 @@ export default function ProfilePage() {
 
   const initials =
     `${user?.firstName?.[0] || ""}${user?.lastName?.[0] || ""}`.toUpperCase();
+  const selectedCollegeId = getSelectedCollegeId(user);
   const collegeName = colleges.find(
-    (c) => (c.id || c._id) === (user?.collegeId || user?.college?.id),
+    (c) => (c.id || c._id) === selectedCollegeId,
   )?.name;
 
   return (

@@ -54,7 +54,14 @@ const signUpSchema = z
         },
         { message: "You must be at least 16 years old" },
       ),
-    phone: z.string().optional(),
+    phone: z
+      .string()
+      .trim()
+      .min(1, "Phone number is required")
+      .refine((value) => {
+        const digits = value.replace(/\D/g, "");
+        return digits.length >= 10 && digits.length <= 15;
+      }, "Phone number must be between 10 and 15 digits"),
     collegeId: z.string().optional(),
     password: z
       .string()
@@ -394,7 +401,9 @@ export function SignUpForm() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <Label className={labelClassName}>Phone Number</Label>
+                <Label className={labelClassName}>
+                  Phone Number <span className="text-red-500">*</span>
+                </Label>
                 <Input
                   type="tel"
                   placeholder="+1 (555) 000-0000"
