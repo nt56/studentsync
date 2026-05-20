@@ -43,7 +43,11 @@ export async function POST(request: NextRequest) {
     // Full name for Better Auth (it requires a "name" field)
     const fullName = `${firstName} ${lastName}`;
 
-    // Call Better Auth directly — no self-fetch
+    // Call Better Auth directly — no self-fetch.
+    // Passing request.headers is critical in production: Better Auth reads Host,
+    // X-Forwarded-Proto, and Origin to generate the correct Secure/Domain cookie
+    // attributes. Without this the session cookie is misconfigured and discarded
+    // by the browser, so fetchCurrentUser returns 401 after registration.
     const authResponse = await auth.api.signUpEmail({
       body: {
         name: fullName,
@@ -51,6 +55,7 @@ export async function POST(request: NextRequest) {
         password,
         // role is NOT sent — defaults to "student" in Better Auth config
       },
+      headers: request.headers,
       asResponse: true,
     });
 

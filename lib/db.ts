@@ -40,16 +40,18 @@ export async function connectDB() {
       .connect(MONGODB_URI, {
         bufferCommands: false,
         maxPoolSize: 10,
-        serverSelectionTimeoutMS: 10000,
-        connectTimeoutMS: 10000,
+        serverSelectionTimeoutMS: 8000,
+        connectTimeoutMS: 8000,
       })
       .then((instance) => instance)
       .catch(async (error) => {
         cached.promise = null;
-        // One automatic retry — Atlas M0 clusters can be waking from auto-pause;
-        // a second attempt a few seconds later usually succeeds.
-        console.warn("MongoDB first connect failed, retrying in 3 s…", error);
-        await new Promise((r) => setTimeout(r, 3000));
+        // One automatic retry — Atlas clusters can be slow on cold start.
+        // Keep the sleep short (500 ms) so a 30-second Vercel function timeout
+        // is not exhausted waiting; the real fix is whitelisting 0.0.0.0/0 in
+        // MongoDB Atlas → Network Access.
+        console.warn("MongoDB first connect failed, retrying in 500 ms…", error);
+        await new Promise((r) => setTimeout(r, 500));
         cached.promise = mongoose
           .connect(MONGODB_URI, {
             bufferCommands: false,
