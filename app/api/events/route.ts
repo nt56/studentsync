@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
       search: searchParams.get("search") || undefined,
       sortBy: searchParams.get("sortBy") || "date",
       sortOrder: searchParams.get("sortOrder") || "asc",
+      isInterCollege: searchParams.get("isInterCollege") || undefined,
     };
 
     // Validate query parameters
@@ -48,6 +49,7 @@ export async function GET(request: NextRequest) {
       search,
       sortBy,
       sortOrder,
+      isInterCollege,
     } = validatedQuery;
 
     // Build filter
@@ -58,8 +60,12 @@ export async function GET(request: NextRequest) {
       filter.status = status;
     }
 
-    if (collegeId) {
-      filter.collegeId = new mongoose.Types.ObjectId(collegeId);
+    if (isInterCollege === true) {
+      filter.isInterCollege = true;
+    } else if (collegeId) {
+      // Include host-college events AND inter-college events where this college is a partner
+      const cid = new mongoose.Types.ObjectId(collegeId);
+      filter.$or = [{ collegeId: cid }, { partnerCollegeIds: cid }];
     }
 
     if (organizerId && mongoose.Types.ObjectId.isValid(organizerId)) {
@@ -177,6 +183,10 @@ export async function POST(request: NextRequest) {
       collegeId: new mongoose.Types.ObjectId(validatedData.collegeId),
       organizerId: new mongoose.Types.ObjectId(authResult.mongoUserId),
       status: "upcoming",
+      isInterCollege: validatedData.isInterCollege ?? false,
+      partnerCollegeIds: (validatedData.partnerCollegeIds ?? []).map(
+        (id) => new mongoose.Types.ObjectId(id),
+      ),
     });
 
     // Notify admins of new event (fire-and-forget)

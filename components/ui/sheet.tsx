@@ -36,7 +36,7 @@ function SheetOverlay({
     <SheetPrimitive.Overlay
       data-slot="sheet-overlay"
       className={cn(
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-slate-950/35 backdrop-blur-sm",
+        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-slate-950/42 backdrop-blur-[2px]",
         className,
       )}
       {...props}
@@ -60,22 +60,22 @@ function SheetContent({
       <SheetPrimitive.Content
         data-slot="sheet-content"
         className={cn(
-          "surface-card-strong data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 flex flex-col gap-4 border border-white/60 shadow-[0_28px_90px_-42px_rgba(12,20,33,0.34)] transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500 dark:border-white/10",
+          "surface-card-strong data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 flex flex-col gap-4 border border-border shadow-[0_24px_56px_-32px_rgba(15,23,42,0.35)] transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
           side === "right" &&
-            "data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right inset-y-3 right-3 h-[calc(100%-1.5rem)] w-[min(24rem,calc(100vw-1.5rem))] rounded-[32px]",
+            "data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right inset-y-2 right-2 h-[calc(100%-1rem)] w-[min(24rem,calc(100vw-1rem))] rounded-2xl",
           side === "left" &&
-            "data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left inset-y-3 left-3 h-[calc(100%-1.5rem)] w-[min(24rem,calc(100vw-1.5rem))] rounded-[32px]",
+            "data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left inset-y-2 left-2 h-[calc(100%-1rem)] w-[min(24rem,calc(100vw-1rem))] rounded-2xl",
           side === "top" &&
-            "data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top inset-x-3 top-3 h-auto rounded-[32px]",
+            "data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top inset-x-2 top-2 h-auto rounded-2xl",
           side === "bottom" &&
-            "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-3 bottom-3 h-auto rounded-[32px]",
+            "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-2 bottom-2 h-auto rounded-2xl",
           className,
         )}
         {...props}
       >
         {children}
         {showCloseButton && (
-          <SheetPrimitive.Close className="absolute top-4 right-4 rounded-full border border-white/60 bg-white/70 p-2 text-foreground/70 opacity-90 transition-all hover:opacity-100 hover:text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/30 disabled:pointer-events-none dark:border-white/10 dark:bg-white/5">
+          <SheetPrimitive.Close className="absolute top-4 right-4 rounded-lg border border-border bg-background/80 p-2 text-foreground/70 opacity-90 transition-all hover:bg-secondary hover:text-foreground focus:outline-hidden focus:ring-2 focus:ring-ring/30 disabled:pointer-events-none">
             <XIcon className="size-4" />
             <span className="sr-only">Close</span>
           </SheetPrimitive.Close>

@@ -24,6 +24,12 @@ export interface IEvent {
   status: EventStatus;
   category: EventCategory;
   image?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  averageRating?: number;
+  reviewCount?: number;
+  isInterCollege?: boolean;
+  partnerCollegeIds?: Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,6 +47,12 @@ export interface EventResponse {
   status: EventStatus;
   category: EventCategory;
   image?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  averageRating?: number;
+  reviewCount?: number;
+  isInterCollege?: boolean;
+  partnerCollegeIds?: string[];
   registrationCount?: number;
   isRegistered?: boolean;
   createdAt: string;
@@ -65,6 +77,14 @@ export function formatEventResponse(
     status: event.status,
     category: event.category,
     image: event.image || undefined,
+    latitude: event.latitude ?? null,
+    longitude: event.longitude ?? null,
+    averageRating: event.averageRating ?? 0,
+    reviewCount: event.reviewCount ?? 0,
+    isInterCollege: event.isInterCollege ?? false,
+    partnerCollegeIds: (event.partnerCollegeIds ?? []).map((id) =>
+      id.toString(),
+    ),
     registrationCount,
     isRegistered,
     createdAt: event.createdAt.toISOString(),

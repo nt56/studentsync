@@ -23,7 +23,6 @@ import {
   ClipboardList,
   LogOut,
   Menu,
-  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -120,10 +119,10 @@ export default function DashboardLayout({
         href={item.href}
         onClick={onSelect}
         className={cn(
-          "flex items-center gap-3 rounded-[22px] px-4 py-3 text-sm font-medium transition-all",
+          "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all",
           isActive
-            ? "bg-slate-950 text-white shadow-[0_20px_40px_-28px_rgba(12,20,33,0.7)] dark:bg-white dark:text-slate-950"
-            : "text-slate-600 hover:bg-white/70 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white",
+            ? "bg-slate-950 text-white shadow-sm dark:bg-primary dark:text-primary-foreground"
+            : "text-slate-600 hover:bg-secondary hover:text-slate-900 dark:text-slate-300 dark:hover:bg-secondary dark:hover:text-white",
         )}
       >
         <item.icon
@@ -139,10 +138,10 @@ export default function DashboardLayout({
 
   const renderSidebarContent = (onSelect?: () => void) => (
     <div className="flex h-full flex-col">
-      <div className="surface-card rounded-[28px] p-4">
+      <div className="surface-card rounded-2xl p-4">
         <Link href="/" onClick={onSelect} className="flex items-center gap-3">
           <Image
-            className="h-11 w-11 rounded-2xl ring-1 ring-white/60"
+            className="h-11 w-11 rounded-xl ring-1 ring-border/80"
             src="/logo.jpg"
             alt="Logo"
             width={44}
@@ -158,14 +157,12 @@ export default function DashboardLayout({
           </div>
         </Link>
 
-        <div className="mt-5 rounded-[22px] bg-slate-950 px-4 py-4 text-white dark:bg-white dark:text-slate-950">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/70 dark:text-slate-500">
-            <Sparkles className="h-3.5 w-3.5" />
+        <div className="mt-5 rounded-xl bg-secondary px-4 py-4 text-foreground">
+          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
             {roleLabel} workspace
           </div>
-          <p className="mt-3 text-sm leading-6 text-white/75 dark:text-slate-600">
-            Manage your campus activity with a cleaner control room and stronger
-            focus on what matters next.
+          <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
+            Keep your next actions, event workflows, and approvals easy to scan.
           </p>
         </div>
       </div>
@@ -174,7 +171,7 @@ export default function DashboardLayout({
         {filteredNav.map((item) => renderNavLink(item, onSelect))}
       </nav>
 
-      <div className="mt-6 border-t border-white/50 pt-6 dark:border-white/10">
+      <div className="mt-6 border-t border-border pt-6">
         <div className="space-y-2">
           {bottomItems.map((item) => renderNavLink(item, onSelect))}
         </div>
@@ -197,12 +194,12 @@ export default function DashboardLayout({
     <AuthGuard>
       <div className="min-h-screen px-4 py-4 sm:px-6">
         <div className="mx-auto flex max-w-[1600px] gap-6">
-          <aside className="surface-card-strong sticky top-4 hidden h-[calc(100vh-2rem)] w-72 shrink-0 rounded-[32px] p-5 lg:block">
+          <aside className="surface-card-strong sticky top-4 hidden h-[calc(100vh-2rem)] w-72 shrink-0 rounded-3xl p-4 lg:block">
             {renderSidebarContent()}
           </aside>
 
           <div className="min-w-0 flex-1">
-            <header className="surface-card sticky top-4 z-30 mb-6 flex items-center justify-between gap-4 rounded-[30px] px-4 py-4 sm:px-6">
+            <header className="surface-card sticky top-4 z-30 mb-6 flex items-center justify-between gap-4 rounded-2xl px-4 py-4 sm:px-5">
               <div className="flex items-center gap-3">
                 <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
                   <SheetTrigger asChild>
@@ -231,7 +228,7 @@ export default function DashboardLayout({
                 <NotificationBell />
                 <Link
                   href="/dashboard/profile"
-                  className="surface-card flex items-center gap-3 rounded-full px-2 py-2"
+                  className="surface-card flex items-center gap-3 rounded-xl px-2 py-2"
                   title={`${user?.firstName ?? ""} ${user?.lastName ?? ""}`}
                 >
                   {user?.profileImage ? (
@@ -243,7 +240,7 @@ export default function DashboardLayout({
                       className="h-10 w-10 rounded-full object-cover"
                     />
                   ) : (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-950 text-sm font-bold text-white dark:bg-white dark:text-slate-950">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-sm font-bold text-white dark:bg-primary dark:text-primary-foreground">
                       {initials}
                     </div>
                   )}

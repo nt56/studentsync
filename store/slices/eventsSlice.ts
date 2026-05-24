@@ -22,6 +22,12 @@ export interface EventItem {
     | "social"
     | "other";
   image?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  averageRating?: number;
+  reviewCount?: number;
+  isInterCollege?: boolean;
+  partnerCollegeIds?: string[];
   registrationCount?: number;
   isRegistered?: boolean;
   createdAt: string;

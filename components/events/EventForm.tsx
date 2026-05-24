@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useForm } from "react-hook-form";
@@ -39,9 +40,18 @@ import {
   ImagePlus,
   Loader2,
   X,
+  Globe2,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import type { EventItem } from "@/store/slices/eventsSlice";
+
+// Leaflet requires browser APIs — SSR must be disabled
+const LocationPicker = dynamic(
+  () => import("@/components/events/LocationPicker"),
+  { ssr: false },
+);
 
 const eventFormSchema = z
   .object({
@@ -70,6 +80,10 @@ const eventFormSchema = z
       "social",
       "other",
     ]),
+    latitude: z.coerce.number().optional().nullable(),
+    longitude: z.coerce.number().optional().nullable(),
+    isInterCollege: z.boolean().optional().default(false),
+    partnerCollegeIds: z.array(z.string()).optional().default([]),
   })
   .refine((d) => new Date(d.registrationDeadline) < new Date(d.date), {
     message: "Deadline must be before the event date",
@@ -106,6 +120,14 @@ export default function EventForm({
   );
   const [uploadingImage, setUploadingImage] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const [pickedCoords, setPickedCoords] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(
+    defaultValues?.latitude != null && defaultValues?.longitude != null
+      ? { lat: defaultValues.latitude, lng: defaultValues.longitude }
+      : null,
+  );
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -156,11 +178,19 @@ export default function EventForm({
             ? (defaultValues.collegeId as { _id: string })._id
             : "",
       category: defaultValues?.category || "other",
+      latitude: defaultValues?.latitude ?? null,
+      longitude: defaultValues?.longitude ?? null,
+      isInterCollege: defaultValues?.isInterCollege ?? false,
+      partnerCollegeIds: defaultValues?.partnerCollegeIds ?? [],
     },
   });
 
   const onSubmit = async (values: EventFormValues) => {
     setSubmitting(true);
+    const isInterCollege = values.isInterCollege ?? false;
+    const partnerCollegeIds = isInterCollege
+      ? (values.partnerCollegeIds ?? [])
+      : [];
     try {
       const payload = {
         ...values,
@@ -169,6 +199,10 @@ export default function EventForm({
           values.registrationDeadline,
         ).toISOString(),
         ...(imageUrl ? { image: imageUrl } : {}),
+        latitude: pickedCoords?.lat ?? null,
+        longitude: pickedCoords?.lng ?? null,
+        isInterCollege,
+        partnerCollegeIds,
       };
 
       if (isEditing && defaultValues) {
@@ -321,7 +355,8 @@ export default function EventForm({
                 <FormItem>
                   <FormLabel className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-primary" />
-                    Registration Deadline <span className="text-red-500">*</span>
+                    Registration Deadline{" "}
+                    <span className="text-red-500">*</span>
                   </FormLabel>
                   <FormControl>
                     <Input
@@ -380,6 +415,31 @@ export default function EventForm({
                 </FormItem>
               )}
             />
+          </div>
+
+          {/* Location Picker */}
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium mb-3">
+              <MapPin className="h-4 w-4 text-primary" />
+              Event Location on Map
+              <span className="text-slate-400 font-normal text-xs">
+                (optional)
+              </span>
+            </label>
+            <LocationPicker
+              latitude={pickedCoords?.lat}
+              longitude={pickedCoords?.lng}
+              onCoordinates={(lat, lng) => setPickedCoords({ lat, lng })}
+            />
+            {pickedCoords && (
+              <button
+                type="button"
+                onClick={() => setPickedCoords(null)}
+                className="mt-2 text-xs text-red-400 hover:text-red-600 transition-colors"
+              >
+                Clear location
+              </button>
+            )}
           </div>
 
           {/* Category & College */}
@@ -448,6 +508,86 @@ export default function EventForm({
               )}
             />
           </div>
+
+          {/* Inter-College toggle */}
+          <FormField
+            control={form.control}
+            name="isInterCollege"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-800">
+                <div className="space-y-0.5">
+                  <FormLabel className="flex items-center gap-2 text-base">
+                    <Globe2 className="h-4 w-4 text-teal-500" />
+                    Inter-College Event
+                  </FormLabel>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Allow students from partner colleges to register
+                  </p>
+                </div>
+                <FormControl>
+                  <Switch
+                    checked={field.value ?? false}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+
+          {/* Partner colleges — only when isInterCollege is true */}
+          {form.watch("isInterCollege") && (
+            <FormField
+              control={form.control}
+              name="partnerCollegeIds"
+              render={({ field }) => {
+                const hostCollegeId = form.watch("collegeId");
+                const available = colleges.filter(
+                  (c) => (c.id || c._id) !== hostCollegeId,
+                );
+                const selected: string[] = field.value ?? [];
+                const toggle = (id: string) => {
+                  const next = selected.includes(id)
+                    ? selected.filter((x) => x !== id)
+                    : [...selected, id];
+                  field.onChange(next);
+                };
+                return (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-teal-500" />
+                      Partner Colleges
+                      <span className="text-slate-400 font-normal text-xs">
+                        (optional)
+                      </span>
+                    </FormLabel>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 max-h-52 overflow-y-auto">
+                      {available.length === 0 && (
+                        <p className="text-sm text-slate-400 col-span-2">
+                          No other colleges available
+                        </p>
+                      )}
+                      {available.map((c) => {
+                        const cid = c.id || c._id || "";
+                        return (
+                          <label
+                            key={cid}
+                            className="flex items-center gap-2 text-sm cursor-pointer select-none"
+                          >
+                            <Checkbox
+                              checked={selected.includes(cid)}
+                              onCheckedChange={() => toggle(cid)}
+                            />
+                            {c.name}
+                          </label>
+                        );
+                      })}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
+            />
+          )}
 
           {/* Submit */}
           <div className="flex gap-4 pt-4">

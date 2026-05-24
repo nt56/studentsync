@@ -54,6 +54,10 @@ export const createEventSchema = z.object({
     .default("other"),
 
   image: z.string().optional(),
+  latitude: z.number().optional().nullable(),
+  longitude: z.number().optional().nullable(),
+  isInterCollege: z.boolean().optional().default(false),
+  partnerCollegeIds: z.array(z.string()).optional().default([]),
 });
 
 /**
@@ -88,6 +92,7 @@ export const eventQuerySchema = z.object({
   search: z.string().optional(),
   sortBy: z.enum(["date", "createdAt", "title"]).default("date"),
   sortOrder: z.enum(["asc", "desc"]).default("asc"),
+  isInterCollege: z.coerce.boolean().optional(),
 });
 
 export type CreateEventInput = z.infer<typeof createEventSchema>;

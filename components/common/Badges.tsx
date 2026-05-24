@@ -94,3 +94,14 @@ export function RoleBadge({ role }: { role: string }) {
     </Badge>
   );
 }
+
+export function InterCollegeBadge() {
+  return (
+    <Badge
+      variant="outline"
+      className="text-[10px] font-bold uppercase tracking-wider border bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border-teal-200 dark:border-teal-800"
+    >
+      Inter-College
+    </Badge>
+  );
+}

@@ -113,25 +113,17 @@ export function SignInForm() {
   };
 
   return (
-    <div className="relative min-h-screen px-4 py-8 sm:px-6">
-      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden opacity-50">
-        <div className="absolute left-[-10%] top-[-10%] h-[34rem] w-[34rem] rounded-full bg-primary/12 blur-[160px]" />
-        <div className="absolute bottom-[-12%] right-[-8%] h-[28rem] w-[28rem] rounded-full bg-teal-400/12 blur-[160px]" />
-      </div>
-
-      <div className="mx-auto grid max-w-6xl overflow-hidden rounded-[36px] border border-white/60 bg-white/45 shadow-[0_40px_120px_-48px_rgba(12,20,33,0.45)] backdrop-blur-xl xl:grid-cols-[0.95fr_1.05fr] dark:border-white/10 dark:bg-slate-950/25">
-        <div className="relative hidden overflow-hidden bg-slate-950 px-10 py-12 text-white xl:flex xl:flex-col xl:justify-between">
-          <div className="absolute left-0 top-0 h-40 w-40 rounded-full bg-primary/20 blur-3xl" />
-          <div className="absolute bottom-0 right-0 h-48 w-48 rounded-full bg-teal-400/20 blur-3xl" />
-
-          <div className="relative">
+    <div className="min-h-screen px-4 py-8 sm:px-6">
+      <div className="mx-auto grid max-w-6xl overflow-hidden rounded-3xl border border-border bg-background/88 shadow-[0_24px_60px_-40px_rgba(15,23,42,0.35)] backdrop-blur xl:grid-cols-[0.95fr_1.05fr]">
+        <div className="hidden border-r border-white/10 bg-slate-950 px-10 py-10 text-white xl:flex xl:flex-col xl:justify-between">
+          <div>
             <div className="flex items-center gap-3">
               <Image
                 src="/logo.jpg"
                 alt="CollegeEventAggregator Logo"
                 width={48}
                 height={48}
-                className="rounded-2xl ring-1 ring-white/20"
+                className="rounded-xl ring-1 ring-white/15"
               />
               <div>
                 <p className="font-display text-2xl font-bold leading-none text-white">
@@ -143,9 +135,9 @@ export function SignInForm() {
               </div>
             </div>
 
-            <div className="mt-10 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-white/75 backdrop-blur-xl">
+            <div className="mt-10 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/75">
               <Sparkles className="h-3.5 w-3.5 text-primary" />
-              Premium campus access
+              Welcome back
             </div>
             <h2 className="mt-6 text-5xl font-bold leading-[0.96] text-white">
               Pick up where your campus momentum left off.
@@ -160,10 +152,10 @@ export function SignInForm() {
               {signInHighlights.map((item) => (
                 <div
                   key={item.title}
-                  className="rounded-[26px] border border-white/12 bg-white/8 p-5 backdrop-blur-xl"
+                  className="rounded-2xl border border-white/10 bg-white/5 p-5"
                 >
                   <div className="flex items-start gap-4">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-white/10 text-primary">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 text-primary">
                       <item.icon className="h-5 w-5" />
                     </div>
                     <div>
@@ -180,15 +172,15 @@ export function SignInForm() {
             </div>
           </div>
 
-          <div className="relative grid grid-cols-2 gap-4 mt-4">
-            <div className="rounded-[24px] border border-white/12 bg-white/8 p-5 backdrop-blur-xl">
+          <div className="grid grid-cols-2 gap-4 mt-4">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
               <p className="text-xs uppercase tracking-[0.18em] text-white/60">
                 Students
               </p>
               <p className="mt-2 text-3xl font-bold">1-click</p>
               <p className="mt-2 text-sm text-white/65">Registration flow</p>
             </div>
-            <div className="rounded-[24px] border border-white/12 bg-white/8 p-5 backdrop-blur-xl">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
               <p className="text-xs uppercase tracking-[0.18em] text-white/60">
                 Teams
               </p>
@@ -207,7 +199,7 @@ export function SignInForm() {
               alt="CollegeEventAggregator Logo"
               width={44}
               height={44}
-              className="rounded-2xl ring-1 ring-white/60"
+              className="rounded-xl ring-1 ring-border/80"
             />
             <div>
               <p className="font-display text-xl font-bold leading-none text-foreground">
@@ -333,13 +325,13 @@ export function SignInForm() {
             </Button>
           </form>
 
-          <div className="mt-6 rounded-[28px] border border-white/60 bg-white/70 p-5 shadow-[0_18px_40px_-28px_rgba(12,20,33,0.28)] backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
+          <div className="mt-6 rounded-2xl border border-border bg-secondary/55 p-5 shadow-sm">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-white/60 dark:border-white/10" />
+                <div className="w-full border-t border-border" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white/95 px-3 font-medium tracking-wide text-slate-400 dark:bg-slate-950/95 dark:text-slate-500">
+                <span className="bg-background px-3 font-medium tracking-wide text-slate-400 dark:bg-card dark:text-slate-500">
                   Or continue with
                 </span>
               </div>
@@ -409,7 +401,7 @@ export function SignInForm() {
             </div>
           </div>
 
-          <div className="mt-8 border-t border-white/60 pt-6 text-center dark:border-white/10">
+          <div className="mt-8 border-t border-border pt-6 text-center">
             <p className="text-sm text-slate-600 dark:text-slate-300">
               Don&apos;t have an account?{" "}
               <Link

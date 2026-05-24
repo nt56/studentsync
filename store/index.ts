@@ -5,6 +5,8 @@ import registrationsReducer from "./slices/registrationsSlice";
 import collegesReducer from "./slices/collegesSlice";
 import usersReducer from "./slices/usersSlice";
 import notificationsReducer from "./slices/notificationsSlice";
+import chatReducer from "./slices/chatSlice";
+import analyticsReducer from "./slices/analyticsSlice";
 
 export const store = configureStore({
   reducer: {
@@ -14,6 +16,8 @@ export const store = configureStore({
     colleges: collegesReducer,
     users: usersReducer,
     notifications: notificationsReducer,
+    chat: chatReducer,
+    analytics: analyticsReducer,
   },
 });
 

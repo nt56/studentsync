@@ -70,6 +70,40 @@ const EventSchema = new Schema(
       trim: true,
       default: null,
     },
+
+    latitude: {
+      type: Number,
+      default: null,
+    },
+
+    longitude: {
+      type: Number,
+      default: null,
+    },
+
+    averageRating: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 5,
+    },
+
+    reviewCount: {
+      type: Number,
+      default: 0,
+    },
+
+    isInterCollege: {
+      type: Boolean,
+      default: false,
+    },
+
+    partnerCollegeIds: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "College",
+      },
+    ],
   },
   {
     timestamps: true,

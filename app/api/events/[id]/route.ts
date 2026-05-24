@@ -135,6 +135,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         validatedData.collegeId,
       );
     }
+    if (validatedData.partnerCollegeIds !== undefined) {
+      updateData.partnerCollegeIds = validatedData.partnerCollegeIds.map(
+        (cid) => new mongoose.Types.ObjectId(cid),
+      );
+    }
 
     const updatedEvent = await Event.findByIdAndUpdate(id, updateData, {
       new: true,

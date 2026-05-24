@@ -48,84 +48,84 @@
 }
 
 :root {
-  --radius: 1.5rem;
-  --background: #f6efe4;
-  --foreground: #10243f;
-  --card: #fff8f0;
-  --card-foreground: #10243f;
-  --popover: rgba(255, 250, 245, 0.96);
-  --popover-foreground: #10243f;
-  --primary: #ff6b35;
-  --primary-foreground: #fffaf5;
-  --secondary: #dfeef5;
-  --secondary-foreground: #10243f;
-  --muted: #ebe0d1;
-  --muted-foreground: #5a6778;
-  --accent: #d8f3ec;
-  --accent-foreground: #113844;
-  --destructive: #d94831;
-  --border: rgba(16, 36, 63, 0.12);
-  --input: rgba(255, 255, 255, 0.74);
-  --ring: rgba(255, 107, 53, 0.35);
-  --chart-1: #ff6b35;
-  --chart-2: #1f9d8b;
-  --chart-3: #e7a83b;
-  --chart-4: #0e7490;
-  --chart-5: #d46b2f;
-  --sidebar: rgba(255, 250, 245, 0.84);
-  --sidebar-foreground: #10243f;
-  --sidebar-primary: #10243f;
-  --sidebar-primary-foreground: #fffaf5;
-  --sidebar-accent: rgba(216, 243, 236, 0.7);
-  --sidebar-accent-foreground: #113844;
-  --sidebar-border: rgba(16, 36, 63, 0.1);
-  --sidebar-ring: rgba(255, 107, 53, 0.4);
-  --surface: rgba(255, 250, 245, 0.74);
-  --surface-strong: rgba(255, 255, 255, 0.9);
-  --surface-border: rgba(255, 255, 255, 0.62);
-  --headline-start: #10243f;
-  --headline-mid: #1f9d8b;
-  --headline-end: #ff6b35;
+  --radius: 1.125rem;
+  --background: #f4f7fb;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: rgba(255, 255, 255, 0.98);
+  --popover-foreground: #0f172a;
+  --primary: #2563eb;
+  --primary-foreground: #eff6ff;
+  --secondary: #edf2f7;
+  --secondary-foreground: #1e293b;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #e8efff;
+  --accent-foreground: #1d4ed8;
+  --destructive: #dc2626;
+  --border: rgba(148, 163, 184, 0.22);
+  --input: #ffffff;
+  --ring: rgba(37, 99, 235, 0.24);
+  --chart-1: #2563eb;
+  --chart-2: #0f766e;
+  --chart-3: #d97706;
+  --chart-4: #0891b2;
+  --chart-5: #be185d;
+  --sidebar: rgba(255, 255, 255, 0.94);
+  --sidebar-foreground: #0f172a;
+  --sidebar-primary: #0f172a;
+  --sidebar-primary-foreground: #f8fafc;
+  --sidebar-accent: rgba(232, 239, 255, 0.95);
+  --sidebar-accent-foreground: #1d4ed8;
+  --sidebar-border: rgba(148, 163, 184, 0.2);
+  --sidebar-ring: rgba(37, 99, 235, 0.3);
+  --surface: rgba(255, 255, 255, 0.82);
+  --surface-strong: rgba(255, 255, 255, 0.94);
+  --surface-border: rgba(226, 232, 240, 0.9);
+  --headline-start: #0f172a;
+  --headline-mid: #1d4ed8;
+  --headline-end: #3b82f6;
 }
 
 .dark {
-  --background: #07121e;
-  --foreground: #edf3ff;
-  --card: #0f1d31;
-  --card-foreground: #edf3ff;
-  --popover: rgba(9, 18, 31, 0.96);
-  --popover-foreground: #edf3ff;
-  --primary: #ff935c;
-  --primary-foreground: #08121f;
-  --secondary: #14243a;
-  --secondary-foreground: #edf3ff;
-  --muted: #102034;
-  --muted-foreground: #9fb0c6;
-  --accent: #11343a;
-  --accent-foreground: #bbfff0;
-  --destructive: #f2664b;
-  --border: rgba(196, 223, 255, 0.14);
-  --input: rgba(15, 29, 49, 0.74);
-  --ring: rgba(255, 147, 92, 0.45);
-  --chart-1: #ff935c;
-  --chart-2: #50dac3;
-  --chart-3: #ffca67;
-  --chart-4: #7dd3fc;
-  --chart-5: #ff7f50;
-  --sidebar: rgba(7, 18, 31, 0.84);
-  --sidebar-foreground: #edf3ff;
-  --sidebar-primary: #edf3ff;
-  --sidebar-primary-foreground: #08121f;
-  --sidebar-accent: rgba(19, 52, 58, 0.72);
-  --sidebar-accent-foreground: #bbfff0;
-  --sidebar-border: rgba(196, 223, 255, 0.08);
-  --sidebar-ring: rgba(255, 147, 92, 0.35);
-  --surface: rgba(7, 18, 31, 0.72);
-  --surface-strong: rgba(15, 29, 49, 0.9);
-  --surface-border: rgba(196, 223, 255, 0.08);
-  --headline-start: #f7f9ff;
-  --headline-mid: #74e0cb;
-  --headline-end: #ff935c;
+  --background: #0b1220;
+  --foreground: #e5eef9;
+  --card: #111a2c;
+  --card-foreground: #e5eef9;
+  --popover: rgba(15, 23, 42, 0.98);
+  --popover-foreground: #e5eef9;
+  --primary: #60a5fa;
+  --primary-foreground: #08111f;
+  --secondary: #162033;
+  --secondary-foreground: #e5eef9;
+  --muted: #131d30;
+  --muted-foreground: #94a3b8;
+  --accent: #172554;
+  --accent-foreground: #bfdbfe;
+  --destructive: #f87171;
+  --border: rgba(148, 163, 184, 0.18);
+  --input: rgba(15, 23, 42, 0.98);
+  --ring: rgba(96, 165, 250, 0.28);
+  --chart-1: #60a5fa;
+  --chart-2: #2dd4bf;
+  --chart-3: #fbbf24;
+  --chart-4: #38bdf8;
+  --chart-5: #fb7185;
+  --sidebar: rgba(11, 18, 32, 0.92);
+  --sidebar-foreground: #e5eef9;
+  --sidebar-primary: #e5eef9;
+  --sidebar-primary-foreground: #08111f;
+  --sidebar-accent: rgba(23, 37, 84, 0.92);
+  --sidebar-accent-foreground: #bfdbfe;
+  --sidebar-border: rgba(148, 163, 184, 0.14);
+  --sidebar-ring: rgba(96, 165, 250, 0.24);
+  --surface: rgba(17, 26, 44, 0.82);
+  --surface-strong: rgba(17, 26, 44, 0.94);
+  --surface-border: rgba(30, 41, 59, 0.9);
+  --headline-start: #f8fbff;
+  --headline-mid: #93c5fd;
+  --headline-end: #60a5fa;
 }
 
 @layer base {
@@ -139,18 +139,13 @@
     @apply bg-background text-foreground;
     min-height: 100vh;
     background-image:
+      radial-gradient(circle at top, rgba(37, 99, 235, 0.11), transparent 34%),
       radial-gradient(
-        circle at top left,
-        rgba(255, 107, 53, 0.18),
-        transparent 28%
+        circle at right top,
+        rgba(15, 23, 42, 0.05),
+        transparent 18%
       ),
-      radial-gradient(
-        circle at top right,
-        rgba(31, 157, 139, 0.14),
-        transparent 22%
-      ),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.25), transparent 22%),
-      linear-gradient(180deg, #fbf6ef 0%, #f6efe4 42%, #eee2d4 100%);
+      linear-gradient(180deg, #f8fafc 0%, #f4f7fb 46%, #eef3f9 100%);
     font-family: var(--font-jakarta), sans-serif;
     font-feature-settings:
       "liga" 1,
@@ -178,25 +173,20 @@
       opacity 180ms ease;
   }
   ::selection {
-    background: rgba(255, 107, 53, 0.22);
+    background: rgba(37, 99, 235, 0.2);
     color: var(--foreground);
   }
 }
 
 .dark body {
   background-image:
+    radial-gradient(circle at top, rgba(96, 165, 250, 0.14), transparent 30%),
     radial-gradient(
-      circle at top left,
-      rgba(255, 147, 92, 0.16),
+      circle at right top,
+      rgba(15, 23, 42, 0.78),
       transparent 24%
     ),
-    radial-gradient(
-      circle at top right,
-      rgba(80, 218, 195, 0.12),
-      transparent 18%
-    ),
-    linear-gradient(180deg, rgba(125, 211, 252, 0.04), transparent 24%),
-    linear-gradient(180deg, #091523 0%, #07121e 48%, #08101a 100%);
+    linear-gradient(180deg, #0f172a 0%, #0b1220 52%, #080e1a 100%);
 }
 
 body::before {
@@ -205,39 +195,41 @@ body::before {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.12) 1px, transparent 1px);
-  background-size: 72px 72px;
-  mask-image: radial-gradient(circle at center, black 32%, transparent 82%);
-  opacity: 0.18;
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.5),
+    transparent 22%
+  );
+  opacity: 0.8;
 }
 
 .dark body::before {
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-image: linear-gradient(
+    180deg,
+    rgba(148, 163, 184, 0.08),
+    transparent 20%
+  );
 }
 
 .surface-card {
   background: var(--surface);
   border: 1px solid var(--surface-border);
-  box-shadow: 0 28px 90px -42px rgba(12, 20, 33, 0.28);
-  backdrop-filter: blur(18px);
+  box-shadow: 0 18px 40px -30px rgba(15, 23, 42, 0.22);
+  backdrop-filter: blur(10px);
 }
 
 .surface-card-strong {
   background: var(--surface-strong);
   border: 1px solid var(--surface-border);
-  box-shadow: 0 28px 90px -42px rgba(12, 20, 33, 0.34);
-  backdrop-filter: blur(18px);
+  box-shadow: 0 22px 52px -34px rgba(15, 23, 42, 0.28);
+  backdrop-filter: blur(12px);
 }
 
 .text-gradient {
   background-image: linear-gradient(
-    135deg,
+    140deg,
     var(--headline-start) 0%,
-    var(--headline-mid) 48%,
+    var(--headline-mid) 52%,
     var(--headline-end) 100%
   );
   -webkit-background-clip: text;
@@ -247,7 +239,7 @@ body::before {
 
 .section-eyebrow {
   font-family: var(--font-space-grotesk), sans-serif;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
 }
 

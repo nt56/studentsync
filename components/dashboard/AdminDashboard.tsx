@@ -14,6 +14,7 @@ import {
   Activity,
   ArrowRight,
 } from "lucide-react";
+import AdminAnalyticsSection from "@/components/dashboard/analytics/AdminAnalyticsSection";
 
 export default function AdminDashboard() {
   const dispatch = useAppDispatch();
@@ -152,6 +153,8 @@ export default function AdminDashboard() {
           </div>
         </Link>
       </div>
+
+      <AdminAnalyticsSection />
     </div>
   );
 }

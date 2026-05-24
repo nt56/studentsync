@@ -24,6 +24,7 @@ import {
   Building2,
   Filter,
   CalendarCheck2,
+  Globe2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -69,6 +70,7 @@ function BrowseEventsContent() {
   const [category, setCategory] = useState("");
   const [status, setStatus] = useState("upcoming");
   const [collegeId, setCollegeId] = useState("");
+  const [isInterCollege, setIsInterCollege] = useState(false);
   const [page, setPage] = useState(1);
   const deferredSearch = useDeferredValue(search);
 
@@ -81,9 +83,21 @@ function BrowseEventsContent() {
     if (deferredSearch.trim()) params.search = deferredSearch.trim();
     if (category) params.category = category;
     if (status) params.status = status;
-    if (collegeId) params.collegeId = collegeId;
+    if (isInterCollege) {
+      params.isInterCollege = "true";
+    } else if (collegeId) {
+      params.collegeId = collegeId;
+    }
     dispatch(fetchEvents(params));
-  }, [dispatch, page, deferredSearch, category, status, collegeId]);
+  }, [
+    dispatch,
+    page,
+    deferredSearch,
+    category,
+    status,
+    collegeId,
+    isInterCollege,
+  ]);
 
   useEffect(() => {
     loadEvents();
@@ -98,29 +112,29 @@ function BrowseEventsContent() {
     setCategory("");
     setStatus("upcoming");
     setCollegeId("");
+    setIsInterCollege(false);
     setPage(1);
   };
 
   const hasActiveFilters =
-    search || category || status !== "upcoming" || collegeId;
+    search || category || status !== "upcoming" || collegeId || isInterCollege;
   const activeFilterCount = [
     Boolean(search.trim()),
     Boolean(category),
     status !== "upcoming",
     Boolean(collegeId),
+    isInterCollege,
   ].filter(Boolean).length;
   const filterControlClassName =
-    "h-12 w-full rounded-2xl border border-white/60 bg-white/80 px-4 text-sm shadow-[0_18px_40px_-28px_rgba(12,20,33,0.35)] backdrop-blur-xl outline-none transition-all focus:border-primary/30 focus:ring-2 focus:ring-primary/20 dark:border-white/10 dark:bg-white/5";
+    "h-12 w-full rounded-xl border border-input bg-card px-4 text-sm shadow-sm outline-none transition-all focus:border-primary/30 focus:ring-2 focus:ring-primary/20";
 
   return (
     <div className="px-4 py-8 sm:px-6 lg:py-10">
       <div className="mx-auto max-w-7xl">
-        <div className="surface-card-strong relative mb-8 overflow-hidden rounded-[36px] p-6 md:p-8 animate-fade-in-up">
-          <div className="absolute -top-16 right-0 h-44 w-44 rounded-full bg-primary/15 blur-3xl" />
-          <div className="absolute bottom-0 left-0 h-40 w-40 rounded-full bg-teal-400/15 blur-3xl" />
-          <div className="relative grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
+        <div className="surface-card-strong mb-8 rounded-3xl p-6 md:p-8 animate-fade-in-up">
+          <div className="grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/80 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-primary dark:border-white/10 dark:bg-white/5">
+              <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-primary">
                 <Sparkles className="h-3.5 w-3.5" />
                 Curated campus feed
               </div>
@@ -130,26 +144,26 @@ function BrowseEventsContent() {
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-8 text-slate-600 dark:text-slate-300">
                 Explore workshops, festivals, sports, and academic sessions
-                happening across your community with a feed that feels editorial
-                instead of overwhelming.
+                happening across your community with a feed that stays clear
+                even when the list gets busy.
               </p>
               <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-600 dark:text-slate-300">
-                <span className="rounded-full bg-secondary/70 px-4 py-2 font-medium">
+                <span className="rounded-lg bg-secondary px-4 py-2 font-medium">
                   {events.length} events on screen
                 </span>
-                <span className="rounded-full bg-secondary/70 px-4 py-2 font-medium">
+                <span className="rounded-lg bg-secondary px-4 py-2 font-medium">
                   {colleges.length} colleges available
                 </span>
-                <span className="rounded-full bg-secondary/70 px-4 py-2 font-medium">
+                <span className="rounded-lg bg-secondary px-4 py-2 font-medium">
                   {activeFilterCount} active filters
                 </span>
               </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
-              <div className="surface-card rounded-[26px] p-5">
+              <div className="surface-card rounded-2xl p-5">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-primary/10 text-primary">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
                     <CalendarCheck2 className="h-5 w-5" />
                   </div>
                   <div>
@@ -162,9 +176,9 @@ function BrowseEventsContent() {
                   </div>
                 </div>
               </div>
-              <div className="surface-card rounded-[26px] p-5">
+              <div className="surface-card rounded-2xl p-5">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-primary/10 text-primary">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
                     <Building2 className="h-5 w-5" />
                   </div>
                   <div>
@@ -177,9 +191,9 @@ function BrowseEventsContent() {
                   </div>
                 </div>
               </div>
-              <div className="surface-card rounded-[26px] p-5">
+              <div className="surface-card rounded-2xl p-5">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-primary/10 text-primary">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
                     <Filter className="h-5 w-5" />
                   </div>
                   <div>
@@ -196,9 +210,9 @@ function BrowseEventsContent() {
           </div>
         </div>
 
-        <div className="surface-card mb-8 rounded-[30px] p-4 md:p-5 animate-fade-in-up delay-100">
+        <div className="surface-card mb-8 rounded-2xl p-4 md:p-5 animate-fade-in-up delay-100">
           <div className="grid gap-4 md:grid-cols-12">
-            <div className="relative md:col-span-4">
+            <div className="relative md:col-span-3">
               <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 className={`${filterControlClassName} pl-11 pr-4`}
@@ -293,6 +307,22 @@ function BrowseEventsContent() {
 
             <div className="md:col-span-1">
               <Button
+                variant={isInterCollege ? "default" : "outline"}
+                className="h-12 w-full justify-center gap-2"
+                onClick={() => {
+                  setIsInterCollege((prev) => !prev);
+                  if (!isInterCollege) setCollegeId("");
+                  setPage(1);
+                }}
+                title="Inter-College events only"
+              >
+                <Globe2 className="h-4 w-4" />
+                <span className="hidden sm:inline text-xs">Inter-College</span>
+              </Button>
+            </div>
+
+            <div className="md:col-span-1">
+              <Button
                 variant="outline"
                 className="h-12 w-full justify-center"
                 disabled={!hasActiveFilters}
@@ -309,7 +339,7 @@ function BrowseEventsContent() {
               {events.length === 1 ? "" : "s"}
             </span>
             {hasActiveFilters && (
-              <span className="rounded-full bg-secondary/70 px-3 py-1 font-medium text-slate-700 dark:text-slate-200">
+              <span className="rounded-lg bg-secondary px-3 py-1 font-medium text-slate-700 dark:text-slate-200">
                 {activeFilterCount} filter{activeFilterCount === 1 ? "" : "s"}{" "}
                 applied
               </span>
@@ -320,7 +350,7 @@ function BrowseEventsContent() {
         {isLoading ? (
           <EventCardGridSkeleton count={12} />
         ) : events.length === 0 ? (
-          <div className="surface-card-strong rounded-[32px] p-8">
+          <div className="surface-card-strong rounded-2xl p-8">
             <EmptyState
               icon={CalendarX}
               title="No events found"

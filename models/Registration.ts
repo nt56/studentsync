@@ -18,6 +18,21 @@ const RegistrationSchema = new Schema(
       type: Date,
       default: Date.now,
     },
+
+    checkedIn: {
+      type: Boolean,
+      default: false,
+    },
+
+    checkedInAt: {
+      type: Date,
+      default: null,
+    },
+
+    qrToken: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: false,

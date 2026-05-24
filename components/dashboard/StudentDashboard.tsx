@@ -19,6 +19,7 @@ import {
   CalendarX,
   Compass,
 } from "lucide-react";
+import StudentAnalyticsSection from "@/components/dashboard/analytics/StudentAnalyticsSection";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -259,6 +260,8 @@ export default function StudentDashboard() {
         isLoading={cancelling}
         variant="danger"
       />
+
+      <StudentAnalyticsSection />
     </div>
   );
 }

@@ -101,7 +101,7 @@ const signUpHighlights = [
 ];
 
 const COLLEGE_SEARCH_RESULT_CLASSNAME =
-  "w-full rounded-2xl px-4 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-secondary/70 dark:text-slate-200 dark:hover:bg-white/10";
+  "w-full rounded-xl px-4 py-2.5 text-left text-sm text-slate-700 transition-colors hover:bg-secondary dark:text-slate-200 dark:hover:bg-secondary";
 
 export function SignUpForm() {
   const { register: registerUser } = useAuth();
@@ -185,25 +185,17 @@ export function SignUpForm() {
   );
 
   return (
-    <div className="relative min-h-screen px-4 py-8 sm:px-6">
-      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden opacity-50">
-        <div className="absolute left-[-10%] top-[-10%] h-[34rem] w-[34rem] rounded-full bg-primary/12 blur-[160px]" />
-        <div className="absolute bottom-[-12%] right-[-8%] h-[30rem] w-[30rem] rounded-full bg-teal-400/12 blur-[160px]" />
-      </div>
-
-      <div className="mx-auto grid max-w-7xl overflow-hidden rounded-[36px] border border-white/60 bg-white/45 shadow-[0_40px_120px_-48px_rgba(12,20,33,0.45)] backdrop-blur-xl xl:min-h-[calc(100vh-4rem)] xl:grid-cols-[0.88fr_1.12fr] dark:border-white/10 dark:bg-slate-950/25">
-        <div className="relative hidden overflow-hidden bg-slate-950 px-10 py-12 text-white xl:flex xl:flex-col xl:justify-between">
-          <div className="absolute left-0 top-0 h-40 w-40 rounded-full bg-primary/20 blur-3xl" />
-          <div className="absolute bottom-0 right-0 h-52 w-52 rounded-full bg-teal-400/20 blur-3xl" />
-
-          <div className="relative">
+    <div className="min-h-screen px-4 py-8 sm:px-6">
+      <div className="mx-auto grid max-w-7xl overflow-hidden rounded-3xl border border-border bg-background/88 shadow-[0_24px_60px_-40px_rgba(15,23,42,0.35)] backdrop-blur xl:min-h-[calc(100vh-4rem)] xl:grid-cols-[0.88fr_1.12fr]">
+        <div className="hidden border-r border-white/10 bg-slate-950 px-10 py-10 text-white xl:flex xl:flex-col xl:justify-between">
+          <div>
             <div className="flex items-center gap-3">
               <Image
                 src="/logo.jpg"
                 alt="CollegeEventAggregator Logo"
                 width={48}
                 height={48}
-                className="rounded-2xl ring-1 ring-white/20"
+                className="rounded-xl ring-1 ring-white/15"
               />
               <div>
                 <p className="font-display text-2xl font-bold leading-none text-white">
@@ -215,7 +207,7 @@ export function SignUpForm() {
               </div>
             </div>
 
-            <div className="mt-10 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-white/75 backdrop-blur-xl">
+            <div className="mt-10 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/75">
               <GraduationCap className="h-3.5 w-3.5 text-primary" />
               Student onboarding
             </div>
@@ -231,10 +223,10 @@ export function SignUpForm() {
               {signUpHighlights.map((item) => (
                 <div
                   key={item.title}
-                  className="rounded-[26px] border border-white/12 bg-white/8 p-5 backdrop-blur-xl"
+                  className="rounded-2xl border border-white/10 bg-white/5 p-5"
                 >
                   <div className="flex items-start gap-4">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-white/10 text-primary">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 text-primary">
                       <item.icon className="h-5 w-5" />
                     </div>
                     <div>
@@ -251,7 +243,7 @@ export function SignUpForm() {
             </div>
           </div>
 
-          <div className="relative rounded-[28px] border border-white/12 bg-white/8 p-5 backdrop-blur-xl mt-4">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5 mt-4">
             <p className="text-xs uppercase tracking-[0.18em] text-white/60">
               Why students stay
             </p>
@@ -273,7 +265,7 @@ export function SignUpForm() {
               alt="CollegeEventAggregator Logo"
               width={44}
               height={44}
-              className="rounded-2xl ring-1 ring-white/60"
+              className="rounded-xl ring-1 ring-border/80"
             />
             <div>
               <p className="font-display text-xl font-bold leading-none text-foreground">
@@ -434,7 +426,7 @@ export function SignUpForm() {
                 {!selectedCollegeName &&
                   collegeSearch &&
                   filteredColleges.length > 0 && (
-                    <div className="surface-card-strong relative z-10 mt-2 max-h-48 overflow-y-auto rounded-[22px] p-2">
+                    <div className="surface-card-strong relative z-10 mt-2 max-h-48 overflow-y-auto rounded-xl p-2">
                       {filteredColleges.map((college) => (
                         <button
                           key={college.id || college._id}

@@ -18,7 +18,10 @@ import {
   Pencil,
   Trash2,
   CalendarX,
+  ScanLine,
+  Handshake,
 } from "lucide-react";
+import OrganizerAnalyticsSection from "@/components/dashboard/analytics/OrganizerAnalyticsSection";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -97,6 +100,12 @@ export default function OrganizerDashboard() {
           <Button className="flex items-center gap-2">
             <Plus className="h-4 w-4" />
             Create Event
+          </Button>
+        </Link>
+        <Link href="/dashboard/collaborations">
+          <Button variant="outline" className="flex items-center gap-2">
+            <Handshake className="h-4 w-4" />
+            Collaborations
           </Button>
         </Link>
       </header>
@@ -211,6 +220,14 @@ export default function OrganizerDashboard() {
                               <Pencil className="h-5 w-5" />
                             </button>
                           </Link>
+                          <Link href={`/dashboard/check-in/${eid}`}>
+                            <button
+                              className="text-slate-400 hover:text-green-600 transition-colors pt-2"
+                              title="Check-In Scanner"
+                            >
+                              <ScanLine className="h-5 w-5" />
+                            </button>
+                          </Link>
                           <button
                             className="text-slate-400 hover:text-red-500 transition-colors"
                             onClick={() => setDeleteTarget(eid!)}
@@ -238,6 +255,8 @@ export default function OrganizerDashboard() {
         isLoading={deleting}
         variant="danger"
       />
+
+      <OrganizerAnalyticsSection />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchEventById, clearCurrentEvent } from "@/store/slices/eventsSlice";
@@ -12,6 +13,12 @@ import {
 import { EventDetailSkeleton } from "@/components/common/Skeletons";
 import { EventStatusBadge, CategoryBadge } from "@/components/common/Badges";
 import { Button } from "@/components/ui/button";
+import { ChatPanel } from "@/components/chat/ChatPanel";
+import AddToCalendar from "@/components/events/AddToCalendar";
+import StarRating from "@/components/events/StarRating";
+import ReviewForm from "@/components/events/ReviewForm";
+import ReviewList from "@/components/events/ReviewList";
+import QRCodeDisplay from "@/components/events/QRCodeDisplay";
 import { format, isPast } from "date-fns";
 import {
   Calendar,
@@ -26,6 +33,12 @@ import {
 import Image from "next/image";
 import { toast } from "sonner";
 
+// Leaflet requires browser APIs — SSR must be disabled
+const EventLocationMap = dynamic(
+  () => import("@/components/events/EventLocationMap"),
+  { ssr: false },
+);
+
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -33,6 +46,27 @@ export default function EventDetailPage() {
   const { currentEvent: event, isLoading } = useAppSelector((s) => s.events);
   const { user, isAuthenticated } = useAppSelector((s) => s.auth);
   const { isLoading: regLoading } = useAppSelector((s) => s.registrations);
+  const [reviewRefresh, setReviewRefresh] = useState(0);
+  const [registrationId, setRegistrationId] = useState<string | null>(null);
+
+  // Fetch the student's own registrationId so we can show the QR code
+  useEffect(() => {
+    if (!isAuthenticated || !id || user?.role !== "student") return;
+    async function loadReg() {
+      try {
+        const res = await (
+          await import("@/services/api")
+        ).default.get(`/registrations?eventId=${id}&limit=1`);
+        const items = res.data?.items ?? res.data ?? [];
+        if (Array.isArray(items) && items.length > 0) {
+          setRegistrationId(items[0].id ?? items[0]._id);
+        }
+      } catch {
+        // ignore
+      }
+    }
+    loadReg();
+  }, [id, isAuthenticated, user?.role]);
 
   useEffect(() => {
     if (id) dispatch(fetchEventById(id));
@@ -201,6 +235,71 @@ export default function EventDetailPage() {
               {event.description}
             </div>
           </section>
+
+          {/* Chat */}
+          {isAuthenticated && (
+            <ChatPanel
+              eventId={id}
+              isRegistered={!!event.isRegistered}
+              userMongoId={user?.id}
+              userRole={user?.role ?? "student"}
+            />
+          )}
+
+          {/* Location Map */}
+          {event.latitude != null && event.longitude != null && (
+            <section>
+              <h2 className="text-2xl font-bold mb-4">Event Location</h2>
+              <EventLocationMap
+                latitude={event.latitude}
+                longitude={event.longitude}
+                venue={event.venue}
+                title={event.title}
+              />
+              <p className="text-sm text-slate-500 mt-2 flex items-center gap-1">
+                <MapPin className="h-4 w-4" />
+                {event.venue}
+              </p>
+            </section>
+          )}
+
+          {/* Reviews & Ratings */}
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold">Reviews & Ratings</h2>
+              {(event as any).reviewCount > 0 && (
+                <div className="flex items-center gap-2">
+                  <StarRating
+                    value={Math.round((event as any).averageRating ?? 0)}
+                    readonly
+                    size="sm"
+                  />
+                  <span className="text-sm font-semibold">
+                    {((event as any).averageRating ?? 0).toFixed(1)}
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    ({(event as any).reviewCount} review
+                    {(event as any).reviewCount !== 1 ? "s" : ""})
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {isAuthenticated &&
+              user?.role === "student" &&
+              event.isRegistered &&
+              event.status === "completed" && (
+                <div className="mb-6 p-5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                  <h3 className="text-sm font-semibold mb-3">Write a Review</h3>
+                  <ReviewForm
+                    eventId={id}
+                    onSubmitted={() => setReviewRefresh((n) => n + 1)}
+                  />
+                </div>
+              )}
+
+            <ReviewList eventId={id} refresh={reviewRefresh} />
+          </section>
         </div>
 
         {/* Right Column: Sidebar */}
@@ -217,9 +316,20 @@ export default function EventDetailPage() {
                     Free
                   </span>
                 </div>
-                <button className="p-2 text-slate-400 hover:text-primary transition-colors">
-                  <Share2 className="h-5 w-5" />
-                </button>
+                <div className="flex items-center gap-2">
+                  {event.date && (
+                    <AddToCalendar
+                      eventId={id}
+                      title={event.title}
+                      description={event.description}
+                      location={event.venue}
+                      startDate={event.date}
+                    />
+                  )}
+                  <button className="p-2 text-slate-400 hover:text-primary transition-colors">
+                    <Share2 className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
 
               {/* Capacity Indicator */}
@@ -314,6 +424,19 @@ export default function EventDetailPage() {
                 </div>
               </div>
             </div>
+
+            {/* Student QR Check-in Card */}
+            {isAuthenticated &&
+              user?.role === "student" &&
+              event.isRegistered &&
+              registrationId && (
+                <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                  <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">
+                    Your Check-in QR
+                  </h4>
+                  <QRCodeDisplay registrationId={registrationId} />
+                </div>
+              )}
           </aside>
         </div>
       </div>
