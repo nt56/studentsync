@@ -106,11 +106,11 @@ export async function POST(
       .populate("senderId", "firstName lastName profileImage role")
       .lean();
 
-    // Broadcast via Socket.IO if the custom server is running
+    // Broadcast to all connected clients in the event room via Socket.IO + Redis adapter
     if (globalThis.io) {
-      globalThis.io.to(`event:${eventId}`).emit("new-message", {
-        message: populated,
-      });
+      globalThis.io
+        .to(`event:${eventId}`)
+        .emit("new-message", { message: populated });
     }
 
     return successResponse({ message: populated }, "Message sent", 201);

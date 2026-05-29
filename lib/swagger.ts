@@ -3,8 +3,8 @@ const swaggerSpec = {
   info: {
     title: "College Event Aggregator API",
     description:
-      "REST API for the College Event Aggregator platform. Manage colleges, events, registrations, users, and authentication. Built with Next.js, MongoDB, and Better Auth.",
-    version: "1.0.0",
+      "REST API for the CampusConnect platform. Manage colleges, events, registrations, users, authentication, notifications, and real-time event chat. Built with Next.js, MongoDB, Better Auth, Socket.IO, and Upstash Redis.",
+    version: "2.0.0",
     contact: {
       name: "College Event Aggregator",
     },
@@ -43,6 +43,16 @@ const swaggerSpec = {
     {
       name: "Health",
       description: "Health check endpoints",
+    },
+    {
+      name: "Chat",
+      description:
+        "Event-scoped real-time chat rooms. Each event has one chat room. Only registered students and organizers/admins can send messages.\n\n**WebSocket events** (Socket.IO path: `/api/socket`):\n\n| Event | Direction | Payload | Notes |\n|---|---|---|---|\n| `join-room` | Client → Server | `{ eventId }` | Subscribe to room `event:{id}` |\n| `leave-room` | Client → Server | `{ eventId }` | Unsubscribe from room |\n| `user-typing` | Client → Server | `{ eventId, user }` | Relayed to others in room |\n| `new-message` | Server → Client | `{ message }` | Broadcast after POST send |\n| `message-deleted` | Server → Client | `{ messageId }` | Broadcast after DELETE |\n| `user-typing` | Server → Client | `{ eventId, user }` | Typing relay |\n\n**Infrastructure:** Socket.IO server in `server.ts` with Upstash Redis adapter (`@socket.io/redis-adapter`) for horizontal scaling.",
+    },
+    {
+      name: "Notifications",
+      description:
+        "In-app notifications for users. Stored notifications plus virtual time-based event reminders injected at read time for students.",
     },
   ],
   components: {
@@ -512,6 +522,54 @@ const swaggerSpec = {
             description: "Must be at least 16 years old",
           },
           profileImage: { type: "string", format: "uri" },
+        },
+      },
+
+      // ─── Chat / Message ───────────────────────────────────
+      MessageSender: {
+        type: "object",
+        properties: {
+          _id: { type: "string", example: "665f1a2b3c4d5e6f7a8b9c0d" },
+          firstName: { type: "string", example: "John" },
+          lastName: { type: "string", example: "Doe" },
+          profileImage: { type: "string", nullable: true },
+          role: {
+            type: "string",
+            enum: ["student", "organizer", "admin"],
+            example: "student",
+          },
+        },
+      },
+      Message: {
+        type: "object",
+        properties: {
+          _id: { type: "string", example: "665f1a2b3c4d5e6f7a8b9c0d" },
+          eventId: { type: "string", example: "665f1a2b3c4d5e6f7a8b9c0d" },
+          senderId: { $ref: "#/components/schemas/MessageSender" },
+          content: {
+            type: "string",
+            maxLength: 1000,
+            example: "Looking forward to this event!",
+          },
+          type: {
+            type: "string",
+            enum: ["text", "system"],
+            default: "text",
+          },
+          isDeleted: { type: "boolean", default: false },
+          createdAt: { type: "string", format: "date-time" },
+        },
+      },
+      SendMessageInput: {
+        type: "object",
+        required: ["content"],
+        properties: {
+          content: {
+            type: "string",
+            minLength: 1,
+            maxLength: 1000,
+            example: "Can't wait to attend!",
+          },
         },
       },
 
@@ -2480,6 +2538,397 @@ const swaggerSpec = {
           },
           "500": {
             description: "Internal server error",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    // ═══════════════════════════════════════════════════════
+    //  CHAT
+    // ═══════════════════════════════════════════════════════
+    "/api/events/{id}/messages": {
+      get: {
+        tags: ["Chat"],
+        summary: "Get message history",
+        description:
+          "Returns up to 50 messages for the event room, ordered oldest-first. Supports cursor-based pagination via `before` (ISO timestamp). Requires authentication.",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+            description: "MongoDB ObjectId of the event",
+          },
+          {
+            name: "limit",
+            in: "query",
+            schema: { type: "integer", default: 50, maximum: 100 },
+            description: "Max messages to return",
+          },
+          {
+            name: "before",
+            in: "query",
+            schema: { type: "string", format: "date-time" },
+            description:
+              "Cursor — return messages created before this ISO timestamp (infinite scroll / load-more)",
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Messages retrieved",
+            content: {
+              "application/json": {
+                schema: {
+                  allOf: [
+                    { $ref: "#/components/schemas/SuccessResponse" },
+                    {
+                      type: "object",
+                      properties: {
+                        data: {
+                          type: "object",
+                          properties: {
+                            messages: {
+                              type: "array",
+                              items: { $ref: "#/components/schemas/Message" },
+                            },
+                            hasMore: {
+                              type: "boolean",
+                              description:
+                                "True when more pages exist before the oldest returned message",
+                            },
+                          },
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          "401": {
+            description: "Unauthorized",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          "500": {
+            description: "Internal server error",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ["Chat"],
+        summary: "Send a message",
+        description:
+          "Send a text message to the event chat room. **Students** must be registered for the event. **Organizers and Admins** can always send. After saving to MongoDB the server emits a `new-message` Socket.IO event to all connected clients in the room.",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+            description: "MongoDB ObjectId of the event",
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/SendMessageInput" },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Message sent and broadcasted",
+            content: {
+              "application/json": {
+                schema: {
+                  allOf: [
+                    { $ref: "#/components/schemas/SuccessResponse" },
+                    {
+                      type: "object",
+                      properties: {
+                        data: {
+                          type: "object",
+                          properties: {
+                            message: { $ref: "#/components/schemas/Message" },
+                          },
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          "400": {
+            description: "Empty or too-long content",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          "401": {
+            description: "Unauthorized",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          "403": {
+            description: "Student not registered for this event",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          "500": {
+            description: "Internal server error",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    "/api/messages/{id}": {
+      delete: {
+        tags: ["Chat"],
+        summary: "Delete a message (Organizer/Admin)",
+        description:
+          "Soft-deletes a message (`isDeleted: true`). **Organizers** can only delete messages from events they own. **Admins** can delete any message. After deletion the server emits a `message-deleted` Socket.IO event to the room.",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+            description: "MongoDB ObjectId of the message",
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Message deleted and broadcast sent",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/SuccessResponse" },
+              },
+            },
+          },
+          "401": {
+            description: "Unauthorized",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          "403": {
+            description: "Forbidden — not an organizer/admin, or not their event",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          "404": {
+            description: "Message not found or already deleted",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+          "500": {
+            description: "Internal server error",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    // ═══════════════════════════════════════════════════════
+    //  NOTIFICATIONS
+    // ═══════════════════════════════════════════════════════
+    "/api/notifications": {
+      get: {
+        tags: ["Notifications"],
+        summary: "List notifications",
+        description:
+          "Returns stored notifications sorted newest-first. For students, virtual event-reminder notifications (next 48 h) are injected at read time and do not hit the DB.",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          {
+            name: "limit",
+            in: "query",
+            schema: { type: "integer", default: 30, maximum: 50 },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Notifications retrieved",
+            content: {
+              "application/json": {
+                schema: {
+                  allOf: [
+                    { $ref: "#/components/schemas/SuccessResponse" },
+                    {
+                      type: "object",
+                      properties: {
+                        data: {
+                          type: "object",
+                          properties: {
+                            items: {
+                              type: "array",
+                              items: { type: "object" },
+                            },
+                            unreadCount: { type: "integer" },
+                            total: { type: "integer" },
+                          },
+                        },
+                      },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          "401": {
+            description: "Unauthorized",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+        },
+      },
+      delete: {
+        tags: ["Notifications"],
+        summary: "Clear all notifications",
+        description: "Hard-deletes all stored notifications for the authenticated user.",
+        security: [{ cookieAuth: [] }],
+        responses: {
+          "200": {
+            description: "All notifications cleared",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/SuccessResponse" },
+              },
+            },
+          },
+          "401": {
+            description: "Unauthorized",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    "/api/notifications/{id}": {
+      patch: {
+        tags: ["Notifications"],
+        summary: "Mark one notification as read",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Notification marked as read",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/SuccessResponse" },
+              },
+            },
+          },
+          "404": {
+            description: "Notification not found",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ErrorResponse" },
+              },
+            },
+          },
+        },
+      },
+      delete: {
+        tags: ["Notifications"],
+        summary: "Dismiss one notification",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          {
+            name: "id",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          "200": {
+            description: "Notification dismissed",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/SuccessResponse" },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    "/api/notifications/mark-all-read": {
+      post: {
+        tags: ["Notifications"],
+        summary: "Mark all notifications as read",
+        security: [{ cookieAuth: [] }],
+        responses: {
+          "200": {
+            description: "All notifications marked as read",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/SuccessResponse" },
+              },
+            },
+          },
+          "401": {
+            description: "Unauthorized",
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/ErrorResponse" },

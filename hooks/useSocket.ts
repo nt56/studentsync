@@ -18,7 +18,15 @@ export function useEventChat(eventId: string | null) {
   useEffect(() => {
     if (!eventId) return;
 
-    const socket = io({ path: "/api/socket", addTrailingSlash: false });
+    const socket = io({
+      path: "/api/socket",
+      addTrailingSlash: false,
+      // Reconnection strategy — matches the guide's pattern
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 10000,
+    });
     socketRef.current = socket;
 
     socket.on("connect", () => {
@@ -28,6 +36,11 @@ export function useEventChat(eventId: string | null) {
 
     socket.on("disconnect", () => {
       setIsConnected(false);
+    });
+
+    socket.on("reconnect", () => {
+      // Re-join the room after reconnect
+      socket.emit("join-room", { eventId });
     });
 
     socket.on("new-message", ({ message }: { message: ChatMessage }) => {
@@ -42,6 +55,7 @@ export function useEventChat(eventId: string | null) {
       "user-typing",
       ({ user }: { eventId: string; user: string }) => {
         dispatch(setTypingUser({ user, isTyping: true }));
+        // Clear typing indicator after 3 seconds of silence
         setTimeout(() => {
           dispatch(setTypingUser({ user, isTyping: false }));
         }, 3000);

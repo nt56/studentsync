@@ -2,6 +2,8 @@ import { createServer } from "http";
 import { parse } from "url";
 import next from "next";
 import { Server as SocketIOServer } from "socket.io";
+import { createAdapter } from "@socket.io/redis-adapter";
+import Redis from "ioredis";
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = process.env.HOSTNAME || "localhost";
@@ -27,7 +29,26 @@ async function main() {
     addTrailingSlash: false,
   });
 
-  // Expose io to API routes via global
+  // Redis adapter — lets multiple server instances share socket rooms via Upstash pub/sub
+  const redisUrl = process.env.REDIS_URL;
+  if (redisUrl) {
+    const pubClient = new Redis(redisUrl);
+    const subClient = new Redis(redisUrl);
+
+    pubClient.on("error", (err) =>
+      console.error("Redis pub client error:", err),
+    );
+    subClient.on("error", (err) =>
+      console.error("Redis sub client error:", err),
+    );
+
+    io.adapter(createAdapter(pubClient, subClient));
+    console.log("> Socket.IO connected to Redis adapter (Upstash)");
+  } else {
+    console.warn("> REDIS_URL not set — running without Redis adapter (single instance only)");
+  }
+
+  // Expose io to REST API route handlers
   globalThis.io = io;
 
   io.on("connection", (socket) => {
@@ -39,6 +60,7 @@ async function main() {
       socket.leave(`event:${eventId}`);
     });
 
+    // Typing indicator — relay to everyone else in the room
     socket.on(
       "user-typing",
       ({ eventId, user }: { eventId: string; user: string }) => {

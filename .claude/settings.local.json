@@ -13,7 +13,16 @@
       "Bash(Select-Object FullName)",
       "Bash(Get-ChildItem -Path \"d:\\\\Profession\\\\Projects\\\\Full Stack\\\\college-event-aggregator\" -Recurse -Filter \"*.ts\" -o Name)",
       "Bash(node -e ' *)",
-      "Bash(npx next *)"
+      "Bash(npx next *)",
+      "Bash(npm install *)",
+      "Bash(Remove-Item -Recurse -Force \"app/api/pusher\" -ErrorAction SilentlyContinue)",
+      "Bash(Remove-Item -Force \"lib/pusher.ts\" -ErrorAction SilentlyContinue)",
+      "Bash(Remove-Item -Force \"lib/pusher-client.ts\" -ErrorAction SilentlyContinue)",
+      "Bash(Write-Host \"Pusher files removed\")",
+      "Bash(cd \"d:\\\\Profession\\\\Projects\\\\Full Stack\\\\college-event-aggregator\" && rm -rf app/api/pusher lib/pusher.ts lib/pusher-client.ts && echo \"done\")"
+    ],
+    "additionalDirectories": [
+      "d:\\Profession\\Projects\\Full Stack\\college-event-aggregator\\app\\api\\pusher"
     ]
   }
 }

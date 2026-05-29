@@ -7,7 +7,7 @@ import { successResponse, ApiErrors, errorResponse } from "@/lib/api-response";
 
 /**
  * DELETE /api/messages/:id
- * Soft-delete a message. Admins can delete any; organizers can delete from their events only.
+ * Soft-delete a message. Admins can delete any; organizers can delete from their own events only.
  */
 export async function DELETE(
   _request: NextRequest,
@@ -41,6 +41,7 @@ export async function DELETE(
     message.isDeleted = true;
     await message.save();
 
+    // Broadcast deletion to all clients in the room via Socket.IO + Redis adapter
     if (globalThis.io) {
       globalThis.io
         .to(`event:${message.eventId.toString()}`)
