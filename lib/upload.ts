@@ -48,7 +48,7 @@ export async function saveUploadedFile(
 
   // Upload to Cloudinary
   const result = await cloudinary.uploader.upload(dataURI, {
-    folder: `college-event-aggregator/${category}`,
+    folder: `studentsync/${category}`,
     resource_type: "image",
     transformation: [{ quality: "auto", fetch_format: "auto" }],
   });

@@ -119,18 +119,18 @@ export function SignInForm() {
           <div>
             <div className="flex items-center gap-3">
               <Image
-                src="/logo.jpg"
-                alt="CollegeEventAggregator Logo"
+                src="/studenysync-svg.svg"
+                alt="StudentSync Logo"
                 width={48}
                 height={48}
                 className="rounded-xl ring-1 ring-white/15"
               />
               <div>
                 <p className="font-display text-2xl font-bold leading-none text-white">
-                  CollegeEvent
+                  Student
                 </p>
                 <p className="text-xs uppercase tracking-[0.22em] text-primary">
-                  Aggregator
+                  Sync
                 </p>
               </div>
             </div>
@@ -195,18 +195,18 @@ export function SignInForm() {
         <div className="surface-card-strong px-6 py-8 md:px-10 md:py-10">
           <div className="mb-8 flex items-center gap-3 xl:hidden">
             <Image
-              src="/logo.jpg"
-              alt="CollegeEventAggregator Logo"
+              src="/studenysync-svg.svg"
+              alt="StudentSync Logo"
               width={44}
               height={44}
               className="rounded-xl ring-1 ring-border/80"
             />
             <div>
               <p className="font-display text-xl font-bold leading-none text-foreground">
-                CollegeEvent
+                Student
               </p>
               <p className="text-xs uppercase tracking-[0.22em] text-primary">
-                Aggregator
+                Sync
               </p>
             </div>
           </div>
@@ -416,7 +416,7 @@ export function SignInForm() {
       </div>
 
       <footer className="mt-8 text-center text-xs text-slate-500 dark:text-slate-400">
-        <p>&copy; 2026 CollegeEventAggregator. All rights reserved.</p>
+        <p>&copy; 2026 StudentSync. All rights reserved.</p>
       </footer>
     </div>
   );

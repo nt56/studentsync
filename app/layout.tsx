@@ -17,12 +17,12 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "CollegeEventAggregator — College Event Aggregator",
+  title: "StudentSync — Campus Event Platform",
   description:
     "Discover and manage college events across campuses. Browse events, register with a click, and stay connected with your campus community.",
   icons: {
-    icon: "/logo.jpg",
-    apple: "/logo.jpg",
+    icon: "/studenysync-svg.svg",
+    apple: "/studenysync-svg.svg",
   },
 };
 

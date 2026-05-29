@@ -44,7 +44,7 @@ export function Footer() {
               Clean discovery for students. Better control for organizers.
             </h2>
             <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 dark:text-slate-300">
-              CollegeEventAggregator keeps event discovery, registration, and
+              StudentSync keeps event discovery, registration, and
               admin workflows aligned in one interface that feels current
               without being noisy.
             </p>
@@ -69,18 +69,18 @@ export function Footer() {
           <div>
             <div className="mb-6 flex items-center gap-3">
               <Image
-                src="/logo.jpg"
-                alt="CollegeEventAggregator Logo"
+                src="/studenysync-svg.svg"
+                alt="StudentSync Logo"
                 width={44}
                 height={44}
                 className="rounded-xl ring-1 ring-border/80"
               />
               <div>
                 <p className="font-display text-lg font-bold leading-none text-foreground">
-                  CollegeEvent
+                  Student
                 </p>
                 <p className="text-xs uppercase tracking-[0.22em] text-primary">
-                  Aggregator
+                  Sync
                 </p>
               </div>
             </div>
@@ -116,7 +116,7 @@ export function Footer() {
 
         <div className="flex flex-col gap-3 border-t border-border px-6 py-5 text-sm text-slate-500 md:flex-row md:items-center md:justify-between md:px-10 dark:text-slate-400">
           <p>
-            &copy; {new Date().getFullYear()} CollegeEventAggregator. All rights
+            &copy; {new Date().getFullYear()} StudentSync. All rights
             reserved.
           </p>
           <p>

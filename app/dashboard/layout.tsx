@@ -142,17 +142,17 @@ export default function DashboardLayout({
         <Link href="/" onClick={onSelect} className="flex items-center gap-3">
           <Image
             className="h-11 w-11 rounded-xl ring-1 ring-border/80"
-            src="/logo.jpg"
-            alt="Logo"
+            src="/studenysync-svg.svg"
+            alt="StudentSync Logo"
             width={44}
             height={44}
           />
           <div>
             <p className="font-display text-lg font-bold leading-none text-foreground">
-              CollegeEvent
+              Student
             </p>
             <p className="text-xs uppercase tracking-[0.22em] text-primary">
-              Aggregator
+              Sync
             </p>
           </div>
         </Link>

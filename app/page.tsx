@@ -114,7 +114,7 @@ export default function LandingPage() {
             </h1>
 
             <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600 dark:text-slate-300">
-              CollegeEventAggregator gives students a calmer browsing experience
+              StudentSync gives students a calmer browsing experience
               and gives organizers a cleaner control room for the work that
               happens after publish.
             </p>

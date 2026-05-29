@@ -1,12 +1,12 @@
 const swaggerSpec = {
   openapi: "3.0.3",
   info: {
-    title: "College Event Aggregator API",
+    title: "StudentSync API",
     description:
-      "REST API for the CampusConnect platform. Manage colleges, events, registrations, users, authentication, notifications, and real-time event chat. Built with Next.js, MongoDB, Better Auth, Socket.IO, and Upstash Redis.",
+      "REST API for the StudentSync platform. Manage colleges, events, registrations, users, authentication, notifications, and real-time event chat. Built with Next.js, MongoDB, Better Auth, Socket.IO, and Upstash Redis.",
     version: "2.0.0",
     contact: {
-      name: "College Event Aggregator",
+      name: "StudentSync",
     },
   },
   servers: [

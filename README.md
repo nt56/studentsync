@@ -1,4 +1,4 @@
-# 🎓 College Event Aggregator
+# 🎓 StudentSync
 
 A centralized SaaS platform where colleges publish events and students discover, register, and participate — all from one place. Built to solve the problem of fragmented event information across colleges.
 
@@ -6,7 +6,7 @@ A centralized SaaS platform where colleges publish events and students discover,
 
 ## 📖 About the Project
 
-College students often miss events because information is scattered across WhatsApp groups, notice boards, Instagram pages, and college websites. **College Event Aggregator** is a unified platform that brings all college events into a single, browsable, and searchable hub.
+College students often miss events because information is scattered across WhatsApp groups, notice boards, Instagram pages, and college websites. **StudentSync** is a unified platform that brings all college events into a single, browsable, and searchable hub.
 
 **Key goals:**
 

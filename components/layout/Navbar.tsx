@@ -73,17 +73,17 @@ export function Navbar() {
         <Link href="/" className="flex shrink-0 items-center gap-3">
           <Image
             className="rounded-xl ring-1 ring-border/80"
-            src="/logo.jpg"
-            alt="Logo"
+            src="/studenysync-svg.svg"
+            alt="StudentSync Logo"
             width={44}
             height={44}
           />
           <div>
             <p className="font-display text-lg font-bold leading-none text-foreground">
-              CollegeEvent
+              Student
             </p>
             <p className="text-xs uppercase tracking-[0.24em] text-primary">
-              Aggregator
+              Sync
             </p>
           </div>
         </Link>
@@ -228,17 +228,17 @@ export function Navbar() {
                   <div className="flex items-center gap-3">
                     <Image
                       className="rounded-xl ring-1 ring-border/80"
-                      src="/logo.jpg"
-                      alt="Logo"
+                      src="/studenysync-svg.svg"
+                      alt="StudentSync Logo"
                       width={42}
                       height={42}
                     />
                     <div>
                       <p className="font-display text-lg font-bold leading-none">
-                        CollegeEvent
+                        Student
                       </p>
                       <p className="text-xs uppercase tracking-[0.22em] text-primary">
-                        Aggregator
+                        Sync
                       </p>
                     </div>
                   </div>

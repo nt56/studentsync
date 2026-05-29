@@ -51,7 +51,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       title: event.title,
       description: event.description,
       location: event.venue,
-      uid: `${event._id.toString()}@college-events`,
+      uid: `${event._id.toString()}@studentsync`,
       url: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/events/${event._id.toString()}`,
     });
 
