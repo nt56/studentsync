@@ -7,6 +7,7 @@ import { requireOrganizer } from "@/lib/auth-guard";
 import { successResponse, ApiErrors } from "@/lib/api-response";
 import { z } from "zod";
 import mongoose from "mongoose";
+import { sendCollaborationInviteEmail } from "@/lib/email";
 
 const sendInviteSchema = z.object({
   eventId: z.string().min(1),
@@ -133,6 +134,26 @@ export async function POST(request: NextRequest) {
         requesterId: new mongoose.Types.ObjectId(requesterId),
         targetOrganizerId: new mongoose.Types.ObjectId(targetOrganizerId),
       });
+
+      // Fire-and-forget: email the target organizer about the invite
+      User.findById(requesterId)
+        .select("firstName lastName")
+        .lean<{ firstName: string; lastName: string }>()
+        .then((requester) => {
+          if (!requester || !targetUser?.email) return;
+          sendCollaborationInviteEmail(
+            targetUser.email as string,
+            `${targetUser.firstName as string} ${targetUser.lastName as string}`,
+            `${requester.firstName} ${requester.lastName}`,
+            {
+              id: (event as { _id: { toString(): string } })._id.toString(),
+              title: (event as { title: string }).title,
+              date: (event as { date: Date }).date,
+              venue: (event as { venue: string }).venue,
+            },
+          );
+        })
+        .catch(() => {});
 
       return successResponse(
         { id: collab._id.toString(), status: collab.status },

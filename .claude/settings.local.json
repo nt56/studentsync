@@ -19,7 +19,12 @@
       "Bash(Remove-Item -Force \"lib/pusher.ts\" -ErrorAction SilentlyContinue)",
       "Bash(Remove-Item -Force \"lib/pusher-client.ts\" -ErrorAction SilentlyContinue)",
       "Bash(Write-Host \"Pusher files removed\")",
-      "Bash(cd \"d:\\\\Profession\\\\Projects\\\\Full Stack\\\\college-event-aggregator\" && rm -rf app/api/pusher lib/pusher.ts lib/pusher-client.ts && echo \"done\")"
+      "Bash(cd \"d:\\\\Profession\\\\Projects\\\\Full Stack\\\\college-event-aggregator\" && rm -rf app/api/pusher lib/pusher.ts lib/pusher-client.ts && echo \"done\")",
+      "Bash(Get-ChildItem -Directory)",
+      "Bash(Select-Object -ExpandProperty Name)",
+      "Bash(npm uninstall *)",
+      "Bash(npx prettier *)",
+      "Bash(echo \"EXIT:$?\")"
     ],
     "additionalDirectories": [
       "d:\\Profession\\Projects\\Full Stack\\college-event-aggregator\\app\\api\\pusher"

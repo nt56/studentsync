@@ -9,6 +9,7 @@ import {
   EventStatusBadge,
   InterCollegeBadge,
 } from "@/components/common/Badges";
+import { BookmarkButton } from "@/components/events/BookmarkButton";
 import { MapPin, Users, Calendar } from "lucide-react";
 import type { EventItem } from "@/store/slices/eventsSlice";
 
@@ -43,7 +44,12 @@ export function EventCard({ event }: EventCardProps) {
           </div>
         )}
         {event.status && (
-          <div className="absolute top-4 right-4 z-20">
+          <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5">
+            <BookmarkButton
+              eventId={eventId as string}
+              size="sm"
+              className="rounded-lg border border-white/60 bg-white/85 text-slate-600 hover:text-primary dark:border-border dark:bg-slate-950/80 shadow-sm"
+            />
             <EventStatusBadge status={event.status} />
           </div>
         )}

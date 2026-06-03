@@ -6,6 +6,7 @@ import { requireOrganizer } from "@/lib/auth-guard";
 import { successResponse, ApiErrors } from "@/lib/api-response";
 import { z } from "zod";
 import mongoose from "mongoose";
+import { sendCollaborationResponseEmail } from "@/lib/email";
 
 const respondSchema = z.object({
   action: z.enum(["accepted", "rejected"]),
@@ -73,6 +74,33 @@ export async function PATCH(
         });
       }
     }
+
+    // Fire-and-forget: email the requester about the response
+    Promise.all([
+      (await import("@/models/User")).default
+        .findById(collab.requesterId)
+        .select("firstName lastName email")
+        .lean<{ firstName: string; lastName: string; email: string }>(),
+      (await import("@/models/User")).default
+        .findById(collab.targetOrganizerId)
+        .select("firstName lastName")
+        .lean<{ firstName: string; lastName: string }>(),
+      (await import("@/models/Event")).default
+        .findById(collab.eventId)
+        .select("title")
+        .lean<{ title: string }>(),
+    ])
+      .then(([requester, target, evt]) => {
+        if (!requester?.email || !target || !evt) return;
+        sendCollaborationResponseEmail(
+          requester.email,
+          `${requester.firstName} ${requester.lastName}`,
+          `${target.firstName} ${target.lastName}`,
+          evt.title,
+          action,
+        );
+      })
+      .catch(() => {});
 
     return successResponse({ id, status: action }, "Response recorded");
   } catch (error) {

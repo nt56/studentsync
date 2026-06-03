@@ -9,6 +9,7 @@ import { formatZodErrors } from "@/lib/validators/utils";
 import { formatEventResponse, IEvent } from "@/types";
 import { ZodError } from "zod";
 import mongoose from "mongoose";
+import { sendEventUpdatedEmail, sendEventCancelledEmail } from "@/lib/email";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -155,6 +156,27 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       eventId: updatedEvent._id,
     });
 
+    // Fire-and-forget: email all registered students about the update
+    Registration.find({ eventId: updatedEvent._id })
+      .populate<{ studentId: { firstName: string; lastName: string; email: string } }>(
+        "studentId",
+        "firstName lastName email",
+      )
+      .lean<{ studentId: { firstName: string; lastName: string; email: string } }[]>()
+      .then((regs) => {
+        for (const reg of regs) {
+          const s = reg.studentId;
+          if (!s?.email) continue;
+          sendEventUpdatedEmail(s.email, `${s.firstName} ${s.lastName}`, {
+            id: updatedEvent._id.toString(),
+            title: updatedEvent.title,
+            date: updatedEvent.date,
+            venue: updatedEvent.venue,
+          });
+        }
+      })
+      .catch(() => {});
+
     return successResponse(
       formatEventResponse(updatedEvent, registrationCount),
       "Event updated successfully",
@@ -204,11 +226,26 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return ApiErrors.forbidden();
     }
 
+    // Collect registered students before deleting (for cancellation emails)
+    const registeredStudents = await Registration.find({ eventId: id })
+      .populate<{ studentId: { firstName: string; lastName: string; email: string } }>(
+        "studentId",
+        "firstName lastName email",
+      )
+      .lean<{ studentId: { firstName: string; lastName: string; email: string } }[]>();
+
     // Delete the event and all its registrations
     await Promise.all([
       Event.findByIdAndDelete(id),
       Registration.deleteMany({ eventId: id }),
     ]);
+
+    // Fire-and-forget: notify registered students that the event is cancelled
+    for (const reg of registeredStudents) {
+      const s = reg.studentId;
+      if (!s?.email) continue;
+      sendEventCancelledEmail(s.email, `${s.firstName} ${s.lastName}`, event.title);
+    }
 
     return successResponse(null, "Event deleted successfully");
   } catch (error) {

@@ -10,6 +10,7 @@ import {
   ApiErrors,
 } from "@/lib/api-response";
 import { notifyAdmins } from "@/lib/notifications";
+import { sendWelcomeEmail } from "@/lib/email";
 
 /**
  * POST /api/auth/register
@@ -99,7 +100,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Notify admins of new user registration (fire-and-forget)
+    // Fire-and-forget emails
+    sendWelcomeEmail(email, firstName, lastName);
     notifyAdmins({
       type: "new_user",
       title: "New User Registered",

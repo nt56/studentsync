@@ -11,6 +11,7 @@ import { useSearchParams } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchEvents } from "@/store/slices/eventsSlice";
 import { fetchColleges } from "@/store/slices/collegesSlice";
+import { fetchBookmarks } from "@/store/slices/bookmarksSlice";
 import { EventCard } from "@/components/events/EventCard";
 import { EventCardGridSkeleton } from "@/components/common/Skeletons";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -25,7 +26,9 @@ import {
   Filter,
   CalendarCheck2,
   Globe2,
+  Check,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -64,6 +67,8 @@ function BrowseEventsContent() {
     isLoading,
   } = useAppSelector((s) => s.events);
   const { items: colleges } = useAppSelector((s) => s.colleges);
+  const { isAuthenticated } = useAppSelector((s) => s.auth);
+  const { initialized: bookmarksInitialized } = useAppSelector((s) => s.bookmarks);
 
   const querySearch = searchParams.get("search") ?? "";
   const [search, setSearch] = useState(querySearch);
@@ -77,6 +82,12 @@ function BrowseEventsContent() {
   useEffect(() => {
     setSearch((current) => (current === querySearch ? current : querySearch));
   }, [querySearch]);
+
+  useEffect(() => {
+    if (isAuthenticated && !bookmarksInitialized) {
+      dispatch(fetchBookmarks());
+    }
+  }, [dispatch, isAuthenticated, bookmarksInitialized]);
 
   const loadEvents = useCallback(() => {
     const params: Record<string, string> = { page: String(page), limit: "12" };
@@ -273,7 +284,7 @@ function BrowseEventsContent() {
               </Select>
             </div>
 
-            <div className="md:col-span-3">
+            <div className="md:col-span-2">
               <Select
                 value={collegeId || ALL_COLLEGES_VALUE}
                 onValueChange={(value) => {
@@ -305,19 +316,25 @@ function BrowseEventsContent() {
               </Select>
             </div>
 
-            <div className="md:col-span-1">
+            <div className="md:col-span-2">
               <Button
                 variant={isInterCollege ? "default" : "outline"}
-                className="h-12 w-full justify-center gap-2"
+                className={cn(
+                  "h-12 w-full justify-center gap-2 transition-all",
+                  isInterCollege &&
+                    "ring-2 ring-primary/25 ring-offset-1",
+                )}
                 onClick={() => {
                   setIsInterCollege((prev) => !prev);
                   if (!isInterCollege) setCollegeId("");
                   setPage(1);
                 }}
-                title="Inter-College events only"
               >
-                <Globe2 className="h-4 w-4" />
-                <span className="hidden sm:inline text-xs">Inter-College</span>
+                <Globe2 className="h-4 w-4 shrink-0" />
+                <span className="text-sm font-medium">Inter-College</span>
+                {isInterCollege && (
+                  <Check className="h-3.5 w-3.5 shrink-0 opacity-80" />
+                )}
               </Button>
             </div>
 

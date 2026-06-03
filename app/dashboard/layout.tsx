@@ -23,6 +23,7 @@ import {
   ClipboardList,
   LogOut,
   Menu,
+  Bookmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -40,6 +41,12 @@ const navItems: NavItem[] = [
     label: "My Events",
     href: "/dashboard/my-events",
     icon: CalendarCheck2,
+    roles: ["student"],
+  },
+  {
+    label: "Saved Events",
+    href: "/dashboard/bookmarks",
+    icon: Bookmark,
     roles: ["student"],
   },
   { label: "Discover", href: "/events", icon: Compass },

@@ -10,11 +10,14 @@ import {
   cancelRegistration,
   fetchRegistrations,
 } from "@/store/slices/registrationsSlice";
+import { fetchBookmarks } from "@/store/slices/bookmarksSlice";
 import { EventDetailSkeleton } from "@/components/common/Skeletons";
 import { EventStatusBadge, CategoryBadge } from "@/components/common/Badges";
 import { Button } from "@/components/ui/button";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import AddToCalendar from "@/components/events/AddToCalendar";
+import { BookmarkButton } from "@/components/events/BookmarkButton";
+import { ShareButton } from "@/components/events/ShareButton";
 import StarRating from "@/components/events/StarRating";
 import ReviewForm from "@/components/events/ReviewForm";
 import ReviewList from "@/components/events/ReviewList";
@@ -27,7 +30,6 @@ import {
   ArrowLeft,
   Users,
   CheckCircle2,
-  Share2,
   Loader2,
 } from "lucide-react";
 import Image from "next/image";
@@ -46,6 +48,7 @@ export default function EventDetailPage() {
   const { currentEvent: event, isLoading } = useAppSelector((s) => s.events);
   const { user, isAuthenticated } = useAppSelector((s) => s.auth);
   const { isLoading: regLoading } = useAppSelector((s) => s.registrations);
+  const { initialized: bookmarksInitialized } = useAppSelector((s) => s.bookmarks);
   const [reviewRefresh, setReviewRefresh] = useState(0);
   const [registrationId, setRegistrationId] = useState<string | null>(null);
 
@@ -74,6 +77,13 @@ export default function EventDetailPage() {
       dispatch(clearCurrentEvent());
     };
   }, [dispatch, id]);
+
+  // Initialize bookmarks once so BookmarkButton shows correct state
+  useEffect(() => {
+    if (isAuthenticated && !bookmarksInitialized) {
+      dispatch(fetchBookmarks());
+    }
+  }, [dispatch, isAuthenticated, bookmarksInitialized]);
 
   const handleRegister = async () => {
     if (!isAuthenticated) {
@@ -326,9 +336,12 @@ export default function EventDetailPage() {
                       startDate={event.date}
                     />
                   )}
-                  <button className="p-2 text-slate-400 hover:text-primary transition-colors">
-                    <Share2 className="h-5 w-5" />
-                  </button>
+                  <BookmarkButton eventId={id} />
+                  <ShareButton
+                    url={`${typeof window !== "undefined" ? window.location.origin : ""}/events/${id}`}
+                    title={event.title}
+                    description={event.description}
+                  />
                 </div>
               </div>
 

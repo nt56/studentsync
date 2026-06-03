@@ -19,6 +19,11 @@ import {
 import { ZodError } from "zod";
 import mongoose from "mongoose";
 import { createNotification } from "@/lib/notifications";
+import {
+  sendRegistrationConfirmedEmail,
+  sendRegistrationCancelledEmail,
+} from "@/lib/email";
+import User from "@/models/User";
 
 /**
  * GET /api/registrations
@@ -258,7 +263,7 @@ export async function POST(request: NextRequest) {
       registeredAt: new Date(),
     });
 
-    // Fire-and-forget notifications
+    // Fire-and-forget notifications + email
     const eventDate = event.date.toLocaleDateString("en-US", {
       weekday: "short",
       month: "short",
@@ -279,6 +284,25 @@ export async function POST(request: NextRequest) {
       message: `A student just registered for "${event.title}".`,
       link: `/dashboard/manage-events`,
     });
+
+    // Confirmation email to student
+    User.findById(authResult.mongoUserId)
+      .select("firstName lastName email")
+      .lean<{ firstName: string; lastName: string; email: string }>()
+      .then((student) => {
+        if (!student) return;
+        sendRegistrationConfirmedEmail(
+          student.email,
+          `${student.firstName} ${student.lastName}`,
+          {
+            id: event._id.toString(),
+            title: event.title,
+            date: event.date,
+            venue: event.venue,
+          },
+        );
+      })
+      .catch(() => {});
 
     return successResponse(
       formatRegistrationResponse(registration.toObject() as IRegistration),
@@ -380,8 +404,11 @@ export async function DELETE(request: NextRequest) {
       return ApiErrors.notFound("Registration");
     }
 
-    // Notify organizer of cancellation (fire-and-forget)
-    const cancelledEvent = await Event.findById(result.eventId).select("title organizerId").lean<{ title: string; organizerId: mongoose.Types.ObjectId }>();
+    // Fire-and-forget: notify organizer + email student on self-cancellation
+    const cancelledEvent = await Event.findById(result.eventId)
+      .select("title organizerId")
+      .lean<{ title: string; organizerId: mongoose.Types.ObjectId }>();
+
     if (cancelledEvent && authResult.userRole === "student") {
       createNotification({
         userId: cancelledEvent.organizerId.toString(),
@@ -390,6 +417,22 @@ export async function DELETE(request: NextRequest) {
         message: `A student cancelled their registration for "${cancelledEvent.title}".`,
         link: `/dashboard/manage-events`,
       });
+
+      // Email the student confirming their cancellation
+      const cancelledStudentId =
+        deleteFilter.studentId?.toString() ?? authResult.mongoUserId;
+      User.findById(cancelledStudentId)
+        .select("firstName lastName email")
+        .lean<{ firstName: string; lastName: string; email: string }>()
+        .then((student) => {
+          if (!student) return;
+          sendRegistrationCancelledEmail(
+            student.email,
+            `${student.firstName} ${student.lastName}`,
+            cancelledEvent.title,
+          );
+        })
+        .catch(() => {});
     }
 
     return successResponse(null, "Registration cancelled successfully");

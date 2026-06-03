@@ -7,6 +7,7 @@ import usersReducer from "./slices/usersSlice";
 import notificationsReducer from "./slices/notificationsSlice";
 import chatReducer from "./slices/chatSlice";
 import analyticsReducer from "./slices/analyticsSlice";
+import bookmarksReducer from "./slices/bookmarksSlice";
 
 export const store = configureStore({
   reducer: {
@@ -18,6 +19,7 @@ export const store = configureStore({
     notifications: notificationsReducer,
     chat: chatReducer,
     analytics: analyticsReducer,
+    bookmarks: bookmarksReducer,
   },
 });
 

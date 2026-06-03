@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { fetchRegistrations } from "@/store/slices/registrationsSlice";
+import { useAppSelector } from "@/store/hooks";
 import StudentDashboard from "@/components/dashboard/StudentDashboard";
 import { DashboardSkeleton } from "@/components/common/Skeletons";
 
