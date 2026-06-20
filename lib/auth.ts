@@ -1,6 +1,11 @@
 import { betterAuth } from "better-auth";
 import { mongodbAdapter } from "better-auth/adapters/mongodb";
 import { MongoClient } from "mongodb";
+import {
+  sendWelcomeEmail,
+  sendPasswordResetEmail,
+  sendVerificationEmail,
+} from "@/lib/email";
 
 // ===========================
 // CACHED MONGODB CLIENT
@@ -95,7 +100,35 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 8,
-    requireEmailVerification: false, // Set to true in production
+    // Block login until the email is verified (see emailVerification below).
+    // Safety hatch: set REQUIRE_EMAIL_VERIFICATION=false to disable enforcement
+    // if email delivery (verified Brevo sender) isn't ready yet — otherwise new
+    // users would be unable to verify and therefore unable to sign in.
+    requireEmailVerification:
+      process.env.REQUIRE_EMAIL_VERIFICATION !== "false",
+    // Send a reset link via Brevo. `url` already contains the redirectTo + token.
+    sendResetPassword: async ({ user, url }) => {
+      try {
+        await sendPasswordResetEmail(user.email, user.name || "there", url);
+      } catch (err) {
+        console.error("[Auth] Password reset email failed:", err);
+      }
+    },
+  },
+
+  // ===========================
+  // EMAIL VERIFICATION
+  // ===========================
+  emailVerification: {
+    sendOnSignUp: true,
+    autoSignInAfterVerification: true,
+    sendVerificationEmail: async ({ user, url }) => {
+      try {
+        await sendVerificationEmail(user.email, user.name || "there", url);
+      } catch (err) {
+        console.error("[Auth] Verification email failed:", err);
+      }
+    },
   },
 
   // ===========================
@@ -125,6 +158,30 @@ export const auth = betterAuth({
         required: false,
         defaultValue: "student",
         input: false, // LOCKED: users cannot set their own role
+      },
+    },
+  },
+
+  // ===========================
+  // DATABASE HOOKS
+  // ===========================
+  // Send the welcome email here (not in the custom register route) so that it
+  // fires for EVERY new account — email/password AND OAuth (Google/GitHub).
+  // OAuth signups never touch /api/auth/register, so this is the only place
+  // that reliably covers them.
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (user) => {
+          try {
+            const nameParts = (user.name || "").trim().split(/\s+/);
+            const firstName = nameParts[0] || "there";
+            const lastName = nameParts.slice(1).join(" ") || "";
+            await sendWelcomeEmail(user.email, firstName, lastName);
+          } catch (err) {
+            console.error("[Auth] Welcome email failed:", err);
+          }
+        },
       },
     },
   },

@@ -4,17 +4,12 @@ import Registration from "@/models/Registration";
 import { requireAuth } from "@/lib/auth-guard";
 import { successResponse, ApiErrors, errorResponse } from "@/lib/api-response";
 import mongoose from "mongoose";
-import jwt from "jsonwebtoken";
 import QRCode from "qrcode";
+import { signQrToken } from "@/lib/qr";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
-
-const QR_SECRET =
-  process.env.QR_JWT_SECRET ||
-  process.env.BETTER_AUTH_SECRET ||
-  "qr_fallback_secret";
 
 /**
  * GET /api/registrations/:id/qr
@@ -55,15 +50,11 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
     // Generate (or reuse) the QR token
     let token = registration.qrToken;
     if (!token) {
-      token = jwt.sign(
-        {
-          registrationId: registration._id.toString(),
-          eventId: registration.eventId.toString(),
-          studentId: registration.studentId.toString(),
-        },
-        QR_SECRET,
-        { expiresIn: "30d" },
-      );
+      token = signQrToken({
+        registrationId: registration._id.toString(),
+        eventId: registration.eventId.toString(),
+        studentId: registration.studentId.toString(),
+      });
       await Registration.findByIdAndUpdate(id, { qrToken: token });
     }
 

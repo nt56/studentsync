@@ -93,6 +93,34 @@ export async function signInWithGithub(callbackURL?: string) {
 }
 
 // ===========================
+// PASSWORD RESET & EMAIL VERIFICATION
+// ===========================
+
+/**
+ * Request a password-reset email. Better Auth emails a link to
+ * `${origin}/reset-password?token=...` which the reset page consumes.
+ */
+export async function requestPasswordReset(email: string) {
+  return authClient.requestPasswordReset({
+    email,
+    redirectTo: "/reset-password",
+  });
+}
+
+/** Complete a password reset using the token from the emailed link. */
+export async function resetPassword(newPassword: string, token: string) {
+  return authClient.resetPassword({ newPassword, token });
+}
+
+/** Re-send the verification email to a user who hasn't verified yet. */
+export async function resendVerificationEmail(email: string) {
+  return authClient.sendVerificationEmail({
+    email,
+    callbackURL: "/dashboard",
+  });
+}
+
+// ===========================
 // SESSION HELPERS
 // ===========================
 

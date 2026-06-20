@@ -20,6 +20,9 @@ export async function GET(
     if (!authResult.success) return authResult.response;
 
     const { id: eventId } = await params;
+    if (!mongoose.Types.ObjectId.isValid(eventId)) {
+      return ApiErrors.badRequest("Invalid event ID");
+    }
 
     await connectDB();
 
@@ -68,6 +71,9 @@ export async function POST(
       return ApiErrors.badRequest("User profile not found");
 
     const { id: eventId } = await params;
+    if (!mongoose.Types.ObjectId.isValid(eventId)) {
+      return ApiErrors.badRequest("Invalid event ID");
+    }
 
     const body = await request.json();
     const content = (body.content || "").trim();

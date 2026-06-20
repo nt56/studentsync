@@ -85,6 +85,14 @@ export function SignInForm() {
         router.replace("/dashboard");
       } else {
         const errorMsg = (result.payload as string) || "Invalid credentials";
+        // Unverified accounts can't sign in — send them to resend verification.
+        if (/verif/i.test(errorMsg)) {
+          toast.error("Email not verified", {
+            description: "Please verify your email to continue.",
+          });
+          router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
+          return;
+        }
         toast.error("Sign in failed", { description: errorMsg });
         setIsSubmitting(false);
       }
@@ -304,6 +312,12 @@ export function SignInForm() {
                   Remember me
                 </label>
               </div>
+              <Link
+                href="/forgot-password"
+                className="text-sm font-semibold text-primary transition-colors hover:text-primary/80"
+              >
+                Forgot password?
+              </Link>
             </div>
 
             <Button
@@ -336,12 +350,6 @@ export function SignInForm() {
                 </span>
               </div>
             </div>
-
-            <p className="mt-4 text-center text-xs text-slate-500 dark:text-slate-400">
-              OAuth sign-in is available for{" "}
-              <span className="font-semibold text-primary">students only</span>.{" "}
-              Admins and organizers must use email and password.
-            </p>
 
             <div className="mt-4 grid grid-cols-2 gap-3">
               <Button

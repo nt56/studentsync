@@ -16,6 +16,19 @@ function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 }
 
+/**
+ * Escape user-supplied text before interpolating it into HTML email bodies.
+ * Prevents stored-XSS / markup injection via event titles, user names, venues, etc.
+ */
+function esc(value: string): string {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 // ─── Core send ────────────────────────────────────────────────────────────────
 
 interface SendEmailOptions {
@@ -69,10 +82,27 @@ async function sendEmail(options: SendEmailOptions): Promise<void> {
     });
 
     if (res.ok) {
-      console.log(`[Email] ✓ Sent to ${options.to.email} (status ${res.status})`);
+      let messageId = "";
+      try {
+        const json = (await res.json()) as { messageId?: string };
+        messageId = json.messageId || "";
+      } catch {
+        // body wasn't JSON — ignore
+      }
+      console.log(
+        `[Email] ✓ Accepted by Brevo for ${options.to.email} (status ${res.status}${messageId ? `, messageId ${messageId}` : ""})`,
+      );
     } else {
       const body = await res.text();
       console.error(`[Email] ✗ Brevo error ${res.status} for "${options.subject}":`, body);
+      // The most common cause: the sender address is not a verified sender in
+      // Brevo. Surface a hint so it isn't mistaken for a code bug.
+      if (res.status === 400 && /sender/i.test(body)) {
+        console.error(
+          `[Email] ⚠ '${senderEmail}' is likely not a verified sender. ` +
+            `Verify it in Brevo → Senders, Domains & Dedicated IPs.`,
+        );
+      }
     }
   } catch (err) {
     console.error("[Email] ✗ Network/fetch error:", err);
@@ -161,7 +191,7 @@ function eventCard(event: EventEmailData, extraRows: [string, string][] = []): s
   const rows: [string, string][] = [
     ["&#128197; Date", date],
     ["&#128336; Time", time],
-    ["&#128205; Venue", event.venue],
+    ["&#128205; Venue", esc(event.venue)],
     ...extraRows,
   ];
 
@@ -169,7 +199,7 @@ function eventCard(event: EventEmailData, extraRows: [string, string][] = []): s
     style="background:#f8fafc;border-radius:10px;padding:20px 24px;margin-bottom:24px;">
     <tr>
       <td>
-        <p style="margin:0 0 14px;font-size:16px;font-weight:700;color:#1e293b;">${event.title}</p>
+        <p style="margin:0 0 14px;font-size:16px;font-weight:700;color:#1e293b;">${esc(event.title)}</p>
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
           ${infoRows(rows)}
         </table>
@@ -195,7 +225,7 @@ export async function sendWelcomeEmail(
   lastName: string,
 ): Promise<void> {
   const content = `
-    <h1 style="margin:0 0 8px;font-size:26px;font-weight:700;color:#1e293b;">Welcome, ${firstName}! &#127881;</h1>
+    <h1 style="margin:0 0 8px;font-size:26px;font-weight:700;color:#1e293b;">Welcome, ${esc(firstName)}! &#127881;</h1>
     <p style="margin:0 0 24px;font-size:15px;color:#475569;line-height:1.6;">
       You&apos;ve joined <strong>StudentSync</strong> &mdash; the platform connecting students with the best campus events.
     </p>
@@ -216,6 +246,58 @@ export async function sendWelcomeEmail(
   });
 }
 
+// ─── Password reset ───────────────────────────────────────────────────────────
+
+export async function sendPasswordResetEmail(
+  email: string,
+  name: string,
+  resetUrl: string,
+): Promise<void> {
+  const content = `
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#1e293b;">Reset Your Password &#128272;</h1>
+    <p style="margin:0 0 24px;font-size:15px;color:#475569;line-height:1.6;">
+      Hi <strong>${esc(name)}</strong>, we received a request to reset your StudentSync password.
+      Click the button below to choose a new one. This link expires in 1 hour.
+    </p>
+    ${btn("Reset Password", resetUrl)}
+    <p style="margin:28px 0 0;font-size:13px;color:#94a3b8;line-height:1.6;">
+      If you didn&apos;t request this, you can safely ignore this email &mdash; your password won&apos;t change.
+    </p>
+  `;
+
+  await sendEmail({
+    to: { email, name },
+    subject: "Reset your StudentSync password",
+    htmlContent: buildEmail(content),
+  });
+}
+
+// ─── Email verification ───────────────────────────────────────────────────────
+
+export async function sendVerificationEmail(
+  email: string,
+  name: string,
+  verifyUrl: string,
+): Promise<void> {
+  const content = `
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#1e293b;">Verify Your Email &#9989;</h1>
+    <p style="margin:0 0 24px;font-size:15px;color:#475569;line-height:1.6;">
+      Hi <strong>${esc(name)}</strong>, welcome to StudentSync! Please confirm your email address
+      to activate your account and start registering for campus events.
+    </p>
+    ${btn("Verify Email Address", verifyUrl)}
+    <p style="margin:28px 0 0;font-size:13px;color:#94a3b8;line-height:1.6;">
+      If you didn&apos;t create a StudentSync account, you can ignore this email.
+    </p>
+  `;
+
+  await sendEmail({
+    to: { email, name },
+    subject: "Verify your StudentSync email",
+    htmlContent: buildEmail(content),
+  });
+}
+
 // ─── Registration confirmed ───────────────────────────────────────────────────
 
 export async function sendRegistrationConfirmedEmail(
@@ -226,7 +308,7 @@ export async function sendRegistrationConfirmedEmail(
   const content = `
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#1e293b;">You&apos;re In! &#9989;</h1>
     <p style="margin:0 0 24px;font-size:15px;color:#475569;line-height:1.6;">
-      Hi <strong>${name}</strong>, your registration for <strong>${event.title}</strong> is confirmed.
+      Hi <strong>${esc(name)}</strong>, your registration for <strong>${esc(event.title)}</strong> is confirmed.
     </p>
     ${eventCard(event)}
     <p style="margin:0 0 24px;font-size:14px;color:#64748b;line-height:1.6;">
@@ -252,7 +334,7 @@ export async function sendRegistrationCancelledEmail(
   const content = `
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#1e293b;">Registration Cancelled</h1>
     <p style="margin:0 0 24px;font-size:15px;color:#475569;line-height:1.6;">
-      Hi <strong>${name}</strong>, your registration for <strong>${eventTitle}</strong> has been successfully cancelled.
+      Hi <strong>${esc(name)}</strong>, your registration for <strong>${esc(eventTitle)}</strong> has been successfully cancelled.
     </p>
     <p style="margin:0 0 24px;font-size:14px;color:#64748b;line-height:1.6;">
       Changed your mind? Spots may still be available &mdash; you can re-register from the event page.
@@ -277,7 +359,7 @@ export async function sendEventUpdatedEmail(
   const content = `
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#1e293b;">Event Updated &#128226;</h1>
     <p style="margin:0 0 24px;font-size:15px;color:#475569;line-height:1.6;">
-      Hi <strong>${name}</strong>, the details for an event you&apos;re registered for have been updated.
+      Hi <strong>${esc(name)}</strong>, the details for an event you&apos;re registered for have been updated.
     </p>
     ${eventCard(event)}
     <p style="margin:0 0 24px;font-size:14px;color:#64748b;line-height:1.6;">
@@ -303,7 +385,7 @@ export async function sendEventCancelledEmail(
   const content = `
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#1e293b;">Event Cancelled &#128532;</h1>
     <p style="margin:0 0 24px;font-size:15px;color:#475569;line-height:1.6;">
-      Hi <strong>${name}</strong>, we&apos;re sorry to inform you that <strong>${eventTitle}</strong>, which you were registered for, has been cancelled.
+      Hi <strong>${esc(name)}</strong>, we&apos;re sorry to inform you that <strong>${esc(eventTitle)}</strong>, which you were registered for, has been cancelled.
     </p>
     <p style="margin:0 0 24px;font-size:14px;color:#64748b;line-height:1.6;">
       Your registration has been removed. Keep an eye out for similar events on the platform.
@@ -350,7 +432,7 @@ export async function sendRoleChangedEmail(
   const content = `
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#1e293b;">Your Role Has Been Updated &#127917;</h1>
     <p style="margin:0 0 24px;font-size:15px;color:#475569;line-height:1.6;">
-      Hi <strong>${name}</strong>, your StudentSync account role has been changed.
+      Hi <strong>${esc(name)}</strong>, your StudentSync account role has been changed.
     </p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
       style="background:${cardStyle.bg};border:1px solid ${cardStyle.border};border-radius:10px;padding:20px 24px;margin-bottom:24px;">
@@ -383,9 +465,9 @@ export async function sendCollaborationInviteEmail(
   const content = `
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#1e293b;">Collaboration Invite &#129309;</h1>
     <p style="margin:0 0 24px;font-size:15px;color:#475569;line-height:1.6;">
-      Hi <strong>${name}</strong>, <strong>${requesterName}</strong> has invited you to co-organize an event on StudentSync.
+      Hi <strong>${esc(name)}</strong>, <strong>${esc(requesterName)}</strong> has invited you to co-organize an event on StudentSync.
     </p>
-    ${eventCard(event, [["&#128100; Invited by", requesterName]])}
+    ${eventCard(event, [["&#128100; Invited by", esc(requesterName)]])}
     <p style="margin:0 0 24px;font-size:14px;color:#64748b;line-height:1.6;">
       Log in to your dashboard to accept or decline this collaboration invite.
     </p>
@@ -415,13 +497,13 @@ export async function sendCollaborationResponseEmail(
     ? { bg: "#f0fdf4", border: "#86efac", text: "#15803d" }
     : { bg: "#fef2f2", border: "#fca5a5", text: "#dc2626" };
   const message = isAccepted
-    ? `<strong>${targetName}</strong> will co-organize <strong>&ldquo;${eventTitle}&rdquo;</strong> with you. The event is now marked as inter-college.`
-    : `<strong>${targetName}</strong> has declined to co-organize <strong>&ldquo;${eventTitle}&rdquo;</strong>.`;
+    ? `<strong>${esc(targetName)}</strong> will co-organize <strong>&ldquo;${esc(eventTitle)}&rdquo;</strong> with you. The event is now marked as inter-college.`
+    : `<strong>${esc(targetName)}</strong> has declined to co-organize <strong>&ldquo;${esc(eventTitle)}&rdquo;</strong>.`;
 
   const content = `
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#1e293b;">Collaboration Invite ${statusLabel} ${emoji}</h1>
     <p style="margin:0 0 24px;font-size:15px;color:#475569;line-height:1.6;">
-      Hi <strong>${name}</strong>, here&apos;s an update on your collaboration invite.
+      Hi <strong>${esc(name)}</strong>, here&apos;s an update on your collaboration invite.
     </p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
       style="background:${card.bg};border:1px solid ${card.border};border-radius:10px;padding:20px 24px;margin-bottom:24px;">

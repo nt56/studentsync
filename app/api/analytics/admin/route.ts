@@ -1,6 +1,6 @@
 import { connectDB } from "@/lib/db";
 import { requireAuth } from "@/lib/auth-guard";
-import { successResponse } from "@/lib/api-response";
+import { successResponse, ApiErrors } from "@/lib/api-response";
 import Event from "@/models/Event";
 import Registration from "@/models/Registration";
 import User from "@/models/User";
@@ -12,12 +12,13 @@ import { subDays, format } from "date-fns";
  * Platform-wide analytics for admins
  */
 export async function GET() {
-  const auth = await requireAuth(["admin"]);
-  if (!auth.success) return auth.response;
+  try {
+    const auth = await requireAuth(["admin"]);
+    if (!auth.success) return auth.response;
 
-  await connectDB();
+    await connectDB();
 
-  // Platform totals
+    // Platform totals
   const [totalUsers, totalEvents, totalRegistrations, totalColleges] =
     await Promise.all([
       User.countDocuments(),
@@ -123,16 +124,20 @@ export async function GET() {
     },
   ]);
 
-  return successResponse({
-    totalUsers,
-    totalEvents,
-    totalRegistrations,
-    totalColleges,
-    usersByRole,
-    eventsByStatus,
-    eventsByCategory,
-    registrationTrend,
-    userGrowth,
-    topColleges: topCollegesRaw,
-  });
+    return successResponse({
+      totalUsers,
+      totalEvents,
+      totalRegistrations,
+      totalColleges,
+      usersByRole,
+      eventsByStatus,
+      eventsByCategory,
+      registrationTrend,
+      userGrowth,
+      topColleges: topCollegesRaw,
+    });
+  } catch (error) {
+    console.error("GET /api/analytics/admin error:", error);
+    return ApiErrors.internalError();
+  }
 }

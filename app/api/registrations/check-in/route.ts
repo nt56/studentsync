@@ -1,14 +1,12 @@
 import { NextRequest } from "next/server";
+import mongoose from "mongoose";
 import { connectDB } from "@/lib/db";
 import Registration from "@/models/Registration";
+import Event from "@/models/Event";
 import { requireOrganizer } from "@/lib/auth-guard";
 import { successResponse, ApiErrors, errorResponse } from "@/lib/api-response";
-import jwt from "jsonwebtoken";
-
-const QR_SECRET =
-  process.env.QR_JWT_SECRET ||
-  process.env.BETTER_AUTH_SECRET ||
-  "qr_fallback_secret";
+import { verifyQrToken, type QrPayload } from "@/lib/qr";
+import { enforceRateLimit, clientIp } from "@/lib/rate-limit";
 
 /**
  * POST /api/registrations/check-in
@@ -20,6 +18,15 @@ export async function POST(req: NextRequest) {
     const authResult = await requireOrganizer();
     if (!authResult.success) return authResult.response;
 
+    // Throttle QR-token guessing: 60 scans per organizer per minute is plenty
+    // for a real check-in desk but blocks brute-force of the token space.
+    const limited = await enforceRateLimit(
+      req,
+      `checkin:${authResult.mongoUserId || clientIp(req)}`,
+      { limit: 60, windowSec: 60 },
+    );
+    if (limited) return limited;
+
     const body = await req.json();
     const { token } = body as { token?: string };
 
@@ -27,9 +34,9 @@ export async function POST(req: NextRequest) {
       return errorResponse("QR token is required.", 400);
     }
 
-    let payload: { registrationId: string; eventId: string; studentId: string };
+    let payload: QrPayload;
     try {
-      payload = jwt.verify(token, QR_SECRET) as typeof payload;
+      payload = verifyQrToken(token);
     } catch {
       return errorResponse("Invalid or expired QR code.", 400);
     }
@@ -38,6 +45,20 @@ export async function POST(req: NextRequest) {
 
     const registration = await Registration.findById(payload.registrationId);
     if (!registration) return ApiErrors.notFound("Registration");
+
+    // AUTHORIZATION: only the organizer who owns this event (or an admin) may
+    // check attendees in. Without this, any organizer could check in attendees
+    // for events they don't run.
+    const event = await Event.findById(registration.eventId)
+      .select("organizerId")
+      .lean<{ organizerId: mongoose.Types.ObjectId } | null>();
+    if (!event) return ApiErrors.notFound("Event");
+
+    const isOwner =
+      authResult.mongoUserId &&
+      event.organizerId.toString() === authResult.mongoUserId;
+    const isAdmin = authResult.userRole === "admin";
+    if (!isOwner && !isAdmin) return ApiErrors.forbidden();
 
     if (registration.checkedIn) {
       return errorResponse("Attendee is already checked in.", 409);

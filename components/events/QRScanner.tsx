@@ -29,8 +29,11 @@ export default function QRScanner({ onCheckedIn }: QRScannerProps) {
       const info = res.data as { studentId: string; checkedInAt: string };
       toast.success("Check-in successful!");
       onCheckedIn?.(info);
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? "Check-in failed.");
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ?? "Check-in failed.";
+      toast.error(message);
     } finally {
       // Brief pause before accepting next scan
       setTimeout(() => {
@@ -57,18 +60,35 @@ export default function QRScanner({ onCheckedIn }: QRScannerProps) {
     }
   }
 
-  async function stopScanner() {
-    if (scannerRef.current) {
-      await scannerRef.current.stop();
-      scannerRef.current = null;
+  // Fully release the camera: stop() halts decoding and releases the
+  // MediaStream tracks; clear() tears down the rendered video element. Both are
+  // wrapped because stop() throws if the scanner never fully started, which
+  // would otherwise leave the camera light on.
+  async function teardownScanner() {
+    const scanner = scannerRef.current;
+    if (!scanner) return;
+    try {
+      await scanner.stop();
+    } catch {
+      // scanner wasn't running — ignore
     }
+    try {
+      scanner.clear();
+    } catch {
+      // nothing rendered — ignore
+    }
+    scannerRef.current = null;
+  }
+
+  async function stopScanner() {
+    await teardownScanner();
     setScanning(false);
   }
 
-  // Cleanup on unmount
+  // Cleanup on unmount — release the camera so its indicator turns off.
   useEffect(() => {
     return () => {
-      scannerRef.current?.stop().catch(() => {});
+      void teardownScanner();
     };
   }, []);
 

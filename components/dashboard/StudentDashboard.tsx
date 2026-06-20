@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchRegistrations } from "@/store/slices/registrationsSlice";
 import { DashboardSkeleton } from "@/components/common/Skeletons";
@@ -27,16 +28,18 @@ import { cn } from "@/lib/utils";
 
 export default function StudentDashboard() {
   const dispatch = useAppDispatch();
+  const router = useRouter();
   const { user } = useAppSelector((s) => s.auth);
-  const { items: registrations, isLoading } = useAppSelector(
+  const { items: registrations, isLoading, error } = useAppSelector(
     (s) => s.registrations,
   );
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
+    if (!user?.id) return;
     dispatch(fetchRegistrations({}));
-  }, [dispatch]);
+  }, [dispatch, user?.id]);
 
   const handleCancel = async () => {
     if (!cancelTarget) return;
@@ -54,6 +57,20 @@ export default function StudentDashboard() {
   };
 
   if (isLoading) return <DashboardSkeleton />;
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center gap-4 py-20 text-center">
+        <CalendarX className="h-10 w-10 text-muted-foreground" />
+        <p className="text-muted-foreground">
+          We couldn&apos;t load your registrations. {error}
+        </p>
+        <Button onClick={() => dispatch(fetchRegistrations({}))}>
+          Try Again
+        </Button>
+      </div>
+    );
+  }
 
   // Helper to extract populated event — API returns event data in reg.event
   // (eventId is returned as a plain string ID after formatting)
@@ -165,7 +182,7 @@ export default function StudentDashboard() {
               title="No registrations yet"
               description="Browse events and register for ones that interest you."
               actionLabel="Browse Events"
-              onAction={() => (window.location.href = "/events")}
+              onAction={() => router.push("/events")}
             />
           </div>
         ) : (

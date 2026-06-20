@@ -1,6 +1,6 @@
 import { connectDB } from "@/lib/db";
 import { requireAuth } from "@/lib/auth-guard";
-import { successResponse } from "@/lib/api-response";
+import { successResponse, ApiErrors } from "@/lib/api-response";
 import Event from "@/models/Event";
 import Registration from "@/models/Registration";
 import mongoose from "mongoose";
@@ -11,12 +11,13 @@ import { subDays, format } from "date-fns";
  * Analytics for organizer: event stats, registration trends, category/status breakdown, top events
  */
 export async function GET() {
-  const auth = await requireAuth(["organizer", "admin"]);
-  if (!auth.success) return auth.response;
+  try {
+    const auth = await requireAuth(["organizer", "admin"]);
+    if (!auth.success) return auth.response;
 
-  await connectDB();
+    await connectDB();
 
-  const organizerId = new mongoose.Types.ObjectId(auth.mongoUserId);
+    const organizerId = new mongoose.Types.ObjectId(auth.mongoUserId);
 
   // All events for this organizer
   const events = await Event.find({ organizerId }).lean();
@@ -110,12 +111,16 @@ export async function GET() {
         ])
       : [];
 
-  return successResponse({
-    totalEvents,
-    totalRegistrations,
-    registrationTrend,
-    eventsByStatus,
-    eventsByCategory,
-    topEvents: topEventsRaw,
-  });
+    return successResponse({
+      totalEvents,
+      totalRegistrations,
+      registrationTrend,
+      eventsByStatus,
+      eventsByCategory,
+      topEvents: topEventsRaw,
+    });
+  } catch (error) {
+    console.error("GET /api/analytics/organizer error:", error);
+    return ApiErrors.internalError();
+  }
 }

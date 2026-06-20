@@ -1,6 +1,6 @@
 import { connectDB } from "@/lib/db";
 import { requireAuth } from "@/lib/auth-guard";
-import { successResponse } from "@/lib/api-response";
+import { successResponse, ApiErrors } from "@/lib/api-response";
 import Registration from "@/models/Registration";
 import mongoose from "mongoose";
 import { subDays, format } from "date-fns";
@@ -10,12 +10,13 @@ import { subDays, format } from "date-fns";
  * Personal analytics for the logged-in student
  */
 export async function GET() {
-  const auth = await requireAuth();
-  if (!auth.success) return auth.response;
+  try {
+    const auth = await requireAuth();
+    if (!auth.success) return auth.response;
 
-  await connectDB();
+    await connectDB();
 
-  const studentId = new mongoose.Types.ObjectId(auth.mongoUserId);
+    const studentId = new mongoose.Types.ObjectId(auth.mongoUserId);
 
   // All registrations with populated event
   const registrations = await Registration.find({ studentId })
@@ -67,11 +68,15 @@ export async function GET() {
     });
   }
 
-  return successResponse({
-    totalRegistrations,
-    upcomingCount,
-    completedCount,
-    categoryDistribution,
-    registrationTimeline,
-  });
+    return successResponse({
+      totalRegistrations,
+      upcomingCount,
+      completedCount,
+      categoryDistribution,
+      registrationTimeline,
+    });
+  } catch (error) {
+    console.error("GET /api/analytics/student error:", error);
+    return ApiErrors.internalError();
+  }
 }

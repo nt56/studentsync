@@ -166,11 +166,24 @@ const authSlice = createSlice({
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(registerUser.fulfilled, (state) => {
-        // Same optimistic pattern as login
-        state.isLoading = true;
-        state.isAuthenticated = true;
-        state.initialized = true;
+      .addCase(registerUser.fulfilled, (state, action) => {
+        // If the account needs email verification there is no session yet —
+        // don't optimistically mark the user authenticated (it would bounce
+        // them through GuestGuard to the dashboard and straight back out).
+        const requiresVerification = (
+          action.payload as { requiresVerification?: boolean } | undefined
+        )?.requiresVerification;
+
+        if (requiresVerification) {
+          state.isLoading = false;
+          state.isAuthenticated = false;
+          state.initialized = true;
+        } else {
+          // Same optimistic pattern as login
+          state.isLoading = true;
+          state.isAuthenticated = true;
+          state.initialized = true;
+        }
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.isLoading = false;

@@ -41,6 +41,9 @@ const RegistrationSchema = new Schema(
 
 // Prevent duplicate registration
 RegistrationSchema.index({ eventId: 1, studentId: 1 }, { unique: true });
+// Hot path: "my registrations" / student analytics filter by studentId alone.
+// The compound index above can't serve a studentId-only lookup efficiently.
+RegistrationSchema.index({ studentId: 1, registeredAt: -1 });
 
 const Registration =
   models.Registration || model("Registration", RegistrationSchema);

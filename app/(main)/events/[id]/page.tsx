@@ -45,21 +45,28 @@ export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { currentEvent: event, isLoading } = useAppSelector((s) => s.events);
+  const { currentEvent: event, isLoading, error } = useAppSelector(
+    (s) => s.events,
+  );
   const { user, isAuthenticated } = useAppSelector((s) => s.auth);
   const { isLoading: regLoading } = useAppSelector((s) => s.registrations);
   const { initialized: bookmarksInitialized } = useAppSelector((s) => s.bookmarks);
   const [reviewRefresh, setReviewRefresh] = useState(0);
   const [registrationId, setRegistrationId] = useState<string | null>(null);
 
-  // Fetch the student's own registrationId so we can show the QR code
+  // Fetch the student's own registrationId so we can show the QR code.
+  // Reset on id change and guard against a stale response overwriting a newer
+  // event's registration (race when navigating between events).
   useEffect(() => {
+    setRegistrationId(null);
     if (!isAuthenticated || !id || user?.role !== "student") return;
+    let ignore = false;
     async function loadReg() {
       try {
         const res = await (
           await import("@/services/api")
         ).default.get(`/registrations?eventId=${id}&limit=1`);
+        if (ignore) return;
         const items = res.data?.items ?? res.data ?? [];
         if (Array.isArray(items) && items.length > 0) {
           setRegistrationId(items[0].id ?? items[0]._id);
@@ -69,6 +76,9 @@ export default function EventDetailPage() {
       }
     }
     loadReg();
+    return () => {
+      ignore = true;
+    };
   }, [id, isAuthenticated, user?.role]);
 
   useEffect(() => {
@@ -113,7 +123,30 @@ export default function EventDetailPage() {
     }
   };
 
-  if (isLoading || !event) return <EventDetailSkeleton />;
+  if (isLoading) return <EventDetailSkeleton />;
+
+  // Failed to load or no such event — show a recoverable error instead of an
+  // infinite skeleton.
+  if (!event) {
+    return (
+      <div className="mx-auto flex max-w-md flex-col items-center gap-4 px-4 py-24 text-center">
+        <h1 className="text-2xl font-bold">Event not available</h1>
+        <p className="text-muted-foreground">
+          {error ||
+            "This event could not be found. It may have been removed or the link is incorrect."}
+        </p>
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={() => router.back()}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Go Back
+          </Button>
+          <Button onClick={() => id && dispatch(fetchEventById(id))}>
+            Try Again
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const eventDate = event.date ? new Date(event.date) : null;
   const deadline = event.registrationDeadline
@@ -277,19 +310,19 @@ export default function EventDetailPage() {
           <section>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-2xl font-bold">Reviews & Ratings</h2>
-              {(event as any).reviewCount > 0 && (
+              {(event.reviewCount ?? 0) > 0 && (
                 <div className="flex items-center gap-2">
                   <StarRating
-                    value={Math.round((event as any).averageRating ?? 0)}
+                    value={Math.round(event.averageRating ?? 0)}
                     readonly
                     size="sm"
                   />
                   <span className="text-sm font-semibold">
-                    {((event as any).averageRating ?? 0).toFixed(1)}
+                    {(event.averageRating ?? 0).toFixed(1)}
                   </span>
                   <span className="text-sm text-muted-foreground">
-                    ({(event as any).reviewCount} review
-                    {(event as any).reviewCount !== 1 ? "s" : ""})
+                    ({event.reviewCount} review
+                    {event.reviewCount !== 1 ? "s" : ""})
                   </span>
                 </div>
               )}

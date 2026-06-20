@@ -12,6 +12,11 @@ const statusMap: Record<string, { label: string; className: string }> = {
     className:
       "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800",
   },
+  closed: {
+    label: "Registration Closed",
+    className:
+      "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800",
+  },
   completed: {
     label: "Completed",
     className:
@@ -57,8 +62,14 @@ const roleMap: Record<string, { label: string; className: string }> = {
   },
 };
 
+const fallbackStatus = {
+  label: "Unknown",
+  className:
+    "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700",
+};
+
 export function EventStatusBadge({ status }: { status: string }) {
-  const config = statusMap[status] || statusMap.upcoming;
+  const config = statusMap[status] || fallbackStatus;
   return (
     <Badge
       variant="outline"

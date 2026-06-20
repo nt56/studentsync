@@ -7,6 +7,7 @@ import {
   formatZodErrors,
   ApiErrors,
 } from "@/lib/api-response";
+import { enforceRateLimit, clientIp } from "@/lib/rate-limit";
 
 /**
  * POST /api/auth/login
@@ -16,6 +17,13 @@ import {
  */
 export async function POST(request: NextRequest) {
   try {
+    // Throttle credential-stuffing / brute force: 10 attempts per IP per minute.
+    const limited = await enforceRateLimit(request, `login:${clientIp(request)}`, {
+      limit: 10,
+      windowSec: 60,
+    });
+    if (limited) return limited;
+
     const body = await request.json();
 
     // Validate input with Zod schema

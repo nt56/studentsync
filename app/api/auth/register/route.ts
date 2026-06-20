@@ -10,7 +10,7 @@ import {
   ApiErrors,
 } from "@/lib/api-response";
 import { notifyAdmins } from "@/lib/notifications";
-import { sendWelcomeEmail } from "@/lib/email";
+import { enforceRateLimit, clientIp } from "@/lib/rate-limit";
 
 /**
  * POST /api/auth/register
@@ -21,6 +21,14 @@ import { sendWelcomeEmail } from "@/lib/email";
  */
 export async function POST(request: NextRequest) {
   try {
+    // Throttle automated signups: 5 accounts per IP per 10 minutes.
+    const limited = await enforceRateLimit(
+      request,
+      `register:${clientIp(request)}`,
+      { limit: 5, windowSec: 600 },
+    );
+    if (limited) return limited;
+
     const body = await request.json();
 
     // Validate input with Zod schema
@@ -100,14 +108,30 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Fire-and-forget emails
-    sendWelcomeEmail(email, firstName, lastName);
+    // Welcome email is sent by the Better Auth `databaseHooks.user.create.after`
+    // hook (see lib/auth.ts) so that OAuth signups are covered too — don't send
+    // it here as well or email/password users would receive it twice.
     notifyAdmins({
       type: "new_user",
       title: "New User Registered",
       message: `${firstName} ${lastName} (${email}) just joined as a student.`,
       link: `/dashboard/users`,
     });
+
+    // When email verification is required, Better Auth creates the user and
+    // sends the verification email but does NOT establish a session (no
+    // Set-Cookie). Detect that so the client can show "check your email"
+    // instead of pretending the user is signed in.
+    const headerObj = authResponse.headers as Headers & {
+      getSetCookie?: () => string[];
+    };
+    const setCookies =
+      headerObj.getSetCookie?.() ??
+      (authResponse.headers.get("set-cookie")
+        ? [authResponse.headers.get("set-cookie")!]
+        : []);
+
+    const requiresVerification = setCookies.length === 0;
 
     const response = successResponse(
       {
@@ -118,22 +142,16 @@ export async function POST(request: NextRequest) {
           email,
           role: "student",
         },
+        requiresVerification,
       },
-      "Registration successful! Welcome aboard.",
+      requiresVerification
+        ? "Account created! Check your email to verify your address before signing in."
+        : "Registration successful! Welcome aboard.",
       201,
     );
 
-    // Forward session cookies from Better Auth so the client is immediately
-    // authenticated after registration (same fix as the login route).
-    const headerObj = authResponse.headers as Headers & {
-      getSetCookie?: () => string[];
-    };
-    const setCookies =
-      headerObj.getSetCookie?.() ??
-      (authResponse.headers.get("set-cookie")
-        ? [authResponse.headers.get("set-cookie")!]
-        : []);
-
+    // Forward any session cookies (present only when verification is NOT
+    // required) so the client is immediately authenticated.
     for (const cookie of setCookies) {
       response.headers.append("set-cookie", cookie);
     }

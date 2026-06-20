@@ -153,12 +153,14 @@ async function seedAdmin() {
     console.log("✓  Better Auth user + credential account already exist");
   }
 
-  // ─── Step 2: Set role = "admin" in the Better Auth user collection ─────────
+  // ─── Step 2: Set role = "admin" + mark email verified ──────────────────────
+  // emailVerified is required now that requireEmailVerification is on — without
+  // it the seeded admin could never log in.
   await betterAuthUserCollection.updateOne(
     { email: ADMIN_EMAIL },
-    { $set: { role: "admin" } },
+    { $set: { role: "admin", emailVerified: true } },
   );
-  console.log("✅ Better Auth user role = admin");
+  console.log("✅ Better Auth user role = admin (email verified)");
 
   // ─── Step 3: Ensure MongoDB User document exists with role = "admin" ───────
   const existingMongoUser = await User.findOne({ email: ADMIN_EMAIL });

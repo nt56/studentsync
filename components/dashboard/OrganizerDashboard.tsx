@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchEvents, deleteEvent } from "@/store/slices/eventsSlice";
 import { DashboardSkeleton } from "@/components/common/Skeletons";
@@ -29,13 +30,17 @@ import { cn } from "@/lib/utils";
 
 export default function OrganizerDashboard() {
   const dispatch = useAppDispatch();
+  const router = useRouter();
   const { user } = useAppSelector((s) => s.auth);
-  const { items: events, isLoading } = useAppSelector((s) => s.events);
+  const { items: events, isLoading, error } = useAppSelector((s) => s.events);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // Wait until the user's id is hydrated — fetching with an empty organizerId
+  // returns the wrong result set and triggers a wasteful double-fetch.
   useEffect(() => {
-    dispatch(fetchEvents({ organizerId: user?.id || "" }));
+    if (!user?.id) return;
+    dispatch(fetchEvents({ organizerId: user.id }));
   }, [dispatch, user?.id]);
 
   const handleDelete = async () => {
@@ -53,6 +58,24 @@ export default function OrganizerDashboard() {
   };
 
   if (isLoading) return <DashboardSkeleton />;
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center gap-4 py-20 text-center">
+        <CalendarX className="h-10 w-10 text-muted-foreground" />
+        <p className="text-muted-foreground">
+          We couldn&apos;t load your events. {error}
+        </p>
+        <Button
+          onClick={() =>
+            user?.id && dispatch(fetchEvents({ organizerId: user.id }))
+          }
+        >
+          Try Again
+        </Button>
+      </div>
+    );
+  }
 
   const totalRegistrations = events.reduce(
     (sum, e) => sum + (e.registrationCount || 0),
@@ -151,9 +174,7 @@ export default function OrganizerDashboard() {
               title="No events created yet"
               description="Create your first event and start accepting registrations."
               actionLabel="Create Event"
-              onAction={() =>
-                (window.location.href = "/dashboard/create-event")
-              }
+              onAction={() => router.push("/dashboard/create-event")}
             />
           </div>
         ) : (

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -105,6 +106,7 @@ const COLLEGE_SEARCH_RESULT_CLASSNAME =
 
 export function SignUpForm() {
   const { register: registerUser } = useAuth();
+  const router = useRouter();
   const dispatch = useAppDispatch();
   const colleges = useAppSelector((s) => s.colleges.items);
   const [showPassword, setShowPassword] = useState(false);
@@ -164,11 +166,24 @@ export function SignUpForm() {
           dateOfBirth: data.dateOfBirth || "",
         });
         if (result.meta.requestStatus === "fulfilled") {
-          toast.success("Account created!", {
-            description:
-              "Welcome to StudentSync. You are now signed in.",
-          });
-          // GuestGuard detects isAuthenticated: true and handles the redirect.
+          const payload = result.payload as
+            | { requiresVerification?: boolean }
+            | undefined;
+          if (payload?.requiresVerification) {
+            // Email verification is required — no session yet. Send them to the
+            // notice page to check their inbox instead of the dashboard.
+            toast.success("Account created!", {
+              description: "Check your email to verify your address.",
+            });
+            router.replace(
+              `/verify-email?email=${encodeURIComponent(data.email)}`,
+            );
+          } else {
+            toast.success("Account created!", {
+              description: "Welcome to StudentSync. You are now signed in.",
+            });
+            // GuestGuard detects isAuthenticated: true and handles the redirect.
+          }
         } else {
           const errorMsg = (result.payload as string) || "Registration failed";
           toast.error("Registration failed", { description: errorMsg });
@@ -181,7 +196,7 @@ export function SignUpForm() {
         setIsSubmitting(false);
       }
     },
-    [registerUser],
+    [registerUser, router],
   );
 
   return (

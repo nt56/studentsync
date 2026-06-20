@@ -65,7 +65,10 @@ export async function requireAuth(
         firstName,
         lastName,
         email: session.user.email,
-        role: userRole,
+        // SECURITY: a freshly auto-created profile is ALWAYS a student — never
+        // derive it from session input. Only an admin can promote via
+        // PATCH /api/users/:id. (Mirrors the custom register route.)
+        role: "student",
         authUserId: session.user.id,
         // gender, dateOfBirth, phone, collegeId — left empty for OAuth users
         // They can update these later via PATCH /api/auth/profile

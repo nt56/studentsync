@@ -1,8 +1,9 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import College from "@/models/College";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireAuth } from "@/lib/auth-guard";
 import { successResponse, ApiErrors } from "@/lib/api-response";
+import { escapeRegex } from "@/lib/utils";
 import {
   createCollegeSchema,
   collegeQuerySchema,
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
     const filter: any = {};
 
     if (search) {
-      filter.name = { $regex: search, $options: "i" };
+      filter.name = { $regex: escapeRegex(search), $options: "i" };
     }
 
     if (isVerified !== undefined) {
@@ -80,6 +81,10 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    // Must be signed in to suggest a college — prevents anonymous spam.
+    const authResult = await requireAuth();
+    if (!authResult.success) return authResult.response;
+
     await connectDB();
 
     const body = await request.json();
@@ -87,22 +92,18 @@ export async function POST(request: NextRequest) {
     // Validate request body
     const validatedData = createCollegeSchema.parse(body);
 
-    // Check if college already exists
+    // Check if college already exists (regex-escaped exact, case-insensitive match)
     const existingCollege = await College.findOne({
-      name: { $regex: `^${validatedData.name}$`, $options: "i" },
+      name: { $regex: `^${escapeRegex(validatedData.name)}$`, $options: "i" },
     });
 
     if (existingCollege) {
       return ApiErrors.badRequest("A college with this name already exists");
     }
 
-    // Determine if college should be verified
-    // Only admins can create verified colleges
-    let isVerified = false;
-    const authResult = await requireAdmin();
-    if (authResult.success) {
-      isVerified = true;
-    }
+    // Only admins create pre-verified colleges; everyone else's submission is
+    // queued unverified for admin review.
+    const isVerified = authResult.userRole === "admin";
 
     // Create the college
     const college = await College.create({
