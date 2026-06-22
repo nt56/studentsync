@@ -57,7 +57,15 @@ export async function GET(request: NextRequest) {
     const filter: any = {};
 
     if (status) {
-      filter.status = status;
+      const now = new Date();
+      if (status === "completed") {
+        filter.date = { $lt: now };
+      } else if (status === "closed") {
+        filter.date = { $gte: now };
+        filter.registrationDeadline = { $lt: now };
+      } else if (status === "upcoming") {
+        filter.registrationDeadline = { $gte: now };
+      }
     }
 
     if (isInterCollege === true) {

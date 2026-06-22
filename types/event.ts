@@ -59,6 +59,13 @@ export interface EventResponse {
   updatedAt: string;
 }
 
+export function computeEventStatus(event: Pick<IEvent, "date" | "registrationDeadline">): EventStatus {
+  const now = new Date();
+  if (now > new Date(event.date)) return "completed";
+  if (now > new Date(event.registrationDeadline)) return "closed";
+  return "upcoming";
+}
+
 export function formatEventResponse(
   event: IEvent,
   registrationCount?: number,
@@ -74,7 +81,7 @@ export function formatEventResponse(
     collegeId: event.collegeId.toString(),
     registrationDeadline: event.registrationDeadline.toISOString(),
     capacity: event.capacity,
-    status: event.status,
+    status: computeEventStatus(event),
     category: event.category,
     image: event.image || undefined,
     latitude: event.latitude ?? null,

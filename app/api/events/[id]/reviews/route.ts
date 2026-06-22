@@ -5,6 +5,7 @@ import Review from "@/models/Review";
 import Registration from "@/models/Registration";
 import { requireAuth, requireStudent } from "@/lib/auth-guard";
 import { successResponse, ApiErrors, errorResponse } from "@/lib/api-response";
+import { computeEventStatus, IEvent } from "@/types";
 import mongoose from "mongoose";
 import { z } from "zod";
 
@@ -32,7 +33,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
     await connectDB();
 
     const reviews = await Review.find({ eventId: id })
-      .populate("studentId", "name image")
+      .populate("studentId", "firstName lastName profileImage")
       .sort({ createdAt: -1 })
       .lean();
 
@@ -43,8 +44,10 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
       createdAt: r.createdAt,
       student: {
         id: r.studentId?._id?.toString() ?? "",
-        name: r.studentId?.name ?? "Unknown",
-        image: r.studentId?.image ?? null,
+        name: r.studentId
+          ? `${r.studentId.firstName} ${r.studentId.lastName}`
+          : "Unknown",
+        image: r.studentId?.profileImage ?? null,
       },
     }));
 
@@ -82,10 +85,10 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
     await connectDB();
 
-    const event = await Event.findById(id).lean<{ status: string }>();
+    const event = await Event.findById(id).lean<IEvent>();
     if (!event) return ApiErrors.notFound("Event");
 
-    if (event.status !== "completed") {
+    if (computeEventStatus(event) !== "completed") {
       return errorResponse(
         "Reviews can only be submitted for completed events.",
         400,
