@@ -83,7 +83,7 @@ export function ShareButton({ url, title, description, className }: ShareButtonP
         onClick={handleShare}
         title="Share event"
         className={cn(
-          "flex items-center justify-center p-2 rounded-lg text-slate-400 hover:text-primary transition-colors",
+          "flex items-center justify-center p-2 rounded-lg text-muted-foreground hover:text-primary transition-colors",
           className,
         )}
       >
@@ -91,8 +91,8 @@ export function ShareButton({ url, title, description, className }: ShareButtonP
       </button>
 
       {open && (
-        <div className="absolute right-0 bottom-10 z-50 min-w-[180px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900 animate-fade-in">
-          <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800">
+        <div className="absolute right-0 bottom-10 z-50 min-w-[180px] overflow-hidden rounded-xl border border-border bg-popover shadow-md animate-fade-in">
+          <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground border-b border-border">
             Share this event
           </div>
           {socialLinks.map(({ label, icon: Icon, href }) => (
@@ -102,20 +102,20 @@ export function ShareButton({ url, title, description, className }: ShareButtonP
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => setOpen(false)}
-              className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors"
             >
-              <Icon className="h-4 w-4 text-slate-400" />
+              <Icon className="h-4 w-4 text-muted-foreground" />
               {label}
             </a>
           ))}
           <button
             onClick={handleCopy}
-            className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors border-t border-slate-100 dark:border-slate-800"
+            className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors border-t border-border"
           >
             {copied ? (
               <Check className="h-4 w-4 text-green-500" />
             ) : (
-              <Link2 className="h-4 w-4 text-slate-400" />
+              <Link2 className="h-4 w-4 text-muted-foreground" />
             )}
             {copied ? "Copied!" : "Copy link"}
           </button>

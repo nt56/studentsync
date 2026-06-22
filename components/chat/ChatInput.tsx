@@ -47,7 +47,7 @@ export function ChatInput({
   };
 
   return (
-    <div className="flex items-end gap-2 p-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+    <div className="flex items-end gap-2 p-3 border-t border-border bg-card">
       <textarea
         ref={textareaRef}
         value={value}
@@ -60,9 +60,9 @@ export function ChatInput({
         rows={1}
         maxLength={1000}
         className={cn(
-          "flex-1 resize-none rounded-xl border border-slate-200 dark:border-slate-700",
-          "bg-slate-50 dark:bg-slate-800 px-3.5 py-2.5 text-sm",
-          "text-slate-800 dark:text-slate-100 placeholder:text-slate-400",
+          "flex-1 resize-none rounded-xl border border-input",
+          "bg-secondary px-3.5 py-2.5 text-sm",
+          "text-foreground placeholder:text-muted-foreground",
           "focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary",
           "min-h-[40px] max-h-[120px] transition-all",
           disabled && "opacity-50 cursor-not-allowed",
@@ -75,8 +75,8 @@ export function ChatInput({
         className={cn(
           "flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all",
           value.trim() && !disabled
-            ? "bg-primary text-white hover:bg-primary/90 shadow-sm shadow-primary/20"
-            : "bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed",
+            ? "bg-primary text-white hover:bg-primary/90"
+            : "bg-secondary text-muted-foreground cursor-not-allowed",
         )}
         aria-label="Send message"
       >

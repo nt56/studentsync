@@ -53,21 +53,21 @@ export default function AllEventsPage() {
 
   return (
     <div>
-      <header className="flex justify-between items-center mb-8">
+      <header className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold">All Events</h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">All Events</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Review and manage all platform events.
           </p>
         </div>
       </header>
 
       {/* Search */}
-      <div className="mb-6">
+      <div className="mb-5">
         <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
-            className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-sm"
+            className="w-full pl-10 pr-4 h-10 bg-card border border-input rounded-lg outline-none text-sm transition-colors focus:border-primary/40 focus:ring-2 focus:ring-primary/20"
             placeholder="Search events..."
             value={search}
             onChange={(e) => {
@@ -78,11 +78,11 @@ export default function AllEventsPage() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+      <div className="surface-card rounded-xl overflow-hidden">
         {isLoading ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+              <tbody className="divide-y divide-border">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <TableRowSkeleton key={i} cols={6} />
                 ))}
@@ -105,72 +105,62 @@ export default function AllEventsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50 dark:bg-slate-800/50">
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Event
-                  </th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Category
-                  </th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Registrations
-                  </th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">
-                    Actions
-                  </th>
+                <tr className="border-b border-border text-xs font-medium text-muted-foreground">
+                  <th className="px-5 py-3">Event</th>
+                  <th className="px-5 py-3">Category</th>
+                  <th className="px-5 py-3">Date</th>
+                  <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3">Registrations</th>
+                  <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+              <tbody className="divide-y divide-border">
                 {events.map((event) => {
                   const eid = event.id || event._id;
                   return (
                     <tr
                       key={eid}
-                      className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+                      className="hover:bg-muted/50 transition-colors"
                     >
-                      <td className="px-6 py-5">
-                        <div className="font-bold text-slate-900 dark:text-white">
+                      <td className="px-5 py-3.5">
+                        <div className="font-medium text-foreground">
                           {event.title}
                         </div>
-                        <div className="text-sm text-slate-500">
+                        <div className="text-sm text-muted-foreground">
                           {event.venue}
                         </div>
                       </td>
-                      <td className="px-6 py-5">
+                      <td className="px-5 py-3.5">
                         <CategoryBadge category={event.category} />
                       </td>
-                      <td className="px-6 py-5 text-sm font-medium">
+                      <td className="px-5 py-3.5 text-sm text-muted-foreground">
                         {event.date
                           ? format(new Date(event.date), "MMM dd, yyyy")
                           : "-"}
                       </td>
-                      <td className="px-6 py-5">
+                      <td className="px-5 py-3.5">
                         <EventStatusBadge status={event.status} />
                       </td>
-                      <td className="px-6 py-5">
-                        <span className="text-sm font-bold text-primary">
-                          {event.registrationCount || 0}
-                          {event.capacity ? `/${event.capacity}` : ""}
-                        </span>
+                      <td className="px-5 py-3.5 text-sm font-medium text-foreground">
+                        {event.registrationCount || 0}
+                        {event.capacity ? `/${event.capacity}` : ""}
                       </td>
-                      <td className="px-6 py-5 text-right">
-                        <div className="flex justify-end items-center gap-3">
-                          <Link href={`/events/${eid}`}>
-                            <button className="text-slate-400 hover:text-primary transition-colors pt-2">
-                              <Eye className="h-5 w-5" />
-                            </button>
+                      <td className="px-5 py-3.5 text-right">
+                        <div className="flex justify-end items-center gap-1">
+                          <Link
+                            href={`/events/${eid}`}
+                            title="View event"
+                            className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
+                          >
+                            <Eye className="h-4 w-4" />
                           </Link>
                           <button
-                            className="text-slate-400 hover:text-red-500 transition-colors"
+                            type="button"
+                            title="Delete event"
+                            className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-red-500"
                             onClick={() => setDeleteTarget(eid!)}
                           >
-                            <Trash2 className="h-5 w-5" />
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
                       </td>

@@ -129,13 +129,13 @@ export default function DashboardLayout({
           "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all",
           isActive
             ? "bg-slate-950 text-white shadow-sm dark:bg-primary dark:text-primary-foreground"
-            : "text-slate-600 hover:bg-secondary hover:text-slate-900 dark:text-slate-300 dark:hover:bg-secondary dark:hover:text-white",
+            : "text-muted-foreground hover:bg-secondary hover:text-foreground dark:hover:bg-secondary",
         )}
       >
         <item.icon
           className={cn(
             "h-5 w-5 transition-colors",
-            isActive ? "text-current" : "text-slate-400",
+            isActive ? "text-current" : "text-muted-foreground",
           )}
         />
         {item.label}
@@ -164,13 +164,8 @@ export default function DashboardLayout({
           </div>
         </Link>
 
-        <div className="mt-5 rounded-xl bg-secondary px-4 py-4 text-foreground">
-          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-            {roleLabel} workspace
-          </div>
-          <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
-            Keep your next actions, event workflows, and approvals easy to scan.
-          </p>
+        <div className="mt-4 rounded-lg bg-secondary px-3 py-2 text-xs font-medium text-muted-foreground">
+          {roleLabel} workspace
         </div>
       </div>
 
@@ -201,7 +196,7 @@ export default function DashboardLayout({
     <AuthGuard>
       <div className="min-h-screen px-4 py-4 sm:px-6">
         <div className="mx-auto flex max-w-[1600px] gap-6">
-          <aside className="surface-card-strong sticky top-4 hidden h-[calc(100vh-2rem)] w-72 shrink-0 rounded-3xl p-4 lg:block">
+          <aside className="surface-card-strong sticky top-4 hidden h-[calc(100vh-2rem)] w-72 shrink-0 rounded-2xl p-4 lg:block">
             {renderSidebarContent()}
           </aside>
 
@@ -221,14 +216,9 @@ export default function DashboardLayout({
                   </SheetContent>
                 </Sheet>
 
-                <div>
-                  <p className="section-eyebrow text-[10px] font-semibold text-slate-500 dark:text-slate-400">
-                    {roleLabel} workspace
-                  </p>
-                  <h1 className="mt-1 text-2xl font-bold text-foreground">
-                    {currentItem?.label ?? "Dashboard"}
-                  </h1>
-                </div>
+                <h1 className="text-xl font-bold text-foreground">
+                  {currentItem?.label ?? "Dashboard"}
+                </h1>
               </div>
 
               <div className="flex items-center gap-3">
@@ -251,14 +241,9 @@ export default function DashboardLayout({
                       {initials}
                     </div>
                   )}
-                  <div className="hidden min-w-0 sm:block">
-                    <p className="max-w-32 truncate text-sm font-semibold text-foreground">
-                      {user?.firstName || user?.email || "Profile"}
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Open profile
-                    </p>
-                  </div>
+                  <p className="hidden max-w-32 truncate text-sm font-medium text-foreground sm:block">
+                    {user?.firstName || user?.email || "Profile"}
+                  </p>
                 </Link>
               </div>
             </header>

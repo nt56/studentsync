@@ -23,8 +23,8 @@ export default function BookmarksPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Saved Events</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          <h2 className="text-2xl font-bold text-foreground">Saved Events</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
             {items.length} event{items.length !== 1 ? "s" : ""} bookmarked
           </p>
         </div>
@@ -38,7 +38,7 @@ export default function BookmarksPage() {
           onAction={() => router.push("/events")}
         />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
           {items.map((event) => (
             <EventCard key={event.id || event._id} event={event} />
           ))}

@@ -92,8 +92,8 @@ const typeConfig: Record<string, TypeConfig> = {
 
 const defaultConfig: TypeConfig = {
   Icon: Bell,
-  bg: "bg-slate-100 dark:bg-slate-800",
-  text: "text-slate-500",
+  bg: "bg-muted",
+  text: "text-muted-foreground",
 };
 
 function getConfig(type: string): TypeConfig {
@@ -132,7 +132,7 @@ function NotificationRow({
       className={cn(
         "group flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors",
         notification.isRead
-          ? "hover:bg-slate-50 dark:hover:bg-slate-800/60"
+          ? "hover:bg-muted"
           : "bg-primary/[0.03] hover:bg-primary/[0.06]",
       )}
       onClick={() => onRead(notification)}
@@ -165,16 +165,16 @@ function NotificationRow({
           className={cn(
             "text-sm leading-snug",
             notification.isRead
-              ? "font-normal text-slate-600 dark:text-slate-400"
-              : "font-semibold text-slate-800 dark:text-slate-100",
+              ? "font-normal text-muted-foreground"
+              : "font-semibold text-foreground",
           )}
         >
           {notification.title}
         </p>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">
+        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
           {notification.message}
         </p>
-        <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 block">
+        <span className="text-[10px] text-muted-foreground mt-1 block">
           {relativeTime(notification.createdAt)}
         </span>
       </div>
@@ -187,10 +187,10 @@ function NotificationRow({
             e.stopPropagation();
             onDelete(notification.id);
           }}
-          className="flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+          className="flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-muted transition-all"
           aria-label="Dismiss notification"
         >
-          <X className="h-3 w-3 text-slate-400" />
+          <X className="h-3 w-3 text-muted-foreground" />
         </button>
       )}
     </div>
@@ -283,7 +283,7 @@ export function NotificationBell() {
           "relative flex items-center justify-center w-9 h-9 rounded-lg transition-colors",
           open
             ? "bg-primary/10 text-primary"
-            : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-300",
+            : "text-muted-foreground hover:bg-muted hover:text-foreground",
         )}
         aria-label="Notifications"
       >
@@ -297,11 +297,11 @@ export function NotificationBell() {
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute right-0 top-11 w-[360px] bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 z-50 overflow-hidden animate-fade-in-up">
+        <div className="absolute right-0 top-11 w-[360px] bg-popover rounded-xl shadow-md border border-border z-50 overflow-hidden animate-fade-in-up">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-bold text-slate-800 dark:text-white">
+              <h3 className="text-sm font-bold text-foreground">
                 Notifications
               </h3>
               {unreadCount > 0 && (
@@ -315,7 +315,7 @@ export function NotificationBell() {
                 <button
                   type="button"
                   onClick={handleMarkAllRead}
-                  className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-slate-500 hover:text-primary hover:bg-primary/5 transition-colors"
+                  className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors"
                   title="Mark all as read"
                 >
                   <Check className="h-3 w-3" />
@@ -326,7 +326,7 @@ export function NotificationBell() {
                 <button
                   type="button"
                   onClick={handleClearAll}
-                  className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                   title="Clear all"
                 >
                   <Trash2 className="h-3 w-3" />
@@ -341,22 +341,22 @@ export function NotificationBell() {
             {isLoading && items.length === 0 ? (
               <div className="py-8 flex flex-col items-center gap-2">
                 <div className="w-8 h-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-                <p className="text-xs text-slate-400">Loading…</p>
+                <p className="text-xs text-muted-foreground">Loading…</p>
               </div>
             ) : items.length === 0 ? (
               <div className="py-12 flex flex-col items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                  <Bell className="h-6 w-6 text-slate-400" />
+                <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
+                  <Bell className="h-6 w-6 text-muted-foreground" />
                 </div>
-                <p className="text-sm font-medium text-slate-500">
+                <p className="text-sm font-medium text-muted-foreground">
                   You&apos;re all caught up!
                 </p>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-muted-foreground">
                   No new notifications right now.
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              <div className="divide-y divide-border">
                 {items.map((n) => (
                   <NotificationRow
                     key={n.id}
@@ -371,8 +371,8 @@ export function NotificationBell() {
 
           {/* Footer */}
           {items.length > 0 && (
-            <div className="px-4 py-2.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40">
-              <p className="text-[10px] text-slate-400 text-center">
+            <div className="px-4 py-2.5 border-t border-border bg-muted/40">
+              <p className="text-[10px] text-muted-foreground text-center">
                 Showing last {items.length} notification
                 {items.length !== 1 ? "s" : ""}
               </p>

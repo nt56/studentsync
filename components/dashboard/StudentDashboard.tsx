@@ -117,20 +117,11 @@ export default function StudentDashboard() {
   ];
 
   return (
-    <div className="space-y-8">
-      <header className="surface-card-strong flex flex-col gap-6 rounded-[32px] p-6 md:flex-row md:items-end md:justify-between md:p-8">
-        <div>
-          <p className="section-eyebrow text-xs font-semibold text-slate-500 dark:text-slate-400">
-            Student dashboard
-          </p>
-          <h2 className="mt-3 text-3xl font-bold text-foreground md:text-4xl">
-            Welcome back, {user?.firstName || "Student"}.
-          </h2>
-          <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600 dark:text-slate-300">
-            Track every registration, keep an eye on upcoming sessions, and jump
-            back into discovery when you want something new on the calendar.
-          </p>
-        </div>
+    <div className="space-y-6">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-bold text-foreground">
+          Welcome back, {user?.firstName || "Student"}
+        </h1>
         <Link href="/events">
           <Button className="flex items-center gap-2">
             <Compass className="h-4 w-4" />
@@ -139,40 +130,33 @@ export default function StudentDashboard() {
         </Link>
       </header>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        {stats.map((stat, index) => (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {stats.map((stat) => (
           <div
             key={stat.label}
-            className="surface-card rounded-[28px] p-6 animate-fade-in-up"
-            style={{ animationDelay: `${index * 100}ms` }}
+            className="surface-card flex items-center gap-3 rounded-xl p-4"
           >
-            <div className="flex items-center gap-4">
-              <div
-                className={cn(
-                  "flex h-12 w-12 items-center justify-center rounded-[18px]",
-                  stat.iconClassName,
-                )}
-              >
-                <stat.icon className="h-6 w-6" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                  {stat.label}
-                </p>
-                <h3 className="text-2xl font-bold text-foreground">
-                  {stat.value}
-                </h3>
-              </div>
+            <div
+              className={cn(
+                "flex h-10 w-10 items-center justify-center rounded-lg",
+                stat.iconClassName,
+              )}
+            >
+              <stat.icon className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">{stat.label}</p>
+              <h3 className="text-xl font-bold text-foreground">
+                {stat.value}
+              </h3>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="surface-card-strong overflow-hidden rounded-[32px]">
-        <div className="flex items-center justify-between border-b border-white/50 px-6 py-5 dark:border-white/10">
-          <h2 className="text-lg font-bold text-foreground">
-            Registered Events
-          </h2>
+      <div className="surface-card overflow-hidden rounded-xl">
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+          <h2 className="font-semibold text-foreground">Registered Events</h2>
         </div>
 
         {registrations.length === 0 ? (
@@ -189,49 +173,35 @@ export default function StudentDashboard() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-secondary/60 dark:bg-white/5">
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Event Details
-                  </th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Venue
-                  </th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">
-                    Actions
-                  </th>
+                <tr className="border-b border-border text-xs font-medium text-muted-foreground">
+                  <th className="px-5 py-3">Event</th>
+                  <th className="px-5 py-3">Date</th>
+                  <th className="px-5 py-3">Venue</th>
+                  <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+              <tbody className="divide-y divide-border">
                 {registrations.map((reg) => {
                   const ev = getEvent(reg);
                   const eidStr = getEventIdStr(reg);
                   return (
                     <tr
                       key={reg.id}
-                      className="transition-colors hover:bg-white/45 dark:hover:bg-white/5"
+                      className="transition-colors hover:bg-muted/50"
                     >
-                      <td className="px-6 py-5">
-                        <div className="font-bold text-foreground">
-                          {ev?.title || "Unknown Event"}
-                        </div>
+                      <td className="px-5 py-3.5 font-medium text-foreground">
+                        {ev?.title || "Unknown Event"}
                       </td>
-                      <td className="px-6 py-5">
-                        <div className="text-sm font-medium">
-                          {ev?.date
-                            ? format(new Date(ev.date), "MMM dd, yyyy")
-                            : "-"}
-                        </div>
+                      <td className="px-5 py-3.5 text-sm text-muted-foreground">
+                        {ev?.date
+                          ? format(new Date(ev.date), "MMM dd, yyyy")
+                          : "-"}
                       </td>
-                      <td className="px-6 py-5">
-                        <div className="text-sm">{ev?.venue || "-"}</div>
+                      <td className="px-5 py-3.5 text-sm text-muted-foreground">
+                        {ev?.venue || "-"}
                       </td>
-                      <td className="px-6 py-5">
+                      <td className="px-5 py-3.5">
                         {ev?.status && (
                           <EventStatusBadge
                             status={
@@ -240,19 +210,23 @@ export default function StudentDashboard() {
                           />
                         )}
                       </td>
-                      <td className="px-6 py-5 text-right">
-                        <div className="flex justify-end gap-3">
-                          <Link href={`/events/${eidStr}`}>
-                            <button className="text-slate-400 hover:text-primary transition-colors py-2">
-                              <Eye className="h-5 w-5" />
-                            </button>
+                      <td className="px-5 py-3.5 text-right">
+                        <div className="flex justify-end gap-1">
+                          <Link
+                            href={`/events/${eidStr}`}
+                            title="View event"
+                            className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
+                          >
+                            <Eye className="h-4 w-4" />
                           </Link>
                           {ev?.status === "upcoming" && (
                             <button
-                              className="text-slate-400 hover:text-red-500 transition-colors"
+                              type="button"
+                              title="Cancel registration"
+                              className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-red-500"
                               onClick={() => setCancelTarget(eidStr || null)}
                             >
-                              <XCircle className="h-5 w-5" />
+                              <XCircle className="h-4 w-4" />
                             </button>
                           )}
                         </div>

@@ -48,7 +48,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12">
-      <div className="surface-card-strong w-full max-w-md rounded-3xl border border-border p-8 shadow-sm">
+      <div className="surface-card-strong w-full max-w-md rounded-2xl border border-border p-8 shadow-sm">
         {sent ? (
           <div className="text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30">
@@ -69,7 +69,7 @@ export default function ForgotPasswordPage() {
         ) : (
           <>
             <div className="mb-8">
-              <h1 className="text-3xl font-bold text-foreground">
+              <h1 className="text-2xl font-bold text-foreground">
                 Forgot password?
               </h1>
               <p className="mt-3 text-sm leading-7 text-muted-foreground">
@@ -85,13 +85,13 @@ export default function ForgotPasswordPage() {
                 </Label>
                 <div className="relative">
                   <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                    <Mail className="h-4 w-4 text-slate-400" />
+                    <Mail className="h-4 w-4 text-muted-foreground" />
                   </div>
                   <Input
                     id="email"
                     type="email"
                     placeholder="name@university.edu"
-                    className="h-12 pl-11"
+                    className="h-11 pl-11"
                     disabled={submitting}
                     {...register("email")}
                   />
@@ -104,7 +104,7 @@ export default function ForgotPasswordPage() {
               <Button
                 type="submit"
                 disabled={submitting}
-                className="h-12 w-full justify-center"
+                className="h-11 w-full justify-center"
               >
                 {submitting ? (
                   <>

@@ -126,28 +126,27 @@ export default function CollegeManagementPage() {
 
   return (
     <div>
-      <header className="flex justify-between items-center mb-8">
+      <header className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold">College Management</h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">
+            College Management
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Manage colleges and institutions on the platform.
           </p>
         </div>
-        <Button
-          className="bg-primary text-white hover:bg-primary/90 flex items-center gap-2"
-          onClick={openCreate}
-        >
+        <Button className="flex items-center gap-2" onClick={openCreate}>
           <Plus className="h-4 w-4" />
           Add College
         </Button>
       </header>
 
       {/* Search */}
-      <div className="mb-6">
+      <div className="mb-5">
         <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
-            className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-sm"
+            className="w-full pl-10 pr-4 h-10 bg-card border border-input rounded-lg outline-none text-sm transition-colors focus:border-primary/40 focus:ring-2 focus:ring-primary/20"
             placeholder="Search colleges..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -156,11 +155,11 @@ export default function CollegeManagementPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+      <div className="surface-card rounded-xl overflow-hidden">
         {isLoading ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+              <tbody className="divide-y divide-border">
                 <TableRowSkeleton cols={5} />
                 <TableRowSkeleton cols={5} />
               </tbody>
@@ -184,72 +183,68 @@ export default function CollegeManagementPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50 dark:bg-slate-800/50">
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Name
-                  </th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Location
-                  </th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Verified
-                  </th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Created
-                  </th>
-                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider text-right">
-                    Actions
-                  </th>
+                <tr className="border-b border-border text-xs font-medium text-muted-foreground">
+                  <th className="px-5 py-3">Name</th>
+                  <th className="px-5 py-3">Location</th>
+                  <th className="px-5 py-3">Verified</th>
+                  <th className="px-5 py-3">Created</th>
+                  <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+              <tbody className="divide-y divide-border">
                 {filteredColleges.map((college) => {
                   const cid = college.id || college._id;
                   return (
                     <tr
                       key={cid}
-                      className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+                      className="hover:bg-muted/50 transition-colors"
                     >
-                      <td className="px-6 py-5">
+                      <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
                             <Building2 className="h-4 w-4" />
                           </div>
-                          <span className="font-semibold">{college.name}</span>
+                          <span className="font-medium text-foreground">
+                            {college.name}
+                          </span>
                         </div>
                       </td>
-                      <td className="px-6 py-5 text-sm text-slate-500">
+                      <td className="px-5 py-3.5 text-sm text-muted-foreground">
                         {college.location || "-"}
                       </td>
-                      <td className="px-6 py-5">
+                      <td className="px-5 py-3.5">
                         {college.isVerified ? (
                           <span className="inline-flex items-center gap-1 text-green-600 text-sm">
                             <CheckCircle2 className="h-4 w-4" /> Verified
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-slate-400 text-sm">
+                          <span className="inline-flex items-center gap-1 text-muted-foreground text-sm">
                             <XCircle className="h-4 w-4" /> Pending
                           </span>
                         )}
                       </td>
-                      <td className="px-6 py-5 text-sm text-slate-500">
+                      <td className="px-5 py-3.5 text-sm text-muted-foreground">
                         {college.createdAt
                           ? format(new Date(college.createdAt), "MMM dd, yyyy")
                           : "-"}
                       </td>
-                      <td className="px-6 py-5 text-right">
-                        <div className="flex justify-end gap-3">
+                      <td className="px-5 py-3.5 text-right">
+                        <div className="flex justify-end gap-1">
                           <button
-                            className="text-slate-400 hover:text-primary transition-colors"
+                            type="button"
+                            title="Edit college"
+                            className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
                             onClick={() => openEdit(college)}
                           >
-                            <Pencil className="h-5 w-5" />
+                            <Pencil className="h-4 w-4" />
                           </button>
                           <button
-                            className="text-slate-400 hover:text-red-500 transition-colors"
+                            type="button"
+                            title="Delete college"
+                            className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-red-500"
                             onClick={() => setDeleteTarget(cid!)}
                           >
-                            <Trash2 className="h-5 w-5" />
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
                       </td>
@@ -297,7 +292,7 @@ export default function CollegeManagementPage() {
                   <label className="text-sm font-medium block">
                     Verified Status
                   </label>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     Toggle to verify or unverify this college
                   </p>
                 </div>

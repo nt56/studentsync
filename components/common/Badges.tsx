@@ -20,7 +20,7 @@ const statusMap: Record<string, { label: string; className: string }> = {
   completed: {
     label: "Completed",
     className:
-      "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700",
+      "bg-muted text-muted-foreground border-border",
   },
   cancelled: {
     label: "Cancelled",
@@ -42,7 +42,7 @@ const categoryMap: Record<string, string> = {
     "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
   seminar: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400",
   social: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
-  other: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
+  other: "bg-muted text-muted-foreground",
 };
 
 const roleMap: Record<string, { label: string; className: string }> = {
@@ -65,7 +65,7 @@ const roleMap: Record<string, { label: string; className: string }> = {
 const fallbackStatus = {
   label: "Unknown",
   className:
-    "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700",
+    "bg-muted text-muted-foreground border-border",
 };
 
 export function EventStatusBadge({ status }: { status: string }) {

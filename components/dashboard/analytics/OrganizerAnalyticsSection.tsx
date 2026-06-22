@@ -54,7 +54,7 @@ function ChartCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="surface-card rounded-[24px] p-5">
+    <div className="surface-card rounded-xl p-5">
       <div className="mb-4 flex items-center gap-2">
         <Icon className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-semibold text-foreground">{title}</h3>
@@ -79,10 +79,10 @@ export default function OrganizerAnalyticsSection() {
       <div className="space-y-4">
         <Skeleton className="h-8 w-40 rounded-xl" />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Skeleton className="h-64 rounded-[24px]" />
-          <Skeleton className="h-64 rounded-[24px]" />
-          <Skeleton className="h-64 rounded-[24px]" />
-          <Skeleton className="h-64 rounded-[24px]" />
+          <Skeleton className="h-64 rounded-xl" />
+          <Skeleton className="h-64 rounded-xl" />
+          <Skeleton className="h-64 rounded-xl" />
+          <Skeleton className="h-64 rounded-xl" />
         </div>
       </div>
     );
@@ -91,7 +91,7 @@ export default function OrganizerAnalyticsSection() {
   if (error || !data) {
     if (error) {
       return (
-        <p className="text-sm text-slate-500 dark:text-slate-400 px-1">
+        <p className="text-sm text-muted-foreground px-1">
           Could not load analytics — {error}
         </p>
       );
@@ -156,7 +156,7 @@ export default function OrganizerAnalyticsSection() {
         {/* Events by Category */}
         <ChartCard title="Events by Category" icon={Tag}>
           {eventsByCategory.length === 0 ? (
-            <div className="flex h-[200px] items-center justify-center text-sm text-slate-400">
+            <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
               No events yet
             </div>
           ) : (
@@ -195,7 +195,7 @@ export default function OrganizerAnalyticsSection() {
         {/* Events by Status */}
         <ChartCard title="Events by Status" icon={BarChart2}>
           {eventsByStatus.length === 0 ? (
-            <div className="flex h-[200px] items-center justify-center text-sm text-slate-400">
+            <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
               No events yet
             </div>
           ) : (
@@ -250,7 +250,7 @@ export default function OrganizerAnalyticsSection() {
         {/* Top Events */}
         <ChartCard title="Top Events by Registrations" icon={Trophy}>
           {topEvents.length === 0 ? (
-            <div className="flex h-[200px] items-center justify-center text-sm text-slate-400">
+            <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
               No registrations yet
             </div>
           ) : (
@@ -258,7 +258,7 @@ export default function OrganizerAnalyticsSection() {
               {topEvents.map((event, index) => (
                 <div
                   key={event.eventId}
-                  className="flex items-center gap-3 rounded-xl px-3 py-2 transition-colors hover:bg-slate-50 dark:hover:bg-white/5"
+                  className="flex items-center gap-3 rounded-xl px-3 py-2 transition-colors hover:bg-muted"
                 >
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
                     {index + 1}
@@ -267,7 +267,7 @@ export default function OrganizerAnalyticsSection() {
                     <p className="truncate text-sm font-medium text-foreground">
                       {event.title}
                     </p>
-                    <p className="text-xs capitalize text-slate-500">
+                    <p className="text-xs capitalize text-muted-foreground">
                       {event.category} · {event.status}
                     </p>
                   </div>

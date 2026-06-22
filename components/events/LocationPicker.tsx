@@ -58,10 +58,10 @@ export default function LocationPicker({
 
   return (
     <div className="space-y-2">
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-muted-foreground">
         Click on the map to set the event location
       </p>
-      <div className="w-full h-56 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700">
+      <div className="w-full h-56 rounded-xl overflow-hidden border border-border">
         <MapContainer
           center={markerPosition ?? defaultCenter}
           zoom={markerPosition ? 15 : 5}
@@ -77,7 +77,7 @@ export default function LocationPicker({
         </MapContainer>
       </div>
       {markerPosition && (
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-muted-foreground">
           Selected: {markerPosition[0]}, {markerPosition[1]}
         </p>
       )}

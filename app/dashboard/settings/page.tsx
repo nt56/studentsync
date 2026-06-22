@@ -22,29 +22,29 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="animate-fade-in space-y-8">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Settings</h1>
-        <p className="text-slate-500 dark:text-slate-400 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Settings</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           Manage your appearance and preferences.
         </p>
       </div>
 
       {/* Appearance */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+      <div className="surface-card rounded-xl">
+        <div className="p-5 border-b border-border">
+          <h2 className="flex items-center gap-2 font-semibold text-foreground">
             <Settings2 className="h-5 w-5 text-primary" />
             Appearance
           </h2>
-          <p className="text-sm text-slate-500 mt-1">
-            Choose how EventHub looks for you.
+          <p className="mt-1 text-sm text-muted-foreground">
+            Choose how StudentSync looks for you.
           </p>
         </div>
 
-        <div className="p-6">
+        <div className="p-5">
           {mounted ? (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {themeOptions.map((opt) => {
                 const Icon = opt.icon;
                 const selected = theme === opt.value;
@@ -52,27 +52,26 @@ export default function SettingsPage() {
                   <button
                     key={opt.value}
                     onClick={() => setTheme(opt.value)}
-                    className={`relative flex flex-col items-center gap-3 p-6 rounded-xl border-2 transition-all duration-200 ${
+                    className={`relative flex flex-col items-center gap-3 p-5 rounded-lg border transition-colors ${
                       selected
-                        ? "border-primary bg-primary/5 shadow-md shadow-primary/10"
-                        : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/40"
                     }`}
                   >
-                    {selected && (
-                      <div className="absolute top-3 right-3 w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
-                    )}
                     <div
-                      className={`p-3 rounded-xl ${
+                      className={`p-2.5 rounded-lg transition-colors ${
                         selected
-                          ? "bg-primary text-white"
-                          : "bg-slate-100 dark:bg-slate-800 text-slate-500"
-                      } transition-colors`}
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-secondary text-muted-foreground"
+                      }`}
                     >
-                      <Icon className="h-6 w-6" />
+                      <Icon className="h-5 w-5" />
                     </div>
                     <div className="text-center">
-                      <p className="font-semibold text-sm">{opt.label}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">
+                      <p className="text-sm font-medium text-foreground">
+                        {opt.label}
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
                         {opt.desc}
                       </p>
                     </div>
@@ -81,11 +80,11 @@ export default function SettingsPage() {
               })}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[1, 2, 3].map((i) => (
                 <div
                   key={i}
-                  className="h-36 rounded-xl bg-slate-100 dark:bg-slate-800 animate-pulse"
+                  className="h-32 rounded-lg bg-secondary animate-pulse"
                 />
               ))}
             </div>
@@ -94,11 +93,9 @@ export default function SettingsPage() {
       </div>
 
       {/* Placeholder for future settings */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm p-6">
-        <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
-          Notifications
-        </h2>
-        <p className="text-sm text-slate-500">
+      <div className="surface-card rounded-xl p-5">
+        <h2 className="font-semibold text-foreground mb-1.5">Notifications</h2>
+        <p className="text-sm text-muted-foreground">
           Notification preferences coming soon. You&apos;ll be able to customize
           email and in-app notifications for events, registrations, and updates.
         </p>

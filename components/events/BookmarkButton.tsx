@@ -61,8 +61,8 @@ export function BookmarkButton({
       className={cn(
         "flex items-center justify-center rounded-lg transition-colors disabled:opacity-50",
         size === "sm"
-          ? "h-8 w-8 text-slate-400 hover:text-primary"
-          : "p-2 text-slate-400 hover:text-primary",
+          ? "h-8 w-8 text-muted-foreground hover:text-primary"
+          : "p-2 text-muted-foreground hover:text-primary",
         isBookmarked && "text-primary",
         className,
       )}

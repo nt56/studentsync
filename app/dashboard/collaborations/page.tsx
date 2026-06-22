@@ -114,13 +114,13 @@ export default function CollaborationsPage() {
   if (!isOrganizer) return null;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+        <h1 className="flex items-center gap-2 text-2xl font-bold text-foreground">
           <Handshake className="h-6 w-6 text-primary" />
           Collaboration Invites
         </h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <p className="mt-1 text-sm text-muted-foreground">
           Manage inter-college event collaboration requests
         </p>
       </div>
@@ -136,30 +136,30 @@ export default function CollaborationsPage() {
             <h2 className="text-lg font-semibold text-foreground mb-4">
               Received Invites
               {data?.received.length ? (
-                <span className="ml-2 text-sm font-normal text-slate-500">
+                <span className="ml-2 text-sm font-normal text-muted-foreground">
                   ({data.received.length})
                 </span>
               ) : null}
             </h2>
             {!data?.received.length ? (
-              <p className="text-sm text-slate-400">No received invites yet.</p>
+              <p className="text-sm text-muted-foreground">No received invites yet.</p>
             ) : (
               <div className="space-y-4">
                 {data.received.map((c) => (
                   <div
                     key={c._id}
-                    className="surface-card rounded-2xl border border-border p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+                    className="surface-card rounded-xl border border-border p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
                   >
                     <div className="space-y-1">
                       <p className="font-semibold text-foreground">
                         {c.eventId?.title ?? "Unknown event"}
                       </p>
                       {c.eventId?.date && (
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-muted-foreground">
                           {format(new Date(c.eventId.date), "PPP")}
                         </p>
                       )}
-                      <p className="text-sm text-slate-600 dark:text-slate-300">
+                      <p className="text-sm text-muted-foreground">
                         From:{" "}
                         <span className="font-medium">
                           {c.requesterId
@@ -167,12 +167,12 @@ export default function CollaborationsPage() {
                             : "Unknown"}
                         </span>
                         {c.requesterId?.college?.name && (
-                          <span className="text-slate-400 ml-1">
+                          <span className="text-muted-foreground ml-1">
                             · {c.requesterId.college.name}
                           </span>
                         )}
                       </p>
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-muted-foreground">
                         Received {format(new Date(c.createdAt), "PPP")}
                       </p>
                     </div>
@@ -223,30 +223,30 @@ export default function CollaborationsPage() {
             <h2 className="text-lg font-semibold text-foreground mb-4">
               Sent Invites
               {data?.sent.length ? (
-                <span className="ml-2 text-sm font-normal text-slate-500">
+                <span className="ml-2 text-sm font-normal text-muted-foreground">
                   ({data.sent.length})
                 </span>
               ) : null}
             </h2>
             {!data?.sent.length ? (
-              <p className="text-sm text-slate-400">No sent invites yet.</p>
+              <p className="text-sm text-muted-foreground">No sent invites yet.</p>
             ) : (
               <div className="space-y-4">
                 {data.sent.map((c) => (
                   <div
                     key={c._id}
-                    className="surface-card rounded-2xl border border-border p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+                    className="surface-card rounded-xl border border-border p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
                   >
                     <div className="space-y-1">
                       <p className="font-semibold text-foreground">
                         {c.eventId?.title ?? "Unknown event"}
                       </p>
                       {c.eventId?.date && (
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-muted-foreground">
                           {format(new Date(c.eventId.date), "PPP")}
                         </p>
                       )}
-                      <p className="text-sm text-slate-600 dark:text-slate-300">
+                      <p className="text-sm text-muted-foreground">
                         To:{" "}
                         <span className="font-medium">
                           {c.targetOrganizerId
@@ -254,12 +254,12 @@ export default function CollaborationsPage() {
                             : "Unknown"}
                         </span>
                         {c.targetOrganizerId?.college?.name && (
-                          <span className="text-slate-400 ml-1">
+                          <span className="text-muted-foreground ml-1">
                             · {c.targetOrganizerId.college.name}
                           </span>
                         )}
                       </p>
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-muted-foreground">
                         Sent {format(new Date(c.createdAt), "PPP")}
                       </p>
                     </div>

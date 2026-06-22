@@ -75,14 +75,14 @@ export default function AddToCalendar({
         <Button
           variant="outline"
           size="sm"
-          className="flex items-center gap-2 border-slate-200 dark:border-slate-700"
+          className="flex items-center gap-2"
         >
           <CalendarPlus className="h-4 w-4" />
           Add to Calendar
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuLabel className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+        <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
           Save to Calendar
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
@@ -115,7 +115,7 @@ export default function AddToCalendar({
             download
             className="flex items-center gap-2 cursor-pointer"
           >
-            <Download className="h-4 w-4 text-slate-500" />
+            <Download className="h-4 w-4 text-muted-foreground" />
             Download .ics file
           </a>
         </DropdownMenuItem>

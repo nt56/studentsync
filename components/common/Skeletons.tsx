@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function EventCardSkeleton() {
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-md border border-slate-100 dark:border-slate-700">
+    <div className="surface-card rounded-xl overflow-hidden">
       <Skeleton className="h-48 w-full" />
       <div className="p-6 space-y-4">
         <div className="flex items-center gap-2">

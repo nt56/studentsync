@@ -71,15 +71,15 @@ function StatCard({
   colorClass: string;
 }) {
   return (
-    <div className="surface-card rounded-[24px] p-5">
+    <div className="surface-card rounded-xl p-5">
       <div className="flex items-center gap-4">
         <div
-          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[16px] ${colorClass}`}
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${colorClass}`}
         >
           <Icon className="h-5 w-5" />
         </div>
         <div>
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+          <p className="text-xs font-medium text-muted-foreground">
             {label}
           </p>
           <p className="text-2xl font-bold text-foreground">
@@ -103,7 +103,7 @@ function ChartCard({
   className?: string;
 }) {
   return (
-    <div className={`surface-card rounded-[24px] p-5 ${className ?? ""}`}>
+    <div className={`surface-card rounded-xl p-5 ${className ?? ""}`}>
       <div className="mb-4 flex items-center gap-2">
         <Icon className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-semibold text-foreground">{title}</h3>
@@ -127,12 +127,12 @@ export default function AdminAnalyticsSection() {
         <Skeleton className="h-8 w-40 rounded-xl" />
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-24 rounded-[24px]" />
+            <Skeleton key={i} className="h-24 rounded-xl" />
           ))}
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-64 rounded-[24px]" />
+            <Skeleton key={i} className="h-64 rounded-xl" />
           ))}
         </div>
       </div>
@@ -142,7 +142,7 @@ export default function AdminAnalyticsSection() {
   if (error || !data) {
     if (error) {
       return (
-        <p className="text-sm text-slate-500 dark:text-slate-400 px-1">
+        <p className="text-sm text-muted-foreground px-1">
           Could not load analytics — {error}
         </p>
       );
@@ -292,7 +292,7 @@ export default function AdminAnalyticsSection() {
         {/* Users by Role */}
         <ChartCard title="Users by Role" icon={Users}>
           {usersByRole.length === 0 ? (
-            <div className="flex h-[200px] items-center justify-center text-sm text-slate-400">
+            <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
               No data
             </div>
           ) : (
@@ -334,7 +334,7 @@ export default function AdminAnalyticsSection() {
         {/* Events by Status */}
         <ChartCard title="Events by Status" icon={CalendarCheck2}>
           {eventsByStatus.length === 0 ? (
-            <div className="flex h-[200px] items-center justify-center text-sm text-slate-400">
+            <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
               No events
             </div>
           ) : (
@@ -376,7 +376,7 @@ export default function AdminAnalyticsSection() {
         {/* Events by Category */}
         <ChartCard title="Events by Category" icon={Tag}>
           {eventsByCategory.length === 0 ? (
-            <div className="flex h-[200px] items-center justify-center text-sm text-slate-400">
+            <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
               No events
             </div>
           ) : (
@@ -430,7 +430,7 @@ export default function AdminAnalyticsSection() {
       {/* Top Colleges */}
       <ChartCard title="Top Colleges by Event Count" icon={GraduationCap}>
         {topColleges.length === 0 ? (
-          <div className="flex h-[200px] items-center justify-center text-sm text-slate-400">
+          <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
             No data
           </div>
         ) : (

@@ -16,7 +16,6 @@ import {
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
-  Compass,
   Menu,
   User,
   LayoutDashboard,
@@ -50,7 +49,6 @@ export function Navbar() {
   const navLinks = [
     { href: "/", label: "Home", icon: Sparkles },
     { href: "/events", label: "Browse", icon: CalendarDays },
-    { href: "/#features", label: "Highlights", icon: Compass },
   ];
 
   const isActive = (href: string) => {
@@ -69,7 +67,7 @@ export function Navbar() {
 
   return (
     <nav className="sticky top-0 z-50 px-4 py-4 sm:px-6">
-      <div className="mx-auto flex max-w-7xl items-center gap-4 rounded-2xl border border-border/80 bg-background/88 px-4 py-3 shadow-[0_16px_40px_-28px_rgba(15,23,42,0.35)] backdrop-blur md:px-6">
+      <div className="mx-auto flex max-w-7xl items-center gap-4 rounded-xl border border-border bg-card/95 px-4 py-2.5 shadow-sm backdrop-blur md:px-6">
         <Link href="/" className="flex shrink-0 items-center gap-3">
           <Image
             className="rounded-xl ring-1 ring-border/80"
@@ -100,7 +98,7 @@ export function Navbar() {
                     "h-10 rounded-lg px-3.5",
                     active
                       ? "bg-background text-foreground shadow-sm dark:bg-card"
-                      : "text-slate-600 hover:bg-background/80 hover:text-foreground dark:text-slate-300 dark:hover:bg-card",
+                      : "text-muted-foreground hover:bg-background/80 hover:text-foreground dark:hover:bg-card",
                   )}
                 >
                   <link.icon className="h-4 w-4" />
@@ -113,7 +111,7 @@ export function Navbar() {
 
         <div className="hidden md:flex flex-1 justify-center px-2">
           <div className="relative w-full max-w-xl">
-            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="text"
               value={searchValue}
@@ -123,12 +121,9 @@ export function Navbar() {
                   handleSearch(searchValue);
                 }
               }}
-              placeholder="Search events, clubs, or venues"
-              className="h-11 pl-11 pr-16"
+              placeholder="Search events"
+              className="h-10 pl-11"
             />
-            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded-md border border-border bg-background px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:bg-card dark:text-slate-300">
-              Enter
-            </span>
           </div>
         </div>
 
@@ -138,40 +133,33 @@ export function Navbar() {
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
-                  className="h-11 gap-3 rounded-xl px-2.5 pr-3.5"
+                  className="h-10 gap-2 rounded-lg px-2 pr-3"
                 >
-                  <Avatar className="h-8 w-8 border border-border">
-                    <AvatarFallback className="bg-slate-950 text-xs font-bold text-white dark:bg-primary dark:text-primary-foreground">
+                  <Avatar className="h-7 w-7">
+                    <AvatarFallback className="bg-primary text-xs font-semibold text-primary-foreground">
                       {initials}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="text-left">
-                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                      Account
-                    </p>
-                    <p className="max-w-32 truncate text-sm text-foreground">
-                      {user.firstName || user.email}
-                    </p>
-                  </div>
-                  <ChevronDown className="h-4 w-4 text-slate-400" />
+                  <span className="max-w-32 truncate text-sm font-medium text-foreground">
+                    {user.firstName || user.email}
+                  </span>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="end"
-                className="w-64 rounded-2xl border border-border bg-popover p-2 shadow-[0_20px_50px_-34px_rgba(15,23,42,0.4)]"
+                className="w-60 rounded-lg border border-border bg-popover p-1.5 shadow-md"
               >
-                <div className="rounded-xl bg-secondary px-3 py-3">
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                    Signed in as
+                <div className="px-2 py-1.5">
+                  <p className="truncate text-sm font-medium text-foreground">
+                    {user.firstName} {user.lastName}
                   </p>
-                  <p className="mt-1 truncate text-sm font-medium text-foreground">
+                  <p className="truncate text-xs text-muted-foreground">
                     {user.email}
                   </p>
                 </div>
-                <DropdownMenuItem
-                  asChild
-                  className="mt-2 rounded-2xl px-3 py-2"
-                >
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild className="rounded-md px-2 py-2">
                   <Link
                     href="/dashboard"
                     className="flex items-center gap-2 cursor-pointer"
@@ -180,19 +168,19 @@ export function Navbar() {
                     Dashboard
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild className="rounded-2xl px-3 py-2">
+                <DropdownMenuItem asChild className="rounded-md px-2 py-2">
                   <Link
                     href="/dashboard/profile"
                     className="flex items-center gap-2 cursor-pointer"
                   >
                     <User className="h-4 w-4" />
-                    Your Profile
+                    Profile
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={handleLogout}
-                  className="cursor-pointer rounded-xl px-3 py-2 text-red-600 focus:text-red-600"
+                  className="cursor-pointer rounded-md px-2 py-2 text-red-600 focus:text-red-600"
                 >
                   <LogOut className="h-4 w-4 mr-2" />
                   Sign out
@@ -242,15 +230,11 @@ export function Navbar() {
                       </p>
                     </div>
                   </div>
-                  <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
-                    Find events, manage registrations, and keep your campus
-                    activity in one clean place.
-                  </p>
                 </div>
 
                 <div className="px-6 pt-6">
                   <div className="relative">
-                    <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       type="text"
                       value={searchValue}
@@ -279,7 +263,7 @@ export function Navbar() {
                             "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all",
                             active
                               ? "bg-slate-950 text-white shadow-sm dark:bg-primary dark:text-primary-foreground"
-                              : "border border-transparent bg-secondary/70 text-slate-700 hover:bg-secondary dark:text-slate-200 dark:hover:bg-secondary",
+                              : "border border-transparent bg-secondary/70 text-foreground hover:bg-secondary dark:hover:bg-secondary",
                           )}
                         >
                           <link.icon className="h-5 w-5" />
@@ -296,7 +280,7 @@ export function Navbar() {
                             "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all",
                             isActive("/dashboard")
                               ? "bg-slate-950 text-white shadow-sm dark:bg-primary dark:text-primary-foreground"
-                              : "border border-transparent bg-secondary/70 text-slate-700 hover:bg-secondary dark:text-slate-200 dark:hover:bg-secondary",
+                              : "border border-transparent bg-secondary/70 text-foreground hover:bg-secondary dark:hover:bg-secondary",
                           )}
                         >
                           <LayoutDashboard className="h-5 w-5" />
@@ -309,7 +293,7 @@ export function Navbar() {
                             "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all",
                             isActive("/dashboard/profile")
                               ? "bg-slate-950 text-white shadow-sm dark:bg-primary dark:text-primary-foreground"
-                              : "border border-transparent bg-secondary/70 text-slate-700 hover:bg-secondary dark:text-slate-200 dark:hover:bg-secondary",
+                              : "border border-transparent bg-secondary/70 text-foreground hover:bg-secondary dark:hover:bg-secondary",
                           )}
                         >
                           <User className="h-5 w-5" />
@@ -334,7 +318,7 @@ export function Navbar() {
                             <p className="truncate text-sm font-semibold text-foreground">
                               {user.firstName} {user.lastName}
                             </p>
-                            <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                            <p className="truncate text-xs text-muted-foreground">
                               {user.email}
                             </p>
                           </div>

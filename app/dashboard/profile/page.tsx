@@ -245,16 +245,13 @@ export default function ProfilePage() {
   )?.name;
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-6">
       {/* Profile Header Card */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden relative">
-        {/* Gradient banner */}
-        <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-r from-primary/20 via-primary/10 to-transparent" />
-
-        <div className="relative flex flex-col md:flex-row md:items-end gap-6 p-6 pt-12">
+      <div className="surface-card rounded-xl overflow-hidden">
+        <div className="flex flex-col md:flex-row md:items-end gap-6 p-6">
           {/* Avatar with upload */}
           <div className="relative group">
-            <div className="w-28 h-28 rounded-xl border-4 border-white dark:border-slate-900 shadow-lg overflow-hidden bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
+            <div className="w-24 h-24 rounded-xl overflow-hidden bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
               {user?.profileImage ? (
                 <Image
                   src={user.profileImage}
@@ -294,12 +291,12 @@ export default function ProfilePage() {
           {/* Info */}
           <div className="flex-1 pb-1">
             <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+              <h1 className="text-2xl font-bold text-foreground">
                 {user?.firstName} {user?.lastName}
               </h1>
               <RoleBadge role={user?.role || "student"} />
             </div>
-            <p className="text-slate-500 dark:text-slate-400 flex items-center gap-2 text-sm">
+            <p className="text-muted-foreground flex items-center gap-2 text-sm">
               <School className="h-4 w-4" />
               {collegeName || "No college set"}{" "}
               {user?.email && `• ${user.email}`}
@@ -309,13 +306,13 @@ export default function ProfilePage() {
       </div>
 
       {/* Personal Information Card */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+      <div className="surface-card rounded-xl">
+        <div className="p-6 border-b border-border">
+          <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
             <User className="h-5 w-5 text-primary" />
             Personal Information
           </h2>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Update your personal details and academic affiliation.
           </p>
         </div>
@@ -324,51 +321,51 @@ export default function ProfilePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* First Name */}
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+              <label className="text-sm font-semibold text-foreground">
                 First Name <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                className="w-full rounded-lg border border-input bg-transparent py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
               />
             </div>
 
             {/* Last Name */}
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+              <label className="text-sm font-semibold text-foreground">
                 Last Name <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                className="w-full rounded-lg border border-input bg-transparent py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
               />
             </div>
 
             {/* Email (Read Only) */}
             <div className="space-y-2 group relative">
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <label className="text-sm font-semibold text-foreground flex items-center gap-1.5">
                 <Mail className="h-3.5 w-3.5" />
                 Email Address
-                <Lock className="h-3 w-3 text-slate-400" />
+                <Lock className="h-3 w-3 text-muted-foreground" />
               </label>
               <input
                 type="email"
                 readOnly
                 value={user?.email || ""}
-                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 py-2.5 px-3 text-sm text-slate-500 cursor-not-allowed"
+                className="w-full rounded-lg border border-input bg-muted py-2.5 px-3 text-sm text-muted-foreground cursor-not-allowed"
               />
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-muted-foreground">
                 Email cannot be changed. Contact support if needed.
               </p>
             </div>
 
             {/* Phone */}
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <label className="text-sm font-semibold text-foreground flex items-center gap-1.5">
                 <Phone className="h-3.5 w-3.5" />
                 Phone Number
               </label>
@@ -377,13 +374,13 @@ export default function ProfilePage() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+1 (555) 000-0000"
-                className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                className="w-full rounded-lg border border-input bg-transparent py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
               />
             </div>
 
             {/* Gender */}
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+              <label className="text-sm font-semibold text-foreground">
                 Gender
               </label>
               <Select
@@ -392,7 +389,7 @@ export default function ProfilePage() {
                   setGender(value === EMPTY_GENDER_VALUE ? "" : value)
                 }
               >
-                <SelectTrigger className="h-11 w-full rounded-lg border-slate-300 bg-white px-3 shadow-none dark:border-slate-700 dark:bg-slate-900">
+                <SelectTrigger className="h-11 w-full rounded-lg border-input bg-card px-3 shadow-none">
                   <SelectValue placeholder="Select gender" />
                 </SelectTrigger>
                 <SelectContent>
@@ -411,7 +408,7 @@ export default function ProfilePage() {
 
             {/* Date of Birth */}
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <label className="text-sm font-semibold text-foreground flex items-center gap-1.5">
                 <Calendar className="h-3.5 w-3.5" />
                 Date of Birth
               </label>
@@ -424,13 +421,13 @@ export default function ProfilePage() {
                     .toISOString()
                     .split("T")[0]
                 }
-                className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                className="w-full rounded-lg border border-input bg-card py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
               />
             </div>
 
             {/* College Affiliation */}
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <label className="text-sm font-semibold text-foreground flex items-center gap-1.5">
                 <School className="h-3.5 w-3.5" />
                 College Affiliation
               </label>
@@ -440,7 +437,7 @@ export default function ProfilePage() {
                   setCollegeId(value === EMPTY_COLLEGE_VALUE ? "" : value)
                 }
               >
-                <SelectTrigger className="h-11 w-full rounded-lg border-slate-300 bg-white px-3 shadow-none dark:border-slate-700 dark:bg-slate-900">
+                <SelectTrigger className="h-11 w-full rounded-lg border-input bg-card px-3 shadow-none">
                   <SelectValue placeholder="Select college" />
                 </SelectTrigger>
                 <SelectContent>
@@ -466,10 +463,10 @@ export default function ProfilePage() {
 
             {/* Role (display only) */}
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <label className="text-sm font-semibold text-foreground flex items-center gap-1.5">
                 <Shield className="h-3.5 w-3.5" />
                 Account Role
-                <Lock className="h-3 w-3 text-slate-400" />
+                <Lock className="h-3 w-3 text-muted-foreground" />
               </label>
               <input
                 type="text"
@@ -479,13 +476,13 @@ export default function ProfilePage() {
                     ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
                     : "Student"
                 }
-                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 py-2.5 px-3 text-sm text-slate-500 cursor-not-allowed"
+                className="w-full rounded-lg border border-input bg-muted py-2.5 px-3 text-sm text-muted-foreground cursor-not-allowed"
               />
             </div>
 
             {/* Bio */}
             <div className="md:col-span-2 space-y-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+              <label className="text-sm font-semibold text-foreground">
                 Biography
               </label>
               <textarea
@@ -493,9 +490,9 @@ export default function ProfilePage() {
                 onChange={(e) => setBio(e.target.value)}
                 rows={4}
                 placeholder="Tell us about your interests, what you're studying..."
-                className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none transition-all"
+                className="w-full rounded-lg border border-input bg-card py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none transition-all"
               />
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11px] text-muted-foreground">
                 A brief bio helps you connect at events.
               </p>
             </div>
@@ -503,17 +500,17 @@ export default function ProfilePage() {
         </div>
 
         {/* Save / Discard */}
-        <div className="p-6 bg-slate-50 dark:bg-slate-800/30 flex justify-end gap-3 rounded-b-xl border-t border-slate-100 dark:border-slate-800">
+        <div className="p-6 bg-muted/30 flex justify-end gap-3 rounded-b-xl border-t border-border">
           <button
             onClick={handleDiscard}
-            className="px-6 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+            className="px-6 py-2.5 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
           >
             Discard
           </button>
           <button
             onClick={handleProfileSave}
             disabled={saving}
-            className="px-6 py-2.5 bg-primary text-white rounded-lg text-sm font-semibold hover:bg-primary/90 shadow-sm shadow-primary/20 transition-all disabled:opacity-50 flex items-center gap-2"
+            className="px-6 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
           >
             {saving ? (
               <>
@@ -528,13 +525,13 @@ export default function ProfilePage() {
       </div>
 
       {/* Security & Password Card */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+      <div className="surface-card rounded-xl">
+        <div className="p-6 border-b border-border">
+          <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
             <Shield className="h-5 w-5 text-primary" />
             Security &amp; Password
           </h2>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Secure your account by updating your credentials.
           </p>
         </div>
@@ -542,7 +539,7 @@ export default function ProfilePage() {
         <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+              <label className="text-sm font-semibold text-foreground">
                 Current Password
               </label>
               <input
@@ -550,11 +547,11 @@ export default function ProfilePage() {
                 placeholder="••••••••"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                className="w-full rounded-lg border border-input bg-transparent py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+              <label className="text-sm font-semibold text-foreground">
                 New Password
               </label>
               <input
@@ -562,11 +559,11 @@ export default function ProfilePage() {
                 placeholder="••••••••"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                className="w-full rounded-lg border border-input bg-transparent py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+              <label className="text-sm font-semibold text-foreground">
                 Confirm New Password
               </label>
               <input
@@ -574,7 +571,7 @@ export default function ProfilePage() {
                 placeholder="••••••••"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                className="w-full rounded-lg border border-input bg-transparent py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
               />
             </div>
           </div>
@@ -582,14 +579,14 @@ export default function ProfilePage() {
           {/* Hint */}
           <div className="mt-6 flex items-start gap-3 p-4 bg-primary/5 rounded-lg border border-primary/10">
             <Info className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+            <p className="text-sm text-muted-foreground leading-relaxed">
               Use at least 8 characters, including one uppercase letter and one
               special character for a strong password.
             </p>
           </div>
         </div>
 
-        <div className="p-6 bg-slate-50 dark:bg-slate-800/30 flex justify-end rounded-b-xl border-t border-slate-100 dark:border-slate-800">
+        <div className="p-6 bg-muted/30 flex justify-end rounded-b-xl border-t border-border">
           <button
             onClick={handlePasswordChange}
             disabled={

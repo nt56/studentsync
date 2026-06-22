@@ -26,7 +26,7 @@ export function ChatMessage({
   if (message.type === "system") {
     return (
       <div className="flex justify-center">
-        <span className="text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full">
+        <span className="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full">
           {message.content}
         </span>
       </div>
@@ -54,7 +54,7 @@ export function ChatMessage({
         )}
       >
         {!isOwn && (
-          <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 px-1">
+          <span className="text-[11px] font-medium text-muted-foreground px-1">
             {senderName}
             {sender.role === "organizer" && (
               <span className="ml-1.5 text-primary font-semibold text-[10px]">
@@ -86,7 +86,7 @@ export function ChatMessage({
               "px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed break-words whitespace-pre-wrap",
               isOwn
                 ? "bg-primary text-white rounded-br-sm"
-                : "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-bl-sm",
+                : "bg-secondary text-foreground rounded-bl-sm",
             )}
           >
             {message.content}
@@ -104,7 +104,7 @@ export function ChatMessage({
           )}
         </div>
 
-        <span className="text-[10px] text-slate-400 dark:text-slate-500 px-1">
+        <span className="text-[10px] text-muted-foreground px-1">
           {format(new Date(message.createdAt), "hh:mm a")}
         </span>
       </div>

@@ -242,7 +242,7 @@ export default function EventForm({
                 <FormControl>
                   <Input
                     placeholder="e.g. Annual Tech Symposium 2026"
-                    className="bg-slate-50 dark:bg-slate-800 border-none"
+                    className="bg-secondary border-none"
                     {...field}
                   />
                 </FormControl>
@@ -265,7 +265,7 @@ export default function EventForm({
                   <Textarea
                     placeholder="Describe your event in detail..."
                     rows={6}
-                    className="bg-slate-50 dark:bg-slate-800 border-none resize-none"
+                    className="bg-secondary border-none resize-none"
                     {...field}
                   />
                 </FormControl>
@@ -281,7 +281,7 @@ export default function EventForm({
               Event Image
             </label>
             {imageUrl ? (
-              <div className="relative w-full h-56 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700">
+              <div className="relative w-full h-56 rounded-lg overflow-hidden border border-input">
                 <Image
                   src={imageUrl}
                   alt="Event"
@@ -302,7 +302,7 @@ export default function EventForm({
                 type="button"
                 onClick={() => imageInputRef.current?.click()}
                 disabled={uploadingImage}
-                className="w-full h-56 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-600 hover:border-primary dark:hover:border-primary flex flex-col items-center justify-center gap-2 text-slate-500 dark:text-slate-400 transition-colors bg-slate-50 dark:bg-slate-800"
+                className="w-full h-56 rounded-lg border-2 border-dashed border-border hover:border-primary dark:hover:border-primary flex flex-col items-center justify-center gap-2 text-muted-foreground transition-colors bg-secondary"
               >
                 {uploadingImage ? (
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -310,7 +310,7 @@ export default function EventForm({
                   <>
                     <ImagePlus className="h-8 w-8" />
                     <span className="text-sm">Click to upload event image</span>
-                    <span className="text-xs text-slate-400">
+                    <span className="text-xs text-muted-foreground">
                       JPEG, PNG, WebP, GIF (max 5MB)
                     </span>
                   </>
@@ -340,7 +340,7 @@ export default function EventForm({
                   <FormControl>
                     <Input
                       type="datetime-local"
-                      className="bg-slate-50 dark:bg-slate-800 border-none"
+                      className="bg-secondary border-none"
                       {...field}
                     />
                   </FormControl>
@@ -361,7 +361,7 @@ export default function EventForm({
                   <FormControl>
                     <Input
                       type="datetime-local"
-                      className="bg-slate-50 dark:bg-slate-800 border-none"
+                      className="bg-secondary border-none"
                       {...field}
                     />
                   </FormControl>
@@ -385,7 +385,7 @@ export default function EventForm({
                   <FormControl>
                     <Input
                       placeholder="e.g. Main Auditorium, Building A"
-                      className="bg-slate-50 dark:bg-slate-800 border-none"
+                      className="bg-secondary border-none"
                       {...field}
                     />
                   </FormControl>
@@ -407,7 +407,7 @@ export default function EventForm({
                       type="number"
                       min={1}
                       max={10000}
-                      className="bg-slate-50 dark:bg-slate-800 border-none"
+                      className="bg-secondary border-none"
                       {...field}
                     />
                   </FormControl>
@@ -422,7 +422,7 @@ export default function EventForm({
             <label className="flex items-center gap-2 text-sm font-medium mb-3">
               <MapPin className="h-4 w-4 text-primary" />
               Event Location on Map
-              <span className="text-slate-400 font-normal text-xs">
+              <span className="text-muted-foreground font-normal text-xs">
                 (optional)
               </span>
             </label>
@@ -458,7 +458,7 @@ export default function EventForm({
                     defaultValue={field.value}
                   >
                     <FormControl>
-                      <SelectTrigger className="bg-slate-50 dark:bg-slate-800 border-none">
+                      <SelectTrigger className="bg-secondary border-none">
                         <SelectValue placeholder="Select a category" />
                       </SelectTrigger>
                     </FormControl>
@@ -488,7 +488,7 @@ export default function EventForm({
                     defaultValue={field.value}
                   >
                     <FormControl>
-                      <SelectTrigger className="bg-slate-50 dark:bg-slate-800 border-none">
+                      <SelectTrigger className="bg-secondary border-none">
                         <SelectValue placeholder="Select a college" />
                       </SelectTrigger>
                     </FormControl>
@@ -514,13 +514,13 @@ export default function EventForm({
             control={form.control}
             name="isInterCollege"
             render={({ field }) => (
-              <FormItem className="flex flex-row items-center justify-between rounded-xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-800">
+              <FormItem className="flex flex-row items-center justify-between rounded-xl border border-input p-4 bg-secondary">
                 <div className="space-y-0.5">
                   <FormLabel className="flex items-center gap-2 text-base">
                     <Globe2 className="h-4 w-4 text-teal-500" />
                     Inter-College Event
                   </FormLabel>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                  <p className="text-sm text-muted-foreground">
                     Allow students from partner colleges to register
                   </p>
                 </div>
@@ -556,13 +556,13 @@ export default function EventForm({
                     <FormLabel className="flex items-center gap-2">
                       <Building2 className="h-4 w-4 text-teal-500" />
                       Partner Colleges
-                      <span className="text-slate-400 font-normal text-xs">
+                      <span className="text-muted-foreground font-normal text-xs">
                         (optional)
                       </span>
                     </FormLabel>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 max-h-52 overflow-y-auto">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-4 rounded-xl border border-input bg-secondary max-h-52 overflow-y-auto">
                       {available.length === 0 && (
-                        <p className="text-sm text-slate-400 col-span-2">
+                        <p className="text-sm text-muted-foreground col-span-2">
                           No other colleges available
                         </p>
                       )}

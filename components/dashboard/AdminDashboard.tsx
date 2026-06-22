@@ -68,90 +68,66 @@ export default function AdminDashboard() {
     },
   ];
 
-  return (
-    <div className="space-y-8">
-      <header className="surface-card-strong rounded-[32px] p-6 md:p-8">
-        <p className="section-eyebrow text-xs font-semibold text-slate-500 dark:text-slate-400">
-          Admin dashboard
-        </p>
-        <h1 className="mt-3 text-3xl font-bold text-foreground md:text-4xl">
-          Platform visibility, approvals, and control in one view.
-        </h1>
-        <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600 dark:text-slate-300">
-          Monitor adoption, review activity, and move directly into the
-          operational areas that keep the campus event ecosystem credible and
-          well-managed.
-        </p>
-      </header>
+  const quickLinks = [
+    {
+      href: "/dashboard/users",
+      title: "User Management",
+      description: "Manage users, roles, and permissions",
+    },
+    {
+      href: "/dashboard/colleges",
+      title: "College Management",
+      description: "Add, edit, and verify colleges",
+    },
+    {
+      href: "/dashboard/all-events",
+      title: "All Events",
+      description: "Review and manage platform events",
+    },
+  ];
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat, i) => (
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold text-foreground">Admin</h1>
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {stats.map((stat) => (
           <Link
             key={stat.label}
             href={stat.href}
-            className="surface-card rounded-[28px] p-6 transition-all hover:-translate-y-1 animate-fade-in-up group"
-            style={{ animationDelay: `${i * 100}ms` }}
+            className="surface-card flex items-center gap-3 rounded-xl p-4 transition-colors hover:border-primary/40"
           >
-            <div className="flex items-center gap-4">
-              <div
-                className={`w-12 h-12 rounded-lg flex items-center justify-center ${stat.color}`}
-              >
-                <stat.icon className="h-6 w-6" />
-              </div>
-              <div>
-                <p className="text-slate-500 text-sm font-medium">
-                  {stat.label}
-                </p>
-                <h3 className="text-2xl font-bold">{stat.value}</h3>
-              </div>
+            <div
+              className={`flex h-10 w-10 items-center justify-center rounded-lg ${stat.color}`}
+            >
+              <stat.icon className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">{stat.label}</p>
+              <h3 className="text-xl font-bold text-foreground">
+                {stat.value}
+              </h3>
             </div>
           </Link>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Link
-          href="/dashboard/users"
-          className="surface-card rounded-[28px] p-6 transition-all hover:-translate-y-1 group"
-        >
-          <div className="flex items-center justify-between">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {quickLinks.map((link) => (
+          <Link
+            key={link.href}
+            href={link.href}
+            className="surface-card group flex items-center justify-between rounded-xl p-4 transition-colors hover:border-primary/40"
+          >
             <div>
-              <h3 className="font-bold text-lg mb-1">User Management</h3>
-              <p className="text-slate-500 text-sm">
-                Manage users, roles, and permissions
+              <h3 className="font-semibold text-foreground">{link.title}</h3>
+              <p className="text-sm text-muted-foreground">
+                {link.description}
               </p>
             </div>
-            <ArrowRight className="h-5 w-5 text-slate-400 group-hover:text-primary transition-colors" />
-          </div>
-        </Link>
-        <Link
-          href="/dashboard/colleges"
-          className="surface-card rounded-[28px] p-6 transition-all hover:-translate-y-1 group"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-bold text-lg mb-1">College Management</h3>
-              <p className="text-slate-500 text-sm">
-                Add, edit, and verify colleges
-              </p>
-            </div>
-            <ArrowRight className="h-5 w-5 text-slate-400 group-hover:text-primary transition-colors" />
-          </div>
-        </Link>
-        <Link
-          href="/dashboard/all-events"
-          className="surface-card rounded-[28px] p-6 transition-all hover:-translate-y-1 group"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-bold text-lg mb-1">All Events</h3>
-              <p className="text-slate-500 text-sm">
-                Review and manage platform events
-              </p>
-            </div>
-            <ArrowRight className="h-5 w-5 text-slate-400 group-hover:text-primary transition-colors" />
-          </div>
-        </Link>
+            <ArrowRight className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
+          </Link>
+        ))}
       </div>
 
       <AdminAnalyticsSection />

@@ -94,22 +94,22 @@ export function ChatPanel({
   }, [emitTyping, userName]);
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+    <div className="surface-card rounded-xl overflow-hidden">
       {/* Toggle header */}
       <button
         type="button"
         onClick={() => setIsOpen((p) => !p)}
-        className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+        className="w-full flex items-center justify-between px-5 py-4 hover:bg-muted transition-colors"
       >
         <div className="flex items-center gap-2.5">
           <div className="p-2 bg-primary/10 rounded-lg">
             <MessageSquare className="h-4 w-4 text-primary" />
           </div>
           <div className="text-left">
-            <h3 className="text-sm font-bold text-slate-800 dark:text-white">
+            <h3 className="text-sm font-bold text-foreground">
               Event Chat
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
               {canSend ? "Chat with attendees" : "Register to participate"}
             </p>
           </div>
@@ -125,7 +125,7 @@ export function ChatPanel({
             <span
               className={cn(
                 "flex items-center gap-1 text-[10px] font-medium",
-                isConnected ? "text-green-500" : "text-slate-400",
+                isConnected ? "text-green-500" : "text-muted-foreground",
               )}
             >
               {isConnected ? (
@@ -137,9 +137,9 @@ export function ChatPanel({
             </span>
           )}
           {isOpen ? (
-            <ChevronUp className="h-4 w-4 text-slate-400" />
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
           ) : (
-            <ChevronDown className="h-4 w-4 text-slate-400" />
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
           )}
         </div>
       </button>
@@ -148,21 +148,21 @@ export function ChatPanel({
       {isOpen && (
         <>
           {/* Messages list */}
-          <div className="h-[380px] overflow-y-auto px-4 py-4 space-y-4 bg-slate-50/40 dark:bg-slate-950/20">
+          <div className="h-[380px] overflow-y-auto px-4 py-4 space-y-4 bg-muted/30">
             {isLoading ? (
               <div className="flex flex-col items-center gap-2 py-12">
                 <div className="w-7 h-7 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-                <p className="text-xs text-slate-400">Loading messages…</p>
+                <p className="text-xs text-muted-foreground">Loading messages…</p>
               </div>
             ) : messages.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-12">
-                <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                  <MessageSquare className="h-6 w-6 text-slate-400" />
+                <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
+                  <MessageSquare className="h-6 w-6 text-muted-foreground" />
                 </div>
-                <p className="text-sm font-medium text-slate-500">
+                <p className="text-sm font-medium text-muted-foreground">
                   No messages yet
                 </p>
-                <p className="text-xs text-slate-400 text-center max-w-[220px]">
+                <p className="text-xs text-muted-foreground text-center max-w-[220px]">
                   {canSend
                     ? "Be the first to say something!"
                     : "Register for this event to join the chat."}
@@ -182,12 +182,12 @@ export function ChatPanel({
 
             {/* Typing indicator */}
             {typingUsers.length > 0 && (
-              <div className="flex items-center gap-2 text-xs text-slate-400 pl-9">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground pl-9">
                 <div className="flex gap-0.5">
                   {[0, 1, 2].map((i) => (
                     <span
                       key={i}
-                      className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce"
+                      className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce"
                       style={{ animationDelay: `${i * 0.15}s` }}
                     />
                   ))}

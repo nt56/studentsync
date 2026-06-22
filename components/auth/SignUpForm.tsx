@@ -20,15 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  GraduationCap,
-  Eye,
-  EyeOff,
-  Loader2,
-  CheckCircle2,
-  XCircle,
-  Search,
-} from "lucide-react";
+import { Eye, EyeOff, Loader2, CheckCircle2, XCircle, Search } from "lucide-react";
 import Image from "next/image";
 
 const signUpSchema = z
@@ -80,29 +72,8 @@ const signUpSchema = z
 
 type SignUpValues = z.infer<typeof signUpSchema>;
 
-const signUpHighlights = [
-  {
-    icon: GraduationCap,
-    title: "Built for students first",
-    description:
-      "Create your profile once, then move through campus registrations without the usual friction.",
-  },
-  {
-    icon: Search,
-    title: "Discover the right events faster",
-    description:
-      "Find workshops, cultural programs, sports, and career moments from one polished feed.",
-  },
-  {
-    icon: CheckCircle2,
-    title: "Stronger trust signals",
-    description:
-      "Verified colleges and clearer event details make it easier to know what is worth your time.",
-  },
-];
-
 const COLLEGE_SEARCH_RESULT_CLASSNAME =
-  "w-full rounded-xl px-4 py-2.5 text-left text-sm text-slate-700 transition-colors hover:bg-secondary dark:text-slate-200 dark:hover:bg-secondary";
+  "w-full rounded-lg px-4 py-2.5 text-left text-sm text-foreground transition-colors hover:bg-muted";
 
 export function SignUpForm() {
   const { register: registerUser } = useAuth();
@@ -152,9 +123,8 @@ export function SignUpForm() {
   const filteredColleges = colleges.filter((c) =>
     c.name.toLowerCase().includes(collegeSearch.toLowerCase()),
   );
-  const fieldClassName = "h-12";
-  const labelClassName =
-    "mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200";
+  const fieldClassName = "h-11";
+  const labelClassName = "mb-2 block text-sm font-medium text-foreground";
 
   const onSubmit = useCallback(
     async (data: SignUpValues) => {
@@ -201,76 +171,32 @@ export function SignUpForm() {
 
   return (
     <div className="min-h-screen px-4 py-8 sm:px-6">
-      <div className="mx-auto grid max-w-7xl overflow-hidden rounded-3xl border border-border bg-background/88 shadow-[0_24px_60px_-40px_rgba(15,23,42,0.35)] backdrop-blur xl:min-h-[calc(100vh-4rem)] xl:grid-cols-[0.88fr_1.12fr]">
-        <div className="hidden border-r border-white/10 bg-slate-950 px-10 py-10 text-white xl:flex xl:flex-col xl:justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              <Image
-                src="/studenysync-svg.svg"
-                alt="StudentSync Logo"
-                width={48}
-                height={48}
-                className="rounded-xl ring-1 ring-white/15"
-              />
-              <div>
-                <p className="font-display text-2xl font-bold leading-none text-white">
-                  Student
-                </p>
-                <p className="text-xs uppercase tracking-[0.22em] text-primary">
-                  Sync
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-10 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/75">
-              <GraduationCap className="h-3.5 w-3.5 text-primary" />
-              Student onboarding
-            </div>
-            <h2 className="mt-6 text-5xl font-bold leading-[0.96] text-white">
-              Join the campus event network with a profile built to move fast.
-            </h2>
-            <p className="mt-5 max-w-md text-base leading-8 text-white/72">
-              Set up your account once, discover better events, and keep your
-              academic, cultural, and community plans in one place.
-            </p>
-
-            <div className="mt-10 space-y-4">
-              {signUpHighlights.map((item) => (
-                <div
-                  key={item.title}
-                  className="rounded-2xl border border-white/10 bg-white/5 p-5"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 text-primary">
-                      <item.icon className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-white">
-                        {item.title}
-                      </h3>
-                      <p className="mt-2 text-sm leading-7 text-white/68">
-                        {item.description}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
+      <div className="mx-auto grid max-w-7xl overflow-hidden rounded-2xl border border-border bg-card shadow-sm xl:min-h-[calc(100vh-4rem)] xl:grid-cols-[0.88fr_1.12fr]">
+        <div className="hidden border-r border-border bg-slate-950 px-10 py-10 text-white xl:flex xl:flex-col xl:justify-center">
+          <div className="flex items-center gap-3">
+            <Image
+              src="/studenysync-svg.svg"
+              alt="StudentSync Logo"
+              width={48}
+              height={48}
+              className="rounded-xl ring-1 ring-white/15"
+            />
+            <div>
+              <p className="font-display text-2xl font-bold leading-none text-white">
+                Student
+              </p>
+              <p className="text-xs uppercase tracking-[0.22em] text-primary">
+                Sync
+              </p>
             </div>
           </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-5 mt-4">
-            <p className="text-xs uppercase tracking-[0.18em] text-white/60">
-              Why students stay
-            </p>
-            <p className="mt-3 text-2xl font-bold">
-              One account. Every campus moment.
-            </p>
-            <p className="mt-3 text-sm leading-7 text-white/68">
-              From workshops and club fairs to concerts and career events, the
-              experience stays consistent from first browse to final
-              registration.
-            </p>
-          </div>
+          <h2 className="mt-8 text-3xl font-bold leading-tight text-white md:text-4xl">
+            Join the campus event network.
+          </h2>
+          <p className="mt-4 max-w-md text-sm leading-7 text-white/70">
+            Set up your account once, discover better events, and keep your
+            plans in one place.
+          </p>
         </div>
 
         <div className="surface-card-strong px-6 py-8 md:px-10 md:py-10">
@@ -292,16 +218,12 @@ export function SignUpForm() {
             </div>
           </div>
 
-          <div className="mb-10">
-            <p className="section-eyebrow text-xs font-semibold text-slate-500 dark:text-slate-400">
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold text-foreground">
               Create your account
-            </p>
-            <h1 className="mt-3 text-3xl font-bold text-foreground md:text-4xl">
-              Start discovering better campus events today.
             </h1>
-            <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              Build your student profile once so registrations, recommendations,
-              and dashboard access feel seamless from here on out.
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              Build your student profile to start registering for events.
             </p>
           </div>
 
@@ -426,10 +348,10 @@ export function SignUpForm() {
               <div>
                 <Label className={labelClassName}>College / University</Label>
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search institution..."
-                    className="h-12 pl-11"
+                    className="h-11 pl-11"
                     value={selectedCollegeName || collegeSearch}
                     onChange={(e) => {
                       setCollegeSearch(e.target.value);
@@ -471,20 +393,20 @@ export function SignUpForm() {
                   <Input
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
-                    className={`h-12 pr-10 ${
+                    className={`h-11 pr-10 ${
                       password &&
                       (!passwordChecks.uppercase ||
                         !passwordChecks.lowercase ||
                         !passwordChecks.number)
                         ? "border-red-400 dark:border-red-500"
-                        : "border-slate-300 dark:border-slate-700"
+                        : "border-input"
                     }`}
                     {...register("password")}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-muted-foreground hover:text-foreground"
                   >
                     {showPassword ? (
                       <EyeOff className="h-4 w-4" />
@@ -567,13 +489,13 @@ export function SignUpForm() {
                   <Input
                     type={showConfirmPassword ? "text" : "password"}
                     placeholder="••••••••"
-                    className="h-12 pr-10"
+                    className="h-11 pr-10"
                     {...register("confirmPassword")}
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-muted-foreground hover:text-foreground"
                   >
                     {showConfirmPassword ? (
                       <EyeOff className="h-4 w-4" />
@@ -593,7 +515,7 @@ export function SignUpForm() {
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="mt-4 h-12 w-full justify-center"
+              className="mt-2 h-11 w-full justify-center"
             >
               {isSubmitting ? (
                 <>
@@ -601,32 +523,32 @@ export function SignUpForm() {
                   Creating your account...
                 </>
               ) : (
-                "Create Student Account"
+                "Create account"
               )}
             </Button>
           </form>
 
           {/* Divider */}
-          <div className="relative my-10">
+          <div className="relative my-8">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-white/60 dark:border-white/10" />
+              <div className="w-full border-t border-border" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="bg-white/95 px-3 text-slate-500 dark:bg-slate-950/95">
+              <span className="bg-card px-3 text-muted-foreground">
                 Already have an account?
               </span>
             </div>
           </div>
 
           <Link href="/sign-in" className="block">
-            <Button variant="outline" className="h-12 w-full justify-center">
+            <Button variant="outline" className="h-11 w-full justify-center">
               Sign In Instead
             </Button>
           </Link>
         </div>
       </div>
 
-      <footer className="mt-8 text-center text-xs text-slate-500 dark:text-slate-400">
+      <footer className="mt-8 text-center text-xs text-muted-foreground">
         <p>&copy; 2026 StudentSync. All rights reserved.</p>
       </footer>
     </div>

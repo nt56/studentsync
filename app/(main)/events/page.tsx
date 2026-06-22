@@ -21,14 +21,9 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
-  Sparkles,
-  Building2,
-  Filter,
-  CalendarCheck2,
   Globe2,
   Check,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -129,102 +124,23 @@ function BrowseEventsContent() {
 
   const hasActiveFilters =
     search || category || status !== "upcoming" || collegeId || isInterCollege;
-  const activeFilterCount = [
-    Boolean(search.trim()),
-    Boolean(category),
-    status !== "upcoming",
-    Boolean(collegeId),
-    isInterCollege,
-  ].filter(Boolean).length;
   const filterControlClassName =
-    "h-12 w-full rounded-xl border border-input bg-card px-4 text-sm shadow-sm outline-none transition-all focus:border-primary/30 focus:ring-2 focus:ring-primary/20";
+    "h-11 w-full rounded-lg border border-input bg-card px-4 text-sm outline-none transition-colors focus:border-primary/40 focus:ring-2 focus:ring-primary/20";
 
   return (
-    <div className="px-4 py-8 sm:px-6 lg:py-10">
+    <div className="px-4 py-8 sm:px-6">
       <div className="mx-auto max-w-7xl">
-        <div className="surface-card-strong mb-8 rounded-3xl p-6 md:p-8 animate-fade-in-up">
-          <div className="grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-primary">
-                <Sparkles className="h-3.5 w-3.5" />
-                Curated campus feed
-              </div>
-              <h1 className="mt-5 text-4xl font-bold text-foreground md:text-5xl">
-                Browse events with better filters, stronger signals, and less
-                clutter.
-              </h1>
-              <p className="mt-4 max-w-2xl text-base leading-8 text-slate-600 dark:text-slate-300">
-                Explore workshops, festivals, sports, and academic sessions
-                happening across your community with a feed that stays clear
-                even when the list gets busy.
-              </p>
-              <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-600 dark:text-slate-300">
-                <span className="rounded-lg bg-secondary px-4 py-2 font-medium">
-                  {events.length} events on screen
-                </span>
-                <span className="rounded-lg bg-secondary px-4 py-2 font-medium">
-                  {colleges.length} colleges available
-                </span>
-                <span className="rounded-lg bg-secondary px-4 py-2 font-medium">
-                  {activeFilterCount} active filters
-                </span>
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
-              <div className="surface-card rounded-2xl p-5">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <CalendarCheck2 className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                      Default view
-                    </p>
-                    <p className="mt-1 font-semibold text-foreground">
-                      Upcoming events first
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="surface-card rounded-2xl p-5">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <Building2 className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                      Campus scope
-                    </p>
-                    <p className="mt-1 font-semibold text-foreground">
-                      Filter by college instantly
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="surface-card rounded-2xl p-5">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <Filter className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                      Active filters
-                    </p>
-                    <p className="mt-1 font-semibold text-foreground">
-                      Reset with one tap
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-foreground">Browse Events</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {isLoading ? "Loading events…" : `${events.length} event${events.length === 1 ? "" : "s"} found`}
+          </p>
         </div>
 
-        <div className="surface-card mb-8 rounded-2xl p-4 md:p-5 animate-fade-in-up delay-100">
+        <div className="surface-card mb-6 rounded-xl p-4">
           <div className="grid gap-4 md:grid-cols-12">
             <div className="relative md:col-span-3">
-              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 className={`${filterControlClassName} pl-11 pr-4`}
                 placeholder="Search by title or keyword"
@@ -245,7 +161,7 @@ function BrowseEventsContent() {
                   setPage(1);
                 }}
               >
-                <SelectTrigger className="h-12 w-full">
+                <SelectTrigger className="h-11 w-full">
                   <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
                 <SelectContent>
@@ -271,7 +187,7 @@ function BrowseEventsContent() {
                   setPage(1);
                 }}
               >
-                <SelectTrigger className="h-12 w-full">
+                <SelectTrigger className="h-11 w-full">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -292,7 +208,7 @@ function BrowseEventsContent() {
                   setPage(1);
                 }}
               >
-                <SelectTrigger className="h-12 w-full">
+                <SelectTrigger className="h-11 w-full">
                   <SelectValue placeholder="All Colleges" />
                 </SelectTrigger>
                 <SelectContent>
@@ -319,11 +235,7 @@ function BrowseEventsContent() {
             <div className="md:col-span-2">
               <Button
                 variant={isInterCollege ? "default" : "outline"}
-                className={cn(
-                  "h-12 w-full justify-center gap-2 transition-all",
-                  isInterCollege &&
-                    "ring-2 ring-primary/25 ring-offset-1",
-                )}
+                className="h-11 w-full justify-center gap-2"
                 onClick={() => {
                   setIsInterCollege((prev) => !prev);
                   if (!isInterCollege) setCollegeId("");
@@ -341,33 +253,21 @@ function BrowseEventsContent() {
             <div className="md:col-span-1">
               <Button
                 variant="outline"
-                className="h-12 w-full justify-center"
+                className="h-11 w-full justify-center"
                 disabled={!hasActiveFilters}
                 onClick={resetFilters}
+                title="Reset filters"
               >
                 <X className="h-4 w-4" />
               </Button>
             </div>
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
-            <span>
-              Showing {isLoading ? "..." : events.length} event
-              {events.length === 1 ? "" : "s"}
-            </span>
-            {hasActiveFilters && (
-              <span className="rounded-lg bg-secondary px-3 py-1 font-medium text-slate-700 dark:text-slate-200">
-                {activeFilterCount} filter{activeFilterCount === 1 ? "" : "s"}{" "}
-                applied
-              </span>
-            )}
           </div>
         </div>
 
         {isLoading ? (
           <EventCardGridSkeleton count={12} />
         ) : events.length === 0 ? (
-          <div className="surface-card-strong rounded-2xl p-8">
+          <div className="surface-card rounded-xl p-8">
             <EmptyState
               icon={CalendarX}
               title="No events found"
@@ -378,14 +278,14 @@ function BrowseEventsContent() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {events.map((event) => (
                 <EventCard key={event.id || event._id} event={event} />
               ))}
             </div>
 
             {pagination && pagination.totalPages > 1 && (
-              <div className="mt-12 flex flex-wrap items-center justify-center gap-2">
+              <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
                 <Button
                   variant="outline"
                   size="icon"

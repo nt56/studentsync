@@ -92,7 +92,7 @@ function ResetPasswordInner() {
   return (
     <>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground">Set a new password</h1>
+        <h1 className="text-2xl font-bold text-foreground">Set a new password</h1>
         <p className="mt-3 text-sm leading-7 text-muted-foreground">
           Choose a strong password you don&apos;t use anywhere else.
         </p>
@@ -105,20 +105,20 @@ function ResetPasswordInner() {
           </Label>
           <div className="relative">
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-              <Lock className="h-4 w-4 text-slate-400" />
+              <Lock className="h-4 w-4 text-muted-foreground" />
             </div>
             <Input
               id="password"
               type={showPassword ? "text" : "password"}
               placeholder="••••••••"
-              className="h-12 pl-11 pr-11"
+              className="h-11 pl-11 pr-11"
               disabled={submitting}
               {...register("password")}
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400 hover:text-slate-600"
+              className="absolute inset-y-0 right-0 flex items-center pr-4 text-muted-foreground hover:text-foreground"
               aria-label={showPassword ? "Hide password" : "Show password"}
             >
               {showPassword ? (
@@ -139,13 +139,13 @@ function ResetPasswordInner() {
           </Label>
           <div className="relative">
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-              <Lock className="h-4 w-4 text-slate-400" />
+              <Lock className="h-4 w-4 text-muted-foreground" />
             </div>
             <Input
               id="confirmPassword"
               type={showPassword ? "text" : "password"}
               placeholder="••••••••"
-              className="h-12 pl-11"
+              className="h-11 pl-11"
               disabled={submitting}
               {...register("confirmPassword")}
             />
@@ -160,7 +160,7 @@ function ResetPasswordInner() {
         <Button
           type="submit"
           disabled={submitting}
-          className="h-12 w-full justify-center"
+          className="h-11 w-full justify-center"
         >
           {submitting ? (
             <>
@@ -179,7 +179,7 @@ function ResetPasswordInner() {
 export default function ResetPasswordPage() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12">
-      <div className="surface-card-strong w-full max-w-md rounded-3xl border border-border p-8 shadow-sm">
+      <div className="surface-card-strong w-full max-w-md rounded-2xl border border-border p-8 shadow-sm">
         <Suspense
           fallback={
             <div className="flex justify-center py-10">

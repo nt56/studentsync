@@ -122,7 +122,7 @@ export function SignInForm() {
 
   return (
     <div className="min-h-screen px-4 py-8 sm:px-6">
-      <div className="mx-auto grid max-w-6xl overflow-hidden rounded-3xl border border-border bg-background/88 shadow-[0_24px_60px_-40px_rgba(15,23,42,0.35)] backdrop-blur xl:grid-cols-[0.95fr_1.05fr]">
+      <div className="mx-auto grid max-w-6xl overflow-hidden rounded-2xl border border-border bg-card shadow-sm xl:grid-cols-[0.95fr_1.05fr]">
         <div className="hidden border-r border-white/10 bg-slate-950 px-10 py-10 text-white xl:flex xl:flex-col xl:justify-between">
           <div>
             <div className="flex items-center gap-3">
@@ -147,13 +147,12 @@ export function SignInForm() {
               <Sparkles className="h-3.5 w-3.5 text-primary" />
               Welcome back
             </div>
-            <h2 className="mt-6 text-5xl font-bold leading-[0.96] text-white">
+            <h2 className="mt-6 text-3xl font-bold leading-tight text-white md:text-4xl">
               Pick up where your campus momentum left off.
             </h2>
-            <p className="mt-5 max-w-md text-base leading-8 text-white/72">
+            <p className="mt-4 max-w-md text-sm leading-7 text-white/72">
               Get back into registrations, dashboards, and your upcoming
-              schedule with an interface that feels sharper from the first
-              screen.
+              schedule.
             </p>
 
             <div className="mt-10 space-y-4">
@@ -220,15 +219,9 @@ export function SignInForm() {
           </div>
 
           <div className="mb-8">
-            <p className="section-eyebrow text-xs font-semibold text-slate-500 dark:text-slate-400">
-              Welcome back
-            </p>
-            <h1 className="mt-3 text-3xl font-bold text-foreground md:text-4xl">
-              Sign in to continue planning your semester.
-            </h1>
-            <p className="mt-3 text-sm leading-7 text-slate-600 dark:text-slate-300">
-              Access your college events, organizer tools, and personalized
-              dashboard from one polished workspace.
+            <h1 className="text-2xl font-bold text-foreground">Sign in</h1>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              Welcome back — access your events and dashboard.
             </p>
           </div>
 
@@ -236,13 +229,13 @@ export function SignInForm() {
             <div className="space-y-2">
               <Label
                 htmlFor="email"
-                className="text-sm font-medium text-slate-700 dark:text-slate-200"
+                className="text-sm font-medium text-foreground"
               >
                 Email Address <span className="text-red-500">*</span>
               </Label>
               <div className="relative">
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                  <Mail className="h-4 w-4 text-slate-400" />
+                  <Mail className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <Input
                   id="email"
@@ -261,13 +254,13 @@ export function SignInForm() {
             <div className="space-y-2">
               <Label
                 htmlFor="password"
-                className="text-sm font-medium text-slate-700 dark:text-slate-200"
+                className="text-sm font-medium text-foreground"
               >
                 Password <span className="text-red-500">*</span>
               </Label>
               <div className="relative">
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                  <Lock className="h-4 w-4 text-slate-400" />
+                  <Lock className="h-4 w-4 text-muted-foreground" />
                 </div>
                 <Input
                   id="password"
@@ -280,7 +273,7 @@ export function SignInForm() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-200"
+                  className="absolute inset-y-0 right-0 flex items-center pr-4 text-muted-foreground transition-colors hover:text-foreground"
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -307,7 +300,7 @@ export function SignInForm() {
                 />
                 <label
                   htmlFor="rememberMe"
-                  className="cursor-pointer text-sm text-slate-700 dark:text-slate-300"
+                  className="cursor-pointer text-sm text-muted-foreground"
                 >
                   Remember me
                 </label>
@@ -339,13 +332,13 @@ export function SignInForm() {
             </Button>
           </form>
 
-          <div className="mt-6 rounded-2xl border border-border bg-secondary/55 p-5 shadow-sm">
+          <div className="mt-6">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-border" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-3 font-medium tracking-wide text-slate-400 dark:bg-card dark:text-slate-500">
+                <span className="bg-card px-3 font-medium tracking-wide text-muted-foreground">
                   Or continue with
                 </span>
               </div>
@@ -410,7 +403,7 @@ export function SignInForm() {
           </div>
 
           <div className="mt-8 border-t border-border pt-6 text-center">
-            <p className="text-sm text-slate-600 dark:text-slate-300">
+            <p className="text-sm text-muted-foreground">
               Don&apos;t have an account?{" "}
               <Link
                 href="/sign-up"
@@ -423,7 +416,7 @@ export function SignInForm() {
         </div>
       </div>
 
-      <footer className="mt-8 text-center text-xs text-slate-500 dark:text-slate-400">
+      <footer className="mt-8 text-center text-xs text-muted-foreground">
         <p>&copy; 2026 StudentSync. All rights reserved.</p>
       </footer>
     </div>

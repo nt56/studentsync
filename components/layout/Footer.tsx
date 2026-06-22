@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, CalendarDays, Sparkles } from "lucide-react";
+import { ArrowRight, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const footerGroups = [
@@ -33,20 +33,15 @@ const footerGroups = [
 export function Footer() {
   return (
     <footer className="px-4 pb-6 pt-14 sm:px-6">
-      <div className="mx-auto max-w-7xl rounded-3xl border border-border/80 bg-background/88 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.35)] backdrop-blur">
-        <div className="flex flex-col gap-6 border-b border-border px-6 py-10 md:flex-row md:items-end md:justify-between md:px-10">
+      <div className="mx-auto max-w-7xl rounded-2xl border border-border bg-card">
+        <div className="flex flex-col gap-6 border-b border-border px-6 py-8 md:flex-row md:items-end md:justify-between md:px-10">
           <div>
-            <div className="mb-5 inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-primary">
-              <Sparkles className="h-3.5 w-3.5" />
-              Campus event platform
-            </div>
-            <h2 className="max-w-2xl text-3xl font-bold text-foreground md:text-4xl">
+            <h2 className="max-w-2xl text-2xl font-bold text-foreground">
               Clean discovery for students. Better control for organizers.
             </h2>
-            <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 dark:text-slate-300">
-              StudentSync keeps event discovery, registration, and
-              admin workflows aligned in one interface that feels current
-              without being noisy.
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground">
+              StudentSync keeps event discovery, registration, and admin
+              workflows aligned in one calm interface.
             </p>
           </div>
 
@@ -84,11 +79,11 @@ export function Footer() {
                 </p>
               </div>
             </div>
-            <p className="text-sm leading-7 text-slate-600 dark:text-slate-300">
+            <p className="text-sm leading-7 text-muted-foreground">
               Built for colleges, student groups, and organizers who need a
               calmer way to publish and discover what is happening on campus.
             </p>
-            <div className="mt-6 flex items-center gap-3 rounded-2xl bg-secondary/70 px-4 py-4 text-sm text-slate-600 dark:text-slate-300">
+            <div className="mt-6 flex items-center gap-3 rounded-2xl bg-secondary/70 px-4 py-4 text-sm text-muted-foreground">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <CalendarDays className="h-5 w-5" />
               </div>
@@ -98,10 +93,10 @@ export function Footer() {
 
           {footerGroups.map((group) => (
             <div key={group.title}>
-              <h5 className="section-eyebrow text-xs font-semibold text-slate-500 dark:text-slate-400">
+              <h5 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 {group.title}
               </h5>
-              <ul className="mt-5 space-y-4 text-sm text-slate-600 dark:text-slate-300">
+              <ul className="mt-5 space-y-4 text-sm text-muted-foreground">
                 {group.links.map((link) => (
                   <li key={link.href + link.label}>
                     <Link href={link.href} className="hover:text-primary">
@@ -114,7 +109,7 @@ export function Footer() {
           ))}
         </div>
 
-        <div className="flex flex-col gap-3 border-t border-border px-6 py-5 text-sm text-slate-500 md:flex-row md:items-center md:justify-between md:px-10 dark:text-slate-400">
+        <div className="flex flex-col gap-3 border-t border-border px-6 py-5 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between md:px-10">
           <p>
             &copy; {new Date().getFullYear()} StudentSync. All rights
             reserved.

@@ -70,7 +70,7 @@ function VerifyEmailInner() {
 export default function VerifyEmailPage() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12">
-      <div className="surface-card-strong w-full max-w-md rounded-3xl border border-border p-8 shadow-sm">
+      <div className="surface-card-strong w-full max-w-md rounded-2xl border border-border p-8 shadow-sm">
         <Suspense
           fallback={
             <div className="flex justify-center py-10">

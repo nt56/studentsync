@@ -46,7 +46,7 @@ function ChartCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="surface-card rounded-[24px] p-5">
+    <div className="surface-card rounded-xl p-5">
       <div className="mb-4 flex items-center gap-2">
         <Icon className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-semibold text-foreground">{title}</h3>
@@ -69,8 +69,8 @@ export default function StudentAnalyticsSection() {
       <div className="space-y-4">
         <Skeleton className="h-8 w-40 rounded-xl" />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Skeleton className="h-64 rounded-[24px]" />
-          <Skeleton className="h-64 rounded-[24px]" />
+          <Skeleton className="h-64 rounded-xl" />
+          <Skeleton className="h-64 rounded-xl" />
         </div>
       </div>
     );
@@ -79,7 +79,7 @@ export default function StudentAnalyticsSection() {
   if (error || !data) {
     if (error) {
       return (
-        <p className="text-sm text-slate-500 dark:text-slate-400 px-1">
+        <p className="text-sm text-muted-foreground px-1">
           Could not load analytics — {error}
         </p>
       );
@@ -143,7 +143,7 @@ export default function StudentAnalyticsSection() {
         {/* Category Distribution */}
         <ChartCard title="Events by Category" icon={Tag}>
           {categoryDistribution.length === 0 ? (
-            <div className="flex h-[200px] items-center justify-center text-sm text-slate-400">
+            <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
               Register for events to see your interests
             </div>
           ) : (
