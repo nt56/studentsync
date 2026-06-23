@@ -4,6 +4,7 @@ import { successResponse, ApiErrors } from "@/lib/api-response";
 import Registration from "@/models/Registration";
 import mongoose from "mongoose";
 import { subDays, format } from "date-fns";
+import { computeEventStatus } from "@/types/event";
 
 /**
  * GET /api/analytics/student
@@ -18,22 +19,24 @@ export async function GET() {
 
     const studentId = new mongoose.Types.ObjectId(auth.mongoUserId);
 
-  // All registrations with populated event
+  // All registrations with populated event (include registrationDeadline for status computation)
   const registrations = await Registration.find({ studentId })
-    .populate("eventId", "status category title date")
+    .populate("eventId", "category title date registrationDeadline")
     .lean();
 
   const totalRegistrations = registrations.length;
 
-  // Status counts
-  const upcomingCount = registrations.filter(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (r) => (r.eventId as any)?.status === "upcoming",
-  ).length;
-  const completedCount = registrations.filter(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (r) => (r.eventId as any)?.status === "completed",
-  ).length;
+  // Status counts — computed from dates, not the stale stored field
+  const upcomingCount = registrations.filter((r) => {
+    const ev = r.eventId as any;
+    if (!ev) return false;
+    return computeEventStatus({ date: ev.date, registrationDeadline: ev.registrationDeadline }) === "upcoming";
+  }).length;
+  const completedCount = registrations.filter((r) => {
+    const ev = r.eventId as any;
+    if (!ev) return false;
+    return computeEventStatus({ date: ev.date, registrationDeadline: ev.registrationDeadline }) === "completed";
+  }).length;
 
   // Category distribution
   const categoryMap = new Map<string, number>();

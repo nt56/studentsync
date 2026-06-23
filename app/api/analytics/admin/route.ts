@@ -36,9 +36,27 @@ export async function GET() {
     count: r.count as number,
   }));
 
-  // Events by status
+  // Events by status — computed from dates, not the stale stored field
+  const now = new Date();
   const eventsByStatusRaw = await Event.aggregate([
-    { $group: { _id: "$status", count: { $sum: 1 } } },
+    {
+      $addFields: {
+        computedStatus: {
+          $cond: {
+            if: { $gt: [now, "$date"] },
+            then: "completed",
+            else: {
+              $cond: {
+                if: { $gt: [now, "$registrationDeadline"] },
+                then: "closed",
+                else: "upcoming",
+              },
+            },
+          },
+        },
+      },
+    },
+    { $group: { _id: "$computedStatus", count: { $sum: 1 } } },
   ]);
   const eventsByStatus = eventsByStatusRaw.map((s) => ({
     status: s._id as string,
