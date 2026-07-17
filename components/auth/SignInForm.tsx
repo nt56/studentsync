@@ -122,81 +122,31 @@ export function SignInForm() {
 
   return (
     <div className="min-h-screen px-4 py-8 sm:px-6">
-      <div className="mx-auto grid max-w-6xl overflow-hidden rounded-2xl border border-border bg-card shadow-sm xl:grid-cols-[0.95fr_1.05fr]">
-        <div className="hidden border-r border-white/10 bg-slate-950 px-10 py-10 text-white xl:flex xl:flex-col xl:justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              <Image
-                src="/studenysync-svg.svg"
-                alt="StudentSync Logo"
-                width={48}
-                height={48}
-                className="rounded-xl ring-1 ring-white/15"
-              />
-              <div>
-                <p className="font-display text-2xl font-bold leading-none text-white">
-                  Student
-                </p>
-                <p className="text-xs uppercase tracking-[0.22em] text-primary">
-                  Sync
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-10 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/75">
-              <Sparkles className="h-3.5 w-3.5 text-primary" />
-              Welcome back
-            </div>
-            <h2 className="mt-6 text-3xl font-bold leading-tight text-white md:text-4xl">
-              Pick up where your campus momentum left off.
-            </h2>
-            <p className="mt-4 max-w-md text-sm leading-7 text-white/72">
-              Get back into registrations, dashboards, and your upcoming
-              schedule.
-            </p>
-
-            <div className="mt-10 space-y-4">
-              {signInHighlights.map((item) => (
-                <div
-                  key={item.title}
-                  className="rounded-2xl border border-white/10 bg-white/5 p-5"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 text-primary">
-                      <item.icon className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-white">
-                        {item.title}
-                      </h3>
-                      <p className="mt-2 text-sm leading-7 text-white/68">
-                        {item.description}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 mt-4">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-              <p className="text-xs uppercase tracking-[0.18em] text-white/60">
-                Students
+      <div className="mx-auto grid max-w-7xl overflow-hidden rounded-2xl border border-border bg-card shadow-sm xl:min-h-[calc(100vh-4rem)] xl:grid-cols-[0.88fr_1.12fr]">
+        <div className="hidden border-r border-border bg-slate-950 px-10 py-10 text-white xl:flex xl:flex-col xl:justify-center">
+          <div className="flex items-center gap-3">
+            <Image
+              src="/studenysync-svg.svg"
+              alt="StudentSync Logo"
+              width={48}
+              height={48}
+              className="rounded-xl ring-1 ring-white/15"
+            />
+            <div>
+              <p className="font-display text-2xl font-bold leading-none text-white">
+                Student
               </p>
-              <p className="mt-2 text-3xl font-bold">1-click</p>
-              <p className="mt-2 text-sm text-white/65">Registration flow</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-              <p className="text-xs uppercase tracking-[0.18em] text-white/60">
-                Teams
-              </p>
-              <p className="mt-2 text-3xl font-bold">1</p>
-              <p className="mt-2 text-sm text-white/65">
-                Shared dashboard workspace
+              <p className="text-xs uppercase tracking-[0.22em] text-primary">
+                Sync
               </p>
             </div>
           </div>
+          <h2 className="mt-8 text-3xl font-bold leading-tight text-white md:text-4xl">
+            Welcome back to your campus network.
+          </h2>
+          <p className="mt-4 max-w-md text-sm leading-7 text-white/70">
+            Pick up where your campus momentum left off. Access your upcoming schedule and dashboard.
+          </p>
         </div>
 
         <div className="surface-card-strong px-6 py-8 md:px-10 md:py-10">

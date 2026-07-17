@@ -28,6 +28,7 @@ import {
 import { toast } from "sonner";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
 
 export function Navbar() {
   const pathname = usePathname();
@@ -66,7 +67,12 @@ export function Navbar() {
   };
 
   return (
-    <nav className="sticky top-0 z-50 px-4 py-4 sm:px-6">
+    <motion.nav 
+      initial={{ y: -100, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ type: "spring", stiffness: 100, damping: 20 }}
+      className="sticky top-0 z-50 px-4 py-4 sm:px-6"
+    >
       <div className="mx-auto flex max-w-7xl items-center gap-4 rounded-xl border border-border bg-card/95 px-4 py-2.5 shadow-sm backdrop-blur md:px-6">
         <Link href="/" className="flex shrink-0 items-center gap-3">
           <Image
@@ -365,6 +371,6 @@ export function Navbar() {
           </Sheet>
         </div>
       </div>
-    </nav>
+    </motion.nav>
   );
 }

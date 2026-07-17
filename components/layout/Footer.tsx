@@ -1,128 +1,108 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, CalendarDays } from "lucide-react";
+import { ArrowRight, Github, Linkedin } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
 
-const footerGroups = [
-  {
-    title: "Platform",
-    links: [
-      { href: "/events", label: "Browse events" },
-      { href: "/sign-up", label: "Create an account" },
-      { href: "/dashboard", label: "Open dashboard" },
-    ],
-  },
-  {
-    title: "Resources",
-    links: [
-      { href: "/api-docs", label: "API documentation" },
-      { href: "/events", label: "Event directory" },
-      { href: "/sign-in", label: "Sign in" },
-    ],
-  },
-  {
-    title: "Use cases",
-    links: [
-      { href: "/events", label: "Student discovery" },
-      { href: "/dashboard/create-event", label: "Organizer publishing" },
-      { href: "/dashboard/users", label: "Admin oversight" },
-    ],
-  },
+const footerLinks = [
+  { href: "/events", label: "Events" },
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/sign-up", label: "Sign Up" },
+  { href: "/sign-in", label: "Sign In" },
 ];
+
+const staggerContainer = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 60, damping: 15 } },
+};
 
 export function Footer() {
   return (
-    <footer className="px-4 pb-6 pt-14 sm:px-6">
-      <div className="mx-auto max-w-7xl rounded-2xl border border-border bg-card">
-        <div className="flex flex-col gap-6 border-b border-border px-6 py-8 md:flex-row md:items-end md:justify-between md:px-10">
-          <div>
-            <h2 className="max-w-2xl text-2xl font-bold text-foreground">
-              Clean discovery for students. Better control for organizers.
-            </h2>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-muted-foreground">
-              StudentSync keeps event discovery, registration, and admin
-              workflows aligned in one calm interface.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Link href="/events">
-              <Button size="lg">
-                Browse events
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
-            <Link href="/sign-up">
-              <Button variant="outline" size="lg">
-                Start organizing
-              </Button>
-            </Link>
-          </div>
-        </div>
-
-        <div className="grid gap-10 px-6 py-10 md:grid-cols-[1.3fr_1fr_1fr_1fr] md:px-10">
-          <div>
+    <footer className="border-t border-border bg-card">
+      <motion.div 
+        initial="hidden"
+        whileInView="show"
+        viewport={{ once: true, margin: "-50px" }}
+        variants={staggerContainer}
+        className="mx-auto max-w-7xl px-4 py-12 sm:px-6"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
+          {/* Brand Column */}
+          <motion.div variants={fadeUp} className="lg:col-span-2">
             <div className="mb-6 flex items-center gap-3">
               <Image
                 src="/studenysync-svg.svg"
                 alt="StudentSync Logo"
-                width={44}
-                height={44}
+                width={40}
+                height={40}
                 className="rounded-xl ring-1 ring-border/80"
               />
               <div>
                 <p className="font-display text-lg font-bold leading-none text-foreground">
                   Student
                 </p>
-                <p className="text-xs uppercase tracking-[0.22em] text-primary">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-primary">
                   Sync
                 </p>
               </div>
             </div>
-            <p className="text-sm leading-7 text-muted-foreground">
-              Built for colleges, student groups, and organizers who need a
-              calmer way to publish and discover what is happening on campus.
+            <p className="text-muted-foreground text-sm leading-relaxed max-w-sm mb-6">
+              A unified campus experience. Discover events, register effortlessly, and manage everything from a single calm interface.
             </p>
-            <div className="mt-6 flex items-center gap-3 rounded-2xl bg-secondary/70 px-4 py-4 text-sm text-muted-foreground">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <CalendarDays className="h-5 w-5" />
-              </div>
-              One place for listings, registrations, and campus updates.
+            <div className="flex items-center gap-4 text-muted-foreground">
+              <a href="https://github.com/nt56" className="hover:text-primary transition-colors hover:scale-110 transform"><Github className="h-5 w-5" /></a>
+              <a href="https://linkedin.com/in/nagabhushan-tirth-887865229/" className="hover:text-primary transition-colors hover:scale-110 transform"><Linkedin className="h-5 w-5" /></a>
             </div>
-          </div>
+          </motion.div>
 
-          {footerGroups.map((group) => (
-            <div key={group.title}>
-              <h5 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                {group.title}
-              </h5>
-              <ul className="mt-5 space-y-4 text-sm text-muted-foreground">
-                {group.links.map((link) => (
-                  <li key={link.href + link.label}>
-                    <Link href={link.href} className="hover:text-primary">
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          {/* Quick Links */}
+          <motion.div variants={fadeUp}>
+            <h3 className="font-semibold text-foreground mb-4">Platform</h3>
+            <ul className="space-y-3">
+              {footerLinks.map((link) => (
+                <li key={link.href}>
+                  <Link href={link.href} className="text-sm text-muted-foreground hover:text-primary hover:pl-1 transition-all">
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </motion.div>
+
+          {/* Call to Action */}
+          <motion.div variants={fadeUp}>
+            <h3 className="font-semibold text-foreground mb-4">Get Started</h3>
+            <p className="text-sm text-muted-foreground mb-4">Join the community today.</p>
+            <Link href="/sign-up">
+              <Button size="sm" className="w-full rounded-full shadow-md hover:shadow-primary/20 hover:-translate-y-0.5 transition-all">
+                Create Account <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </motion.div>
         </div>
 
-        <div className="flex flex-col gap-3 border-t border-border px-6 py-5 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between md:px-10">
-          <p>
-            &copy; {new Date().getFullYear()} StudentSync. All rights
-            reserved.
-          </p>
+        <motion.div variants={fadeUp} className="mt-12 pt-8 border-t border-border flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
+          <p>&copy; {new Date().getFullYear()} StudentSync. All rights reserved.</p>
           <p>
             Developed by{" "}
-            <span className="font-semibold text-primary">
+            <span className="font-medium text-foreground hover:text-primary transition-colors cursor-pointer">
               Nagabhushan Tirth
             </span>
-            .
           </p>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </footer>
   );
 }

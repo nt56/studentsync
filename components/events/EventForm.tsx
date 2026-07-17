@@ -462,7 +462,7 @@ export default function EventForm({
                         <SelectValue placeholder="Select a category" />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent>
+                    <SelectContent position="popper" side="bottom">
                       {categories.map((c) => (
                         <SelectItem key={c.value} value={c.value}>
                           {c.label}
@@ -492,7 +492,7 @@ export default function EventForm({
                         <SelectValue placeholder="Select a college" />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent>
+                    <SelectContent position="popper" side="bottom">
                       {colleges.map((c) => (
                         <SelectItem
                           key={c.id || c._id}

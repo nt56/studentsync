@@ -180,32 +180,40 @@ export default function EventDetailPage() {
 
       {/* Hero Image */}
       <header className="mb-8">
-        <div className="relative w-full h-72 overflow-hidden rounded-xl bg-secondary">
+        <div className="relative w-full h-[400px] md:h-[450px] overflow-hidden rounded-xl bg-secondary/30 border border-border group">
           {event.image ? (
-            <Image
-              src={event.image}
-              alt={event.title}
-              fill
-              sizes="(max-width: 1280px) 100vw, 1280px"
-              className="object-cover object-center"
-              priority
-            />
+            <>
+              {/* Blurred Background Layer */}
+              <div 
+                className="absolute inset-0 bg-cover bg-center blur-3xl opacity-40 scale-110" 
+                style={{ backgroundImage: `url(${event.image})` }} 
+              />
+              {/* Main Contained Image */}
+              <Image
+                src={event.image}
+                alt={event.title}
+                fill
+                sizes="(max-width: 1280px) 100vw, 1280px"
+                className="object-contain drop-shadow-2xl z-0"
+                priority
+              />
+            </>
           ) : (
             <div className="absolute inset-0 flex items-center justify-center">
               <Calendar className="h-20 w-20 text-muted-foreground/30" />
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
-          <div className="absolute bottom-0 left-0 p-6 text-white">
-            <div className="flex gap-2 mb-3">
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent z-10 pointer-events-none" />
+          <div className="absolute bottom-0 left-0 p-6 md:p-10 text-white z-20 w-full">
+            <div className="flex flex-wrap gap-2 mb-4">
               {event.category && <CategoryBadge category={event.category} />}
               {event.status && <EventStatusBadge status={event.status} />}
             </div>
-            <h1 className="text-3xl md:text-4xl font-bold mb-1.5">
+            <h1 className="text-3xl md:text-5xl font-extrabold mb-3 leading-tight tracking-tight max-w-4xl">
               {event.title}
             </h1>
-            <p className="text-slate-200 text-sm flex items-center gap-2">
-              <Users className="h-4 w-4" /> Hosted by {organizerName}
+            <p className="text-slate-300 text-sm md:text-base flex items-center gap-2 font-medium">
+              <Users className="h-4 w-4 md:h-5 md:w-5" /> Hosted by {organizerName}
             </p>
           </div>
         </div>

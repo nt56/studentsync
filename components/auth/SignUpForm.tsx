@@ -296,7 +296,7 @@ export function SignUpForm() {
                   <SelectTrigger className={fieldClassName}>
                     <SelectValue placeholder="Select gender" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent position="popper" side="bottom">
                     <SelectItem value="male">Male</SelectItem>
                     <SelectItem value="female">Female</SelectItem>
                     <SelectItem value="other">Other / Non-binary</SelectItem>

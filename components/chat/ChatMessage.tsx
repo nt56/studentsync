@@ -20,13 +20,11 @@ export function ChatMessage({
 }: ChatMessageProps) {
   const sender = message.senderId;
   const senderName = `${sender.firstName} ${sender.lastName}`;
-  const initials =
-    `${sender.firstName[0] ?? ""}${sender.lastName[0] ?? ""}`.toUpperCase();
 
   if (message.type === "system") {
     return (
-      <div className="flex justify-center">
-        <span className="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full">
+      <div className="flex justify-center my-2">
+        <span className="text-[11px] text-muted-foreground bg-muted/50 px-3 py-1 rounded-md shadow-sm border border-border/50 backdrop-blur-sm">
           {message.content}
         </span>
       </div>
@@ -36,77 +34,73 @@ export function ChatMessage({
   return (
     <div
       className={cn(
-        "group flex gap-2.5",
-        isOwn ? "flex-row-reverse" : "flex-row",
+        "group flex w-full my-1.5",
+        isOwn ? "justify-end" : "justify-start"
       )}
     >
-      {/* Avatar — only shown for others */}
-      {!isOwn && (
-        <div className="flex-shrink-0 w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[11px] font-bold self-end">
-          {initials}
-        </div>
-      )}
-
-      <div
-        className={cn(
-          "flex flex-col gap-1 max-w-[75%]",
-          isOwn ? "items-end" : "items-start",
-        )}
-      >
-        {!isOwn && (
-          <span className="text-[11px] font-medium text-muted-foreground px-1">
-            {senderName}
-            {sender.role === "organizer" && (
-              <span className="ml-1.5 text-primary font-semibold text-[10px]">
-                Organizer
-              </span>
-            )}
-            {sender.role === "admin" && (
-              <span className="ml-1.5 text-amber-500 font-semibold text-[10px]">
-                Admin
-              </span>
-            )}
-          </span>
-        )}
-
-        <div className="flex items-end gap-1.5">
-          {canDelete && !isOwn && (
-            <button
-              type="button"
-              onClick={() => onDelete(message._id)}
-              className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
-              aria-label="Delete message"
-            >
-              <Trash2 className="h-3 w-3 text-red-400" />
-            </button>
-          )}
-
-          <div
-            className={cn(
-              "px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed break-words whitespace-pre-wrap",
-              isOwn
-                ? "bg-primary text-white rounded-br-sm"
-                : "bg-secondary text-foreground rounded-bl-sm",
-            )}
+      <div className="flex items-center gap-2 max-w-[85%] sm:max-w-[75%]">
+        {canDelete && !isOwn && (
+          <button
+            type="button"
+            onClick={() => onDelete(message._id)}
+            className="opacity-0 group-hover:opacity-100 p-1.5 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-all flex-shrink-0"
+            aria-label="Delete message"
           >
-            {message.content}
-          </div>
+            <Trash2 className="h-4 w-4 text-red-500" />
+          </button>
+        )}
 
-          {canDelete && isOwn && (
-            <button
-              type="button"
-              onClick={() => onDelete(message._id)}
-              className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
-              aria-label="Delete message"
-            >
-              <Trash2 className="h-3 w-3 text-red-400" />
-            </button>
+        <div
+          className={cn(
+            "relative px-3 py-2 text-[15px] leading-relaxed break-words whitespace-pre-wrap shadow-sm",
+            isOwn
+              ? "bg-[#dcf8c6] dark:bg-[#005c4b] text-black dark:text-white rounded-2xl rounded-tr-sm"
+              : "bg-white dark:bg-[#202c33] text-black dark:text-white rounded-2xl rounded-tl-sm border border-border/50 dark:border-transparent"
           )}
+        >
+          {/* Sender Name for incoming messages */}
+          {!isOwn && (
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span className="text-[12px] font-semibold text-indigo-500 dark:text-indigo-400">
+                {senderName}
+              </span>
+              {sender.role === "organizer" && (
+                <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider">
+                  Organizer
+                </span>
+              )}
+              {sender.role === "admin" && (
+                <span className="bg-amber-500/10 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider">
+                  Admin
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Message Content & Timestamp */}
+          <div className="flex flex-col sm:flex-row sm:items-end gap-2">
+            <span className="flex-grow">{message.content}</span>
+            <span
+              className={cn(
+                "text-[10px] self-end flex-shrink-0 mb-[-2px]",
+                isOwn ? "text-black/50 dark:text-white/60" : "text-muted-foreground"
+              )}
+            >
+              {format(new Date(message.createdAt), "HH:mm")}
+            </span>
+          </div>
         </div>
 
-        <span className="text-[10px] text-muted-foreground px-1">
-          {format(new Date(message.createdAt), "hh:mm a")}
-        </span>
+        {canDelete && isOwn && (
+          <button
+            type="button"
+            onClick={() => onDelete(message._id)}
+            className="opacity-0 group-hover:opacity-100 p-1.5 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-all flex-shrink-0"
+            aria-label="Delete message"
+          >
+            <Trash2 className="h-4 w-4 text-red-500" />
+          </button>
+        )}
       </div>
     </div>
   );
