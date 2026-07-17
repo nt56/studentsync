@@ -3,7 +3,7 @@ import { connectDB } from "@/lib/db";
 import Event from "@/models/Event";
 import Review from "@/models/Review";
 import Registration from "@/models/Registration";
-import { requireAuth, requireStudent } from "@/lib/auth-guard";
+import {  requireStudent } from "@/lib/auth-guard";
 import { successResponse, ApiErrors, errorResponse } from "@/lib/api-response";
 import { computeEventStatus, IEvent } from "@/types";
 import mongoose from "mongoose";
@@ -37,7 +37,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
       .sort({ createdAt: -1 })
       .lean();
 
-    const formatted = reviews.map((r: any) => ({
+    const formatted = reviews.map((r) => ({
       id: r._id.toString(),
       rating: r.rating,
       comment: r.comment,
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       return errorResponse(
         "Validation failed",
         400,
-        parsed.error.flatten().fieldErrors as any,
+        parsed.error.flatten().fieldErrors,
       );
     }
 

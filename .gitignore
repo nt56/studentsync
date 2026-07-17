@@ -44,4 +44,8 @@ next-env.d.ts
 documents
 
 # IDE / Editor files
-.claude
+/.claude
+/.agent
+/.next
+/.vercel.json
+/CLAUDE.md

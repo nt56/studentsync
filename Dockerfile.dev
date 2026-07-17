@@ -1,0 +1,22 @@
+FROM node:22-bookworm-slim
+WORKDIR /app
+
+ENV NODE_ENV=development
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
+# Reliable file-watching hot reload inside a container (esp. on Windows/WSL)
+ENV WATCHPACK_POLLING=true
+ENV CHOKIDAR_USEPOLLING=true
+
+# Install deps first for better layer caching
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# Source is overlaid by the bind mount at runtime; this COPY is a sane fallback
+# if the image is ever run without compose.
+COPY . .
+
+EXPOSE 3000
+
+CMD ["npm", "run", "dev"]

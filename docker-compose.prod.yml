@@ -1,0 +1,65 @@
+name: studentsync-prod
+
+services:
+  app:
+    container_name: studentsync-app
+    image: studentsync:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Inlined into the browser bundle — must be the URL users hit.
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+        # Placeholder only; the real URI is injected at runtime below.
+        MONGODB_URI: mongodb://placeholder:27017/studentsync
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: "3000"
+      # Runtime connection strings point at the internal service containers.
+      # (compose `environment` overrides any values in .env)
+      MONGODB_URI: mongodb://${MONGO_USER:-root}:${MONGO_PASSWORD:-changeme}@mongo:27017/studentsync?authSource=admin
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:7
+    container_name: studentsync-mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-changeme}
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: studentsync-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
+  redis-data:

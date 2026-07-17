@@ -1,0 +1,64 @@
+name: studentsync
+
+services:
+  app:
+    container_name: studentsync-app
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: development
+      HOSTNAME: 0.0.0.0
+      PORT: "3000"
+      # Override .env so dev always uses the local containers (compose env wins
+      # over env_file). Point these elsewhere if you prefer Atlas/Upstash.
+      MONGODB_URI: mongodb://mongo:27017/studentsync
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - .:/app                # live source for hot reload
+      - /app/node_modules     # keep container's node_modules
+      - /app/.next            # keep container's build cache
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:7
+    container_name: studentsync-mongo
+    ports:
+      - "27017:27017"         # exposed so you can inspect with Compass/mongosh
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: studentsync-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
+  redis-data:

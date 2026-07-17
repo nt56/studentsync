@@ -3,7 +3,7 @@ import { connectDB } from "@/lib/db";
 import Event from "@/models/Event";
 import Review from "@/models/Review";
 import { requireAuth } from "@/lib/auth-guard";
-import { successResponse, ApiErrors, errorResponse } from "@/lib/api-response";
+import { successResponse, ApiErrors } from "@/lib/api-response";
 import mongoose from "mongoose";
 
 interface RouteParams {

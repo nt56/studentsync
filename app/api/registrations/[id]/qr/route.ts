@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import Registration from "@/models/Registration";
 import { requireAuth } from "@/lib/auth-guard";
-import { successResponse, ApiErrors, errorResponse } from "@/lib/api-response";
+import { successResponse, ApiErrors } from "@/lib/api-response";
 import mongoose from "mongoose";
 import QRCode from "qrcode";
 import { signQrToken } from "@/lib/qr";

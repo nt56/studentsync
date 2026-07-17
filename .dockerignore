@@ -1,0 +1,43 @@
+# ── Dependencies & build output (rebuilt inside the image) ──
+node_modules
+.next
+out
+build
+coverage
+
+# ── Env & secrets (injected at runtime via env_file / -e, never baked in) ──
+.env
+.env.*
+!.env.docker.example
+
+# ── Git & VCS ──
+.git
+.gitignore
+.gitattributes
+
+# ── Docker / compose (not needed inside the build context) ──
+Dockerfile
+Dockerfile.dev
+Dockerfile.prod
+docker-compose*.yml
+docker-compose*.yaml
+.dockerignore
+
+# ── Docs & meta ──
+README.md
+DOCKER.md
+documents
+
+# ── TypeScript / tooling caches ──
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+next-env.d.ts
+
+# ── Editor / OS ──
+.vscode
+.idea
+.claude
+.DS_Store
+*.pem
+npm-debug.log*
+.vercel
