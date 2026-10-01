@@ -80,8 +80,9 @@ export default function AllEventsPage() {
 
       <div className="surface-card rounded-xl overflow-hidden">
         {isLoading ? (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Events table">
             <table className="w-full text-left border-collapse">
+              <caption className="sr-only">Events on the current page</caption>
               <tbody className="divide-y divide-border">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <TableRowSkeleton key={i} cols={6} />
@@ -102,16 +103,17 @@ export default function AllEventsPage() {
             />
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Events table">
             <table className="w-full text-left border-collapse">
+              <caption className="sr-only">Events on the current page</caption>
               <thead>
                 <tr className="border-b border-border text-xs font-medium text-muted-foreground">
-                  <th className="px-5 py-3">Event</th>
-                  <th className="px-5 py-3">Category</th>
-                  <th className="px-5 py-3">Date</th>
-                  <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3">Registrations</th>
-                  <th className="px-5 py-3 text-right">Actions</th>
+                  <th scope="col" className="px-5 py-3">Event</th>
+                  <th scope="col" className="px-5 py-3">Category</th>
+                  <th scope="col" className="px-5 py-3">Date</th>
+                  <th scope="col" className="px-5 py-3">Status</th>
+                  <th scope="col" className="px-5 py-3">Registrations</th>
+                  <th scope="col" className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">

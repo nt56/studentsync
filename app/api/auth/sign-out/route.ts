@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
 
     // Check if sign-out was successful
     if (authResponse.ok) {
+      if (session) globalThis.io?.in(`session:${session.session.id}`).disconnectSockets(true);
       // Create custom response with personalized message
       const response = NextResponse.json(
         {

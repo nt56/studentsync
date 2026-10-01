@@ -56,7 +56,7 @@ export const fetchCurrentUser = createAsyncThunk(
 
 export const loginUser = createAsyncThunk(
   "auth/login",
-  async (data: { email: string; password: string }, { rejectWithValue }) => {
+  async (data: { email: string; password: string; rememberMe?: boolean }, { rejectWithValue }) => {
     try {
       const response = await authService.login(data);
       return response.data;
@@ -100,7 +100,7 @@ export const logoutUser = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       await authService.signOut();
-    } catch (error: unknown) {
+    } catch {
       return rejectWithValue("Logout failed");
     }
   },

@@ -9,7 +9,7 @@ import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { useAppSelector } from "@/store/hooks";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import {
   LayoutDashboard,
   CalendarCheck2,
@@ -24,6 +24,7 @@ import {
   LogOut,
   Menu,
   Bookmark,
+  Handshake,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -36,6 +37,8 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
+  { label: "Staff Events", href: "/dashboard/staff-events", icon: ClipboardList },
+  { label: "Collaborations", href: "/dashboard/collaborations", icon: Handshake, roles: ["organizer", "admin"] },
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   {
     label: "My Events",
@@ -125,10 +128,11 @@ export default function DashboardLayout({
         key={item.href + item.label}
         href={item.href}
         onClick={onSelect}
+        aria-current={isActive ? "page" : undefined}
         className={cn(
           "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all",
           isActive
-            ? "bg-slate-950 text-white shadow-sm dark:bg-primary dark:text-primary-foreground"
+            ? "bg-primary/10 text-primary ring-1 ring-primary/15"
             : "text-muted-foreground hover:bg-secondary hover:text-foreground dark:hover:bg-secondary",
         )}
       >
@@ -194,9 +198,10 @@ export default function DashboardLayout({
 
   return (
     <AuthGuard>
+      <a href="#dashboard-content" className="skip-link">Skip to workspace</a>
       <div className="min-h-screen px-4 py-4 sm:px-6">
         <div className="mx-auto flex max-w-[1600px] gap-6">
-          <aside className="surface-card-strong sticky top-4 hidden h-[calc(100vh-2rem)] w-72 shrink-0 rounded-2xl p-4 lg:block">
+          <aside className="surface-card-strong sticky top-4 hidden h-[calc(100vh-2rem)] w-64 shrink-0 overflow-y-auto rounded-2xl p-4 lg:block">
             {renderSidebarContent()}
           </aside>
 
@@ -205,12 +210,14 @@ export default function DashboardLayout({
               <div className="flex items-center gap-3">
                 <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
                   <SheetTrigger asChild>
-                    <Button variant="outline" size="icon" className="lg:hidden">
+                    <Button variant="outline" size="icon" className="lg:hidden" aria-label="Open workspace navigation">
                       <Menu className="h-5 w-5" />
                     </Button>
                   </SheetTrigger>
                   <SheetContent side="left" className="p-0 lg:hidden">
-                    <div className="p-6">
+                    <SheetTitle className="sr-only">Workspace navigation</SheetTitle>
+                    <SheetDescription className="sr-only">Navigate your StudentSync workspace.</SheetDescription>
+                    <div className="h-full overflow-y-auto p-6">
                       {renderSidebarContent(() => setMobileOpen(false))}
                     </div>
                   </SheetContent>
@@ -248,7 +255,7 @@ export default function DashboardLayout({
               </div>
             </header>
 
-            <main className="pb-10">{children}</main>
+            <main id="dashboard-content" tabIndex={-1} key={pathname} className="page-enter pb-10">{children}</main>
           </div>
         </div>
       </div>

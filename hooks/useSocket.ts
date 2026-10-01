@@ -14,6 +14,7 @@ export function useEventChat(eventId: string | null) {
   const dispatch = useAppDispatch();
   const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!eventId) return;
@@ -28,19 +29,22 @@ export function useEventChat(eventId: string | null) {
       reconnectionDelayMax: 10000,
     });
     socketRef.current = socket;
+    const typingTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
     socket.on("connect", () => {
-      setIsConnected(true);
-      socket.emit("join-room", { eventId });
+      socket.emit("join-room", { eventId }, ({ ok }: { ok: boolean }) => {
+        setIsConnected(ok);
+        setConnectionError(ok ? null : "Chat access is unavailable. Check your registration and try again.");
+      });
     });
 
     socket.on("disconnect", () => {
       setIsConnected(false);
     });
 
-    socket.on("reconnect", () => {
-      // Re-join the room after reconnect
-      socket.emit("join-room", { eventId });
+    socket.on("connect_error", (error) => {
+      setIsConnected(false);
+      setConnectionError(error.message);
     });
 
     socket.on("new-message", ({ message }: { message: ChatMessage }) => {
@@ -55,14 +59,17 @@ export function useEventChat(eventId: string | null) {
       "user-typing",
       ({ user }: { eventId: string; user: string }) => {
         dispatch(setTypingUser({ user, isTyping: true }));
+        clearTimeout(typingTimers.get(user));
         // Clear typing indicator after 3 seconds of silence
-        setTimeout(() => {
+        typingTimers.set(user, setTimeout(() => {
           dispatch(setTypingUser({ user, isTyping: false }));
-        }, 3000);
+          typingTimers.delete(user);
+        }, 3000));
       },
     );
 
     return () => {
+      typingTimers.forEach(clearTimeout);
       socket.emit("leave-room", { eventId });
       socket.disconnect();
       socketRef.current = null;
@@ -74,5 +81,5 @@ export function useEventChat(eventId: string | null) {
     socketRef.current?.emit("user-typing", { eventId, user });
   };
 
-  return { isConnected, emitTyping };
+  return { isConnected, connectionError, emitTyping };
 }

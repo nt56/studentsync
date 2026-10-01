@@ -123,9 +123,10 @@ const chatSlice = createSlice({
       .addCase(sendMessage.pending, (state) => {
         state.isSending = true;
       })
-      .addCase(sendMessage.fulfilled, (state) => {
+      .addCase(sendMessage.fulfilled, (state, action) => {
         state.isSending = false;
-        // Message arrives via socket event; no state mutation needed here
+        state.error = null;
+        if (!state.messages.some((message) => message._id === action.payload._id)) state.messages.push(action.payload);
       })
       .addCase(sendMessage.rejected, (state, action) => {
         state.isSending = false;

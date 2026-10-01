@@ -1,4 +1,5 @@
 import { Types } from "mongoose";
+import { eventEnd } from "@/lib/event-time";
 
 export type EventStatus = "upcoming" | "closed" | "completed";
 
@@ -16,6 +17,9 @@ export interface IEvent {
   title: string;
   description: string;
   date: Date;
+  endDate?: Date;
+  timeZone?: string;
+  staff?: { userId: Types.ObjectId; role: "editor" | "volunteer" }[];
   venue: string;
   organizerId: Types.ObjectId;
   collegeId: Types.ObjectId;
@@ -39,6 +43,9 @@ export interface EventResponse {
   title: string;
   description: string;
   date: string;
+  endDate?: string;
+  timeZone?: string;
+  permissions?: string[];
   venue: string;
   organizerId: string;
   collegeId: string;
@@ -59,9 +66,10 @@ export interface EventResponse {
   updatedAt: string;
 }
 
-export function computeEventStatus(event: Pick<IEvent, "date" | "registrationDeadline">): EventStatus {
+export function computeEventStatus(event: Pick<IEvent, "date" | "registrationDeadline" | "endDate">): EventStatus {
   const now = new Date();
-  if (now > new Date(event.date)) return "completed";
+  if (now >= eventEnd(event)) return "completed";
+  if (now >= new Date(event.date)) return "closed";
   if (now > new Date(event.registrationDeadline)) return "closed";
   return "upcoming";
 }
@@ -76,6 +84,8 @@ export function formatEventResponse(
     title: event.title,
     description: event.description,
     date: event.date.toISOString(),
+    endDate: eventEnd(event).toISOString(),
+    timeZone: event.timeZone || "UTC",
     venue: event.venue,
     organizerId: event.organizerId.toString(),
     collegeId: event.collegeId.toString(),

@@ -1,10 +1,11 @@
+import { transactional, rethrowTransient } from "@/lib/transaction";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import Bookmark from "@/models/Bookmark";
 import Event from "@/models/Event";
 import { requireAuth } from "@/lib/auth-guard";
 import { successResponse, ApiErrors } from "@/lib/api-response";
-import { createPaginatedResponse } from "@/types";
+import { createPaginatedResponse, formatEventResponse, type IEvent } from "@/types";
 import { ZodError, z } from "zod";
 import { formatZodErrors } from "@/lib/validators/utils";
 import mongoose from "mongoose";
@@ -34,41 +35,27 @@ export async function GET(request: NextRequest) {
 
     const userId = new mongoose.Types.ObjectId(authResult.mongoUserId);
 
-    const total = await Bookmark.countDocuments({ userId });
-
-    const bookmarks = await Bookmark.find({ userId })
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .populate({
-        path: "eventId",
-        model: Event,
-        select:
-          "title description date venue status category image capacity registrationDeadline collegeId organizerId isInterCollege averageRating reviewCount",
-        populate: [
-          { path: "collegeId", select: "name" },
-          { path: "organizerId", select: "firstName lastName" },
-        ],
-      })
-      .lean();
-
-    // Filter out bookmarks whose event was deleted, then shape response
-    const items = bookmarks
-      .filter((b) => b.eventId != null)
-      .map((b) => {
-        const ev = b.eventId as Record<string, unknown>;
-        return {
-          ...(ev as object),
-          id: (ev._id as mongoose.Types.ObjectId).toString(),
-          bookmarkId: (b._id as mongoose.Types.ObjectId).toString(),
-        };
-      });
+    const membership = await Bookmark.aggregate([
+      { $match: { userId } },
+      { $lookup: { from: "events", localField: "eventId", foreignField: "_id", as: "event" } },
+      { $match: { "event.0": { $exists: true } } },
+      { $sort: { createdAt: -1, _id: -1 } },
+      { $project: { eventId: 1 } },
+    ]);
+    const total = membership.length;
+    const bookmarkedEventIds = membership.map((row) => row.eventId.toString());
+    const bookmarks = await Bookmark.find({ _id: { $in: membership.slice((page - 1) * limit, page * limit).map((row) => row._id) } })
+      .sort({ createdAt: -1, _id: -1 }).populate({ path: "eventId", model: Event }).lean();
+    const items = bookmarks.filter((bookmark) => bookmark.eventId).map((bookmark) => ({
+      ...formatEventResponse(bookmark.eventId as unknown as IEvent), bookmarkId: bookmark._id.toString(),
+    }));
 
     return successResponse(
-      createPaginatedResponse(items, page, limit, total),
+      { ...createPaginatedResponse(items, page, limit, total), bookmarkedEventIds },
       "Bookmarks retrieved successfully",
     );
   } catch (error) {
+    rethrowTransient(error);
     console.error("GET /api/bookmarks error:", error);
     if (error instanceof ZodError) return ApiErrors.validationError(formatZodErrors(error));
     return ApiErrors.internalError();
@@ -79,7 +66,7 @@ export async function GET(request: NextRequest) {
  * POST /api/bookmarks
  * Bookmark an event
  */
-export async function POST(request: NextRequest) {
+async function mutationHandler(request: NextRequest) {
   try {
     const authResult = await requireAuth();
     if (!authResult.success) return authResult.response;
@@ -96,7 +83,7 @@ export async function POST(request: NextRequest) {
       return ApiErrors.badRequest("Invalid event ID");
     }
 
-    const event = await Event.findById(eventId);
+    const event = await Event.findByIdAndUpdate(eventId, { $inc: { mutationVersion: 1 } }, { new: true });
     if (!event) return ApiErrors.notFound("Event");
 
     const userId = new mongoose.Types.ObjectId(authResult.mongoUserId);
@@ -110,6 +97,7 @@ export async function POST(request: NextRequest) {
       201,
     );
   } catch (error) {
+    rethrowTransient(error);
     console.error("POST /api/bookmarks error:", error);
     if (
       error instanceof Error &&
@@ -122,3 +110,5 @@ export async function POST(request: NextRequest) {
     return ApiErrors.internalError();
   }
 }
+
+export const POST = transactional(mutationHandler);

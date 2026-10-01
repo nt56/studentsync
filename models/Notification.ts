@@ -18,6 +18,9 @@ export type NotificationType =
 
 const NotificationSchema = new Schema(
   {
+    dedupeKey: { type: String },
+    eventId: { type: Schema.Types.ObjectId, ref: "Event" },
+    dismissedAt: { type: Date },
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     type: {
       type: String,
@@ -45,6 +48,7 @@ const NotificationSchema = new Schema(
 
 NotificationSchema.index({ userId: 1, createdAt: -1 });
 NotificationSchema.index({ userId: 1, isRead: 1 });
+NotificationSchema.index({ dedupeKey: 1 }, { unique: true, sparse: true });
 
 const Notification =
   models.Notification || model("Notification", NotificationSchema);

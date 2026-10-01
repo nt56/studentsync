@@ -1,3 +1,5 @@
+import { eventEnd, eventEndExpression } from "@/lib/event-time";
+import { transactional, rethrowTransient } from "@/lib/transaction";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import Event from "@/models/Event";
@@ -55,22 +57,29 @@ export async function GET(request: NextRequest) {
     // Build filter
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const filter: any = {};
+    if (searchParams.get("staff") === "me") {
+      const staffAuth = await requireAuth();
+      if (!staffAuth.success) return staffAuth.response;
+      filter["staff.userId"] = new mongoose.Types.ObjectId(staffAuth.mongoUserId);
+    }
 
     if (status) {
       const now = new Date();
       if (status === "completed") {
-        filter.date = { $lt: now };
+        filter.$expr = { $lte: [eventEndExpression, now] };
       } else if (status === "closed") {
-        filter.date = { $gte: now };
+        filter.$expr = { $gt: [eventEndExpression, now] };
         filter.registrationDeadline = { $lt: now };
       } else if (status === "upcoming") {
+        filter.$expr = { $gt: [eventEndExpression, now] };
         filter.registrationDeadline = { $gte: now };
       }
     }
 
-    if (isInterCollege === true) {
-      filter.isInterCollege = true;
-    } else if (collegeId) {
+    if (isInterCollege !== undefined) {
+      filter.isInterCollege = isInterCollege;
+    }
+    if (collegeId) {
       // Include host-college events AND inter-college events where this college is a partner
       const cid = new mongoose.Types.ObjectId(collegeId);
       filter.$or = [{ collegeId: cid }, { partnerCollegeIds: cid }];
@@ -139,6 +148,7 @@ export async function GET(request: NextRequest) {
       "Events retrieved successfully",
     );
   } catch (error) {
+    rethrowTransient(error);
     console.error("GET /api/events error:", error);
     if (error instanceof ZodError) {
       return ApiErrors.validationError(formatZodErrors(error));
@@ -152,7 +162,7 @@ export async function GET(request: NextRequest) {
  * Create a new event
  * Requires organizer or admin role
  */
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     // Check authentication and authorization
     const authResult = await requireOrganizer();
@@ -183,10 +193,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const endDate = eventEnd({ date: eventDate, endDate: validatedData.endDate });
+    if (endDate <= eventDate) return ApiErrors.badRequest("End time must be after start time");
+
     // Create the event
     const event = await Event.create({
       ...validatedData,
       date: eventDate,
+      endDate,
       registrationDeadline: deadline,
       collegeId: new mongoose.Types.ObjectId(validatedData.collegeId),
       organizerId: new mongoose.Types.ObjectId(authResult.mongoUserId),
@@ -197,8 +211,8 @@ export async function POST(request: NextRequest) {
       ),
     });
 
-    // Notify admins of new event (fire-and-forget)
-    notifyAdmins({
+    // Notify admins of new event (persisted before commit)
+    await notifyAdmins({
       type: "new_event",
       title: "New Event Created",
       message: `A new event "${event.title}" has been created.`,
@@ -211,6 +225,7 @@ export async function POST(request: NextRequest) {
       201,
     );
   } catch (error) {
+    rethrowTransient(error);
     console.error("POST /api/events error:", error);
     if (error instanceof ZodError) {
       return ApiErrors.validationError(formatZodErrors(error));
@@ -218,3 +233,5 @@ export async function POST(request: NextRequest) {
     return ApiErrors.internalError();
   }
 }
+
+export const POST = transactional(postHandler);

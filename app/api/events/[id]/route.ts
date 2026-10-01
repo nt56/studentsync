@@ -1,8 +1,16 @@
+import Notification from "@/models/Notification";
+import { eventEnd } from "@/lib/event-time";
+import { canManageEvent } from "@/lib/event-access";
+import { transactional, rethrowTransient, afterCommit } from "@/lib/transaction";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import Event from "@/models/Event";
 import Registration from "@/models/Registration";
-import { requireAuth, requireOrganizer } from "@/lib/auth-guard";
+import Review from "@/models/Review";
+import Bookmark from "@/models/Bookmark";
+import Message from "@/models/Message";
+import Collaboration from "@/models/Collaboration";
+import { requireAuth } from "@/lib/auth-guard";
 import { successResponse, ApiErrors } from "@/lib/api-response";
 import { updateEventSchema } from "@/lib/validators/event.schema";
 import { formatZodErrors } from "@/lib/validators/utils";
@@ -52,11 +60,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       isRegistered = !!userReg;
     }
 
+    const formatted = formatEventResponse(event, registrationCount, isRegistered);
+    formatted.permissions = authResult.success ? (["edit", "delete", "staff", "attendees", "checkIn", "chat", "moderate"] as const).filter((permission) => canManageEvent(event, authResult.mongoUserId, authResult.userRole, permission)) : [];
     return successResponse(
-      formatEventResponse(event, registrationCount, isRegistered),
+      formatted,
       "Event retrieved successfully",
     );
   } catch (error) {
+    rethrowTransient(error);
     console.error("GET /api/events/:id error:", error);
     return ApiErrors.internalError();
   }
@@ -67,7 +78,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  * Update an event
  * Requires organizer role and ownership
  */
-export async function PUT(request: NextRequest, { params }: RouteParams) {
+async function putHandler(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
 
@@ -76,7 +87,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     // Check authentication
-    const authResult = await requireOrganizer();
+    const authResult = await requireAuth();
     if (!authResult.success) {
       return authResult.response;
     }
@@ -84,7 +95,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     await connectDB();
 
     // Find the event
-    const event = await Event.findById(id);
+    const event = await Event.findByIdAndUpdate(id, { $inc: { mutationVersion: 1 } }, { new: true });
 
     if (!event) {
       return ApiErrors.notFound("Event");
@@ -92,8 +103,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     // Check ownership - only the event organizer can update
     if (
-      event.organizerId.toString() !== authResult.mongoUserId &&
-      authResult.userRole !== "admin"
+      !canManageEvent(event, authResult.mongoUserId, authResult.userRole, "edit")
     ) {
       return ApiErrors.forbidden();
     }
@@ -102,6 +112,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     // Validate request body
     const validatedData = updateEventSchema.parse(body);
+
+    if (validatedData.capacity !== undefined) {
+      const registered = await Registration.countDocuments({ eventId: id });
+      if (validatedData.capacity < registered) return ApiErrors.badRequest("Capacity cannot be lower than the number of registered attendees");
+    }
 
     // Validate dates if provided
     if (validatedData.date || validatedData.registrationDeadline) {
@@ -120,8 +135,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       }
     }
 
+    const end = eventEnd({ date: validatedData.date || event.date, endDate: validatedData.endDate || event.endDate });
+    if (end <= new Date(validatedData.date || event.date)) return ApiErrors.badRequest("End time must be after start time");
+
     // Update the event
-    const updateData: Record<string, unknown> = { ...validatedData };
+    const updateData: Record<string, unknown> = { ...validatedData, endDate: end };
 
     if (validatedData.date) {
       updateData.date = new Date(validatedData.date);
@@ -156,32 +174,35 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       eventId: updatedEvent._id,
     });
 
-    // Fire-and-forget: email all registered students about the update
-    Registration.find({ eventId: updatedEvent._id })
+    // Persist before commit: email all registered students about the update
+    await Registration.find({ eventId: updatedEvent._id })
       .populate<{ studentId: { firstName: string; lastName: string; email: string } }>(
         "studentId",
         "firstName lastName email",
       )
       .lean<{ studentId: { firstName: string; lastName: string; email: string } }[]>()
-      .then((regs) => {
+      .then(async (regs) => {
         for (const reg of regs) {
           const s = reg.studentId;
           if (!s?.email) continue;
-          sendEventUpdatedEmail(s.email, `${s.firstName} ${s.lastName}`, {
+          await sendEventUpdatedEmail(s.email, `${s.firstName} ${s.lastName}`, {
             id: updatedEvent._id.toString(),
             title: updatedEvent.title,
             date: updatedEvent.date,
+            endDate: updatedEvent.endDate,
+            timeZone: updatedEvent.timeZone,
             venue: updatedEvent.venue,
           });
         }
       })
-      .catch(() => {});
+      ;
 
     return successResponse(
       formatEventResponse(updatedEvent, registrationCount),
       "Event updated successfully",
     );
   } catch (error) {
+    rethrowTransient(error);
     console.error("PUT /api/events/:id error:", error);
     if (error instanceof ZodError) {
       return ApiErrors.validationError(formatZodErrors(error));
@@ -195,7 +216,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
  * Delete an event
  * Requires organizer role and ownership
  */
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+async function deleteHandler(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
 
@@ -204,7 +225,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Check authentication
-    const authResult = await requireOrganizer();
+    const authResult = await requireAuth();
     if (!authResult.success) {
       return authResult.response;
     }
@@ -212,7 +233,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     await connectDB();
 
     // Find the event
-    const event = await Event.findById(id);
+    const event = await Event.findByIdAndUpdate(id, { $inc: { mutationVersion: 1 } }, { new: true });
 
     if (!event) {
       return ApiErrors.notFound("Event");
@@ -220,8 +241,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     // Check ownership - only the event organizer or admin can delete
     if (
-      event.organizerId.toString() !== authResult.mongoUserId &&
-      authResult.userRole !== "admin"
+      !canManageEvent(event, authResult.mongoUserId, authResult.userRole, "delete")
     ) {
       return ApiErrors.forbidden();
     }
@@ -235,21 +255,30 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       .lean<{ studentId: { firstName: string; lastName: string; email: string } }[]>();
 
     // Delete the event and all its registrations
-    await Promise.all([
-      Event.findByIdAndDelete(id),
-      Registration.deleteMany({ eventId: id }),
-    ]);
+        await Notification.deleteMany({ eventId: id });
+    await Event.findByIdAndDelete(id);
+    await Registration.deleteMany({ eventId: id });
+    await Review.deleteMany({ eventId: id });
+    await Bookmark.deleteMany({ eventId: id });
+    await Message.deleteMany({ eventId: id });
+    await Collaboration.deleteMany({ eventId: id });
+    afterCommit(() => { globalThis.io?.in(`event:${id}`).socketsLeave(`event:${id}`); });
 
-    // Fire-and-forget: notify registered students that the event is cancelled
+    // Persist before commit: notify registered students that the event is cancelled
     for (const reg of registeredStudents) {
       const s = reg.studentId;
       if (!s?.email) continue;
-      sendEventCancelledEmail(s.email, `${s.firstName} ${s.lastName}`, event.title);
+      await sendEventCancelledEmail(s.email, `${s.firstName} ${s.lastName}`, event.title);
     }
 
     return successResponse(null, "Event deleted successfully");
   } catch (error) {
+    rethrowTransient(error);
     console.error("DELETE /api/events/:id error:", error);
     return ApiErrors.internalError();
   }
 }
+
+export const PUT = transactional(putHandler);
+
+export const DELETE = transactional(deleteHandler);

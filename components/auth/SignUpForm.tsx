@@ -3,13 +3,13 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { fetchColleges } from "@/store/slices/collegesSlice";
+import { fetchCollegeOptions } from "@/store/slices/collegesSlice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -79,7 +79,7 @@ export function SignUpForm() {
   const { register: registerUser } = useAuth();
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const colleges = useAppSelector((s) => s.colleges.items);
+  const colleges = useAppSelector((s) => s.colleges.options);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -87,14 +87,14 @@ export function SignUpForm() {
   const [selectedCollegeName, setSelectedCollegeName] = useState("");
 
   useEffect(() => {
-    dispatch(fetchColleges({ limit: "100" }));
+    dispatch(fetchCollegeOptions());
   }, [dispatch]);
 
   const {
     register,
     handleSubmit,
     setValue,
-    watch,
+    control,
     formState: { errors },
   } = useForm<SignUpValues>({
     resolver: zodResolver(signUpSchema),
@@ -111,7 +111,7 @@ export function SignUpForm() {
     },
   });
 
-  const password = watch("password");
+  const password = useWatch({ control, name: "password" });
 
   const passwordChecks = {
     length: password?.length >= 8,

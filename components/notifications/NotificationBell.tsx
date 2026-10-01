@@ -1,5 +1,6 @@
 "use client";
 
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { useEffect, useRef, useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -135,7 +136,6 @@ function NotificationRow({
           ? "hover:bg-muted"
           : "bg-primary/[0.03] hover:bg-primary/[0.06]",
       )}
-      onClick={() => onRead(notification)}
     >
       {/* Unread dot */}
       <div className="mt-1 flex-shrink-0">
@@ -160,7 +160,7 @@ function NotificationRow({
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-w-0">
+      <button type="button" onClick={() => onRead(notification)} className="flex-1 min-w-0 text-left" aria-label={`${notification.isRead ? "" : "Unread: "}${notification.title}. ${notification.message}`}>
         <p
           className={cn(
             "text-sm leading-snug",
@@ -177,7 +177,7 @@ function NotificationRow({
         <span className="text-[10px] text-muted-foreground mt-1 block">
           {relativeTime(notification.createdAt)}
         </span>
-      </div>
+      </button>
 
       {/* Delete button (hover) — only for stored notifications */}
       {!notification.isVirtual && (
@@ -187,7 +187,7 @@ function NotificationRow({
             e.stopPropagation();
             onDelete(notification.id);
           }}
-          className="flex-shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-muted transition-all"
+          className="flex-shrink-0 opacity-70 group-hover:opacity-100 focus-visible:opacity-100 p-1 rounded hover:bg-muted transition-all"
           aria-label="Dismiss notification"
         >
           <X className="h-3 w-3 text-muted-foreground" />
@@ -208,7 +208,6 @@ export function NotificationBell() {
   const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
 
   const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ── Fetch ──────────────────────────────────────────────────────────────
@@ -230,20 +229,6 @@ export function NotificationBell() {
   }, [open, load]);
 
   // ── Outside-click close ────────────────────────────────────────────────
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
-        setOpen(false);
-      }
-    };
-    if (open) document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  // ── Handlers ───────────────────────────────────────────────────────────
   const handleRead = useCallback(
     (notification: NotificationItem) => {
       if (!notification.isRead) {
@@ -274,11 +259,11 @@ export function NotificationBell() {
 
   // ── Render ─────────────────────────────────────────────────────────────
   return (
-    <div ref={containerRef} className="relative">
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
       {/* Bell button */}
       <button
         type="button"
-        onClick={() => setOpen((p) => !p)}
         className={cn(
           "relative flex items-center justify-center w-9 h-9 rounded-lg transition-colors",
           open
@@ -294,10 +279,10 @@ export function NotificationBell() {
           </span>
         )}
       </button>
+      </PopoverTrigger>
 
       {/* Dropdown */}
-      {open && (
-        <div className="absolute right-0 top-11 w-[360px] bg-popover rounded-xl shadow-md border border-border z-50 overflow-hidden animate-fade-in-up">
+        <PopoverContent align="end" aria-label="Notifications" className="w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-xl p-0">
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <div className="flex items-center gap-2">
@@ -378,8 +363,7 @@ export function NotificationBell() {
               </p>
             </div>
           )}
-        </div>
-      )}
-    </div>
+        </PopoverContent>
+    </Popover>
   );
 }

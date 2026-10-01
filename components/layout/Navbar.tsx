@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Menu,
@@ -68,12 +68,12 @@ export function Navbar() {
 
   return (
     <motion.nav 
-      initial={{ y: -100, opacity: 0 }}
+      initial={{ y: -8, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ type: "spring", stiffness: 100, damping: 20 }}
       className="sticky top-0 z-50 px-4 py-4 sm:px-6"
     >
-      <div className="mx-auto flex max-w-7xl items-center gap-4 rounded-xl border border-border bg-card/95 px-4 py-2.5 shadow-sm backdrop-blur md:px-6">
+      <div className="mx-auto flex max-w-7xl items-center gap-4 rounded-xl border border-border bg-card px-4 py-2.5 shadow-sm md:px-6">
         <Link href="/" className="flex shrink-0 items-center gap-3">
           <Image
             className="rounded-xl ring-1 ring-border/80"
@@ -96,8 +96,9 @@ export function Navbar() {
           {navLinks.map((link) => {
             const active = isActive(link.href);
             return (
-              <Link key={link.href} href={link.href}>
                 <Button
+                  key={link.href}
+                  asChild
                   variant="ghost"
                   size="sm"
                   className={cn(
@@ -107,10 +108,11 @@ export function Navbar() {
                       : "text-muted-foreground hover:bg-background/80 hover:text-foreground dark:hover:bg-card",
                   )}
                 >
+                  <Link href={link.href} aria-current={active ? "page" : undefined}>
                   <link.icon className="h-4 w-4" />
                   {link.label}
+                  </Link>
                 </Button>
-              </Link>
             );
           })}
         </div>
@@ -128,6 +130,7 @@ export function Navbar() {
                 }
               }}
               placeholder="Search events"
+              aria-label="Search events"
               className="h-10 pl-11"
             />
           </div>
@@ -195,16 +198,8 @@ export function Navbar() {
             </DropdownMenu>
           ) : (
             <>
-              <Link href="/sign-in">
-                <Button variant="ghost" size="sm" className="h-11 px-4">
-                  Sign In
-                </Button>
-              </Link>
-              <Link href="/sign-up">
-                <Button size="sm" className="h-11 px-4.5">
-                  Join Free
-                </Button>
-              </Link>
+              <Button asChild variant="ghost" size="sm" className="h-11 px-4"><Link href="/sign-in">Sign In</Link></Button>
+              <Button asChild size="sm" className="h-11 px-4.5"><Link href="/sign-up">Join Free</Link></Button>
             </>
           )}
         </div>
@@ -212,11 +207,13 @@ export function Navbar() {
         <div className="ml-auto md:hidden">
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="size-11">
+              <Button variant="outline" size="icon" className="size-11" aria-label="Open navigation">
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="p-0">
+              <SheetTitle className="sr-only">Navigation</SheetTitle>
+              <SheetDescription className="sr-only">Browse events or manage your account.</SheetDescription>
               <div className="flex h-full flex-col">
                 <div className="border-b border-border px-6 py-6">
                   <div className="flex items-center gap-3">
@@ -251,6 +248,7 @@ export function Navbar() {
                         }
                       }}
                       placeholder="Search events"
+                      aria-label="Search events"
                       className="pl-11"
                     />
                   </div>
@@ -344,25 +342,16 @@ export function Navbar() {
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      <Link
-                        href="/sign-in"
-                        onClick={() => setMobileOpen(false)}
-                      >
                         <Button
+                          asChild
                           variant="outline"
                           className="w-full justify-center"
                         >
-                          Sign In
+                          <Link href="/sign-in" onClick={() => setMobileOpen(false)}>Sign In</Link>
                         </Button>
-                      </Link>
-                      <Link
-                        href="/sign-up"
-                        onClick={() => setMobileOpen(false)}
-                      >
-                        <Button className="w-full justify-center">
-                          Join Free
+                        <Button asChild className="w-full justify-center">
+                          <Link href="/sign-up" onClick={() => setMobileOpen(false)}>Join Free</Link>
                         </Button>
-                      </Link>
                     </div>
                   )}
                 </div>

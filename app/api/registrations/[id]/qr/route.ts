@@ -5,7 +5,7 @@ import { requireAuth } from "@/lib/auth-guard";
 import { successResponse, ApiErrors } from "@/lib/api-response";
 import mongoose from "mongoose";
 import QRCode from "qrcode";
-import { signQrToken } from "@/lib/qr";
+import { signQrToken, verifyQrToken } from "@/lib/qr";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -49,6 +49,9 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
 
     // Generate (or reuse) the QR token
     let token = registration.qrToken;
+    if (token) {
+      try { verifyQrToken(token); } catch { token = null; }
+    }
     if (!token) {
       token = signQrToken({
         registrationId: registration._id.toString(),

@@ -1,3 +1,4 @@
+import { transactional, rethrowTransient } from "@/lib/transaction";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import Event from "@/models/Event";
@@ -53,6 +54,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
 
     return successResponse(formatted, "Reviews retrieved successfully");
   } catch (error) {
+    rethrowTransient(error);
     console.error("GET /api/events/:id/reviews error:", error);
     return ApiErrors.internalError();
   }
@@ -62,7 +64,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
  * POST /api/events/:id/reviews
  * Submit a review — student only, must be registered, event must be completed
  */
-export async function POST(req: NextRequest, { params }: RouteParams) {
+async function mutationHandler(req: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
 
@@ -85,7 +87,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
     await connectDB();
 
-    const event = await Event.findById(id).lean<IEvent>();
+    const event = await Event.findByIdAndUpdate(id, { $inc: { mutationVersion: 1 } }, { new: true }).lean<IEvent>();
     if (!event) return ApiErrors.notFound("Event");
 
     if (computeEventStatus(event) !== "completed") {
@@ -140,7 +142,10 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
     return successResponse(null, "Review submitted successfully", 201);
   } catch (error) {
+    rethrowTransient(error);
     console.error("POST /api/events/:id/reviews error:", error);
     return ApiErrors.internalError();
   }
 }
+
+export const POST = transactional(mutationHandler);

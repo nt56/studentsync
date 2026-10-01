@@ -11,7 +11,7 @@ ENV CHOKIDAR_USEPOLLING=true
 
 # Install deps first for better layer caching
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN MONGOMS_DISABLE_POSTINSTALL=1 npm ci
 
 # Source is overlaid by the bind mount at runtime; this COPY is a sane fallback
 # if the image is ever run without compose.

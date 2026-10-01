@@ -1,5 +1,9 @@
 "use client";
 
+import { EventStaff } from "@/components/events/EventStaff";
+import QRScanner from "@/components/events/QRScanner";
+import AttendanceList from "@/components/events/AttendanceList";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
@@ -8,7 +12,6 @@ import { fetchEventById, clearCurrentEvent } from "@/store/slices/eventsSlice";
 import {
   registerForEvent,
   cancelRegistration,
-  fetchRegistrations,
 } from "@/store/slices/registrationsSlice";
 import { fetchBookmarks } from "@/store/slices/bookmarksSlice";
 import { EventDetailSkeleton } from "@/components/common/Skeletons";
@@ -22,7 +25,7 @@ import StarRating from "@/components/events/StarRating";
 import ReviewForm from "@/components/events/ReviewForm";
 import ReviewList from "@/components/events/ReviewList";
 import QRCodeDisplay from "@/components/events/QRCodeDisplay";
-import { format, isPast } from "date-fns";
+import { isPast } from "date-fns";
 import {
   Calendar,
   MapPin,
@@ -65,7 +68,7 @@ export default function EventDetailPage() {
       try {
         const res = await (
           await import("@/services/api")
-        ).default.get(`/registrations?eventId=${id}&limit=1`);
+        ).default.get(`/registrations?eventId=${id}&limit=1&mine=true`);
         if (ignore) return;
         const items = res.data?.items ?? res.data ?? [];
         if (Array.isArray(items) && items.length > 0) {
@@ -178,6 +181,12 @@ export default function EventDetailPage() {
         Back to Events
       </button>
 
+      <div className="mb-6 space-y-4">
+        {event.permissions?.includes("edit") && <Button asChild variant="outline"><Link href={`/dashboard/edit-event/${id}`}>Edit event</Link></Button>}
+        {event.permissions?.includes("staff") && <EventStaff eventId={id} />}
+        {event.permissions?.includes("checkIn") && <QRScanner />}
+        {event.permissions?.includes("attendees") && <AttendanceList eventId={id} />}
+      </div>
       {/* Hero Image */}
       <header className="mb-8">
         <div className="relative w-full h-[400px] md:h-[450px] overflow-hidden rounded-xl bg-secondary/30 border border-border group">
@@ -231,10 +240,11 @@ export default function EventDetailPage() {
               <div>
                 <p className="text-xs text-muted-foreground">Date &amp; Time</p>
                 <p className="font-medium text-foreground">
-                  {eventDate ? format(eventDate, "MMM dd, yyyy") : "TBA"}
+                  {eventDate ? new Intl.DateTimeFormat("en", { dateStyle: "medium", timeZone: event.timeZone || "UTC" }).format(eventDate) : "TBA"}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  {eventDate ? format(eventDate, "hh:mm a") : ""}
+                  {eventDate ? new Intl.DateTimeFormat("en", { timeStyle: "short", timeZone: event.timeZone || "UTC" }).format(eventDate) : ""} ({event.timeZone || "UTC"})
+                  {event.endDate && <span className="block text-xs">Ends {new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short", timeZone: event.timeZone || "UTC" }).format(new Date(event.endDate))}</span>}
                 </p>
               </div>
             </div>
@@ -266,7 +276,7 @@ export default function EventDetailPage() {
                   Deadline
                 </p>
                 <p className="font-medium text-foreground">
-                  {deadline ? format(deadline, "MMM dd, yyyy") : "TBA"}
+                  {deadline ? new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short", timeZone: event.timeZone || "UTC" }).format(deadline) : "TBA"}
                 </p>
                 {deadlinePassed && (
                   <p className="text-sm text-red-400 font-medium">
@@ -291,9 +301,10 @@ export default function EventDetailPage() {
           {isAuthenticated && (
             <ChatPanel
               eventId={id}
-              isRegistered={!!event.isRegistered}
+              isRegistered={!!event.isRegistered || !!event.permissions?.includes("chat")}
               userMongoId={user?.id}
               userRole={user?.role ?? "student"}
+              isOwner={!!event.permissions?.includes("moderate")}
             />
           )}
 
@@ -381,6 +392,7 @@ export default function EventDetailPage() {
                       description={event.description}
                       location={event.venue}
                       startDate={event.date}
+                      endDate={event.endDate}
                     />
                   )}
                   <BookmarkButton eventId={id} />

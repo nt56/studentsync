@@ -1,3 +1,4 @@
+import { canManageEvent } from "@/lib/event-access";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import Registration from "@/models/Registration";
@@ -23,28 +24,18 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
       return ApiErrors.badRequest("Invalid event ID");
     }
 
-    const authResult = await requireAuth(["organizer", "admin"]);
+    const authResult = await requireAuth();
     if (!authResult.success) return authResult.response;
 
     await connectDB();
 
-    const event = await Event.findById(id).lean<{
-      _id: mongoose.Types.ObjectId;
-      organizerId: mongoose.Types.ObjectId;
-    }>();
+    const event = await Event.findById(id).lean();
     if (!event) return ApiErrors.notFound("Event");
 
-    // Organizers can only view their own event's attendance
-    if (
-      authResult.userRole === "organizer" &&
-      authResult.mongoUserId &&
-      event.organizerId.toString() !== authResult.mongoUserId
-    ) {
-      return ApiErrors.forbidden();
-    }
+    if (!canManageEvent(event, authResult.mongoUserId, authResult.userRole, "attendees")) return ApiErrors.forbidden();
 
     const registrations = await Registration.find({ eventId: id })
-      .populate("studentId", "firstName lastName email image")
+      .populate("studentId", "firstName lastName email profileImage")
       .sort({ checkedIn: -1, registeredAt: 1 })
       .lean<
         Array<{
@@ -54,7 +45,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
             firstName: string;
             lastName: string;
             email: string;
-            image?: string;
+            profileImage?: string;
           } | null;
           checkedIn: boolean;
           checkedInAt?: Date | null;
@@ -75,7 +66,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
             id: r.studentId._id.toString(),
             name: `${r.studentId.firstName} ${r.studentId.lastName}`,
             email: r.studentId.email,
-            image: r.studentId.image ?? null,
+            image: r.studentId.profileImage ?? null,
           }
         : null,
     }));

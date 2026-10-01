@@ -1,4 +1,5 @@
-import { configureStore } from "@reduxjs/toolkit";
+import { configureStore, combineReducers, type UnknownAction } from "@reduxjs/toolkit";
+import { logoutUser } from "./slices/authSlice";
 import authReducer from "./slices/authSlice";
 import eventsReducer from "./slices/eventsSlice";
 import registrationsReducer from "./slices/registrationsSlice";
@@ -8,9 +9,9 @@ import notificationsReducer from "./slices/notificationsSlice";
 import chatReducer from "./slices/chatSlice";
 import analyticsReducer from "./slices/analyticsSlice";
 import bookmarksReducer from "./slices/bookmarksSlice";
+import { sessionMiddleware } from "./session-middleware";
 
-export const store = configureStore({
-  reducer: {
+const appReducer = combineReducers({
     auth: authReducer,
     events: eventsReducer,
     registrations: registrationsReducer,
@@ -20,6 +21,14 @@ export const store = configureStore({
     chat: chatReducer,
     analytics: analyticsReducer,
     bookmarks: bookmarksReducer,
+});
+
+export const store = configureStore({
+  middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(sessionMiddleware),
+  reducer: (state: ReturnType<typeof appReducer> | undefined, action: UnknownAction) => {
+    // Remove private data before another account can use this browser session.
+    if (logoutUser.fulfilled.match(action)) state = undefined;
+    return appReducer(state, action);
   },
 });
 

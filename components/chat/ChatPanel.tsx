@@ -26,6 +26,7 @@ interface ChatPanelProps {
   isRegistered: boolean;
   userMongoId?: string;
   userRole: string;
+  isOwner?: boolean;
 }
 
 export function ChatPanel({
@@ -33,32 +34,32 @@ export function ChatPanel({
   isRegistered,
   userMongoId,
   userRole,
+  isOwner = false,
 }: ChatPanelProps) {
   const dispatch = useAppDispatch();
-  const { messages, isLoading, isSending, typingUsers } = useAppSelector(
+  const { messages, isLoading, isSending, typingUsers, error } = useAppSelector(
     (s) => s.chat,
   );
   const authUser = useAppSelector((s) => s.auth.user);
   const [isOpen, setIsOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const { isConnected, emitTyping } = useEventChat(isOpen ? eventId : null);
-
   const canSend =
-    isRegistered || userRole === "organizer" || userRole === "admin";
-  const canDelete = userRole === "organizer" || userRole === "admin";
+    isRegistered || isOwner || userRole === "admin";
+  const canDelete = isOwner || userRole === "admin";
+  const { isConnected, connectionError, emitTyping } = useEventChat(isOpen && canSend ? eventId : null);
 
   const userName = authUser
     ? `${authUser.firstName} ${authUser.lastName}`
     : "Someone";
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && canSend) {
       dispatch(fetchMessages({ eventId }));
     } else {
       dispatch(clearChat());
     }
-  }, [isOpen, eventId, dispatch]);
+  }, [isOpen, canSend, eventId, dispatch]);
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -98,6 +99,7 @@ export function ChatPanel({
       {/* Toggle header */}
       <button
         type="button"
+        aria-expanded={isOpen}
         onClick={() => setIsOpen((p) => !p)}
         className="w-full flex items-center justify-between px-5 py-4 hover:bg-muted transition-colors"
       >
@@ -133,7 +135,7 @@ export function ChatPanel({
               ) : (
                 <WifiOff className="h-3 w-3" />
               )}
-              {isConnected ? "Live" : "Connecting…"}
+              {isConnected ? "Live" : connectionError ? "Offline" : canSend ? "Connecting…" : "Registration required"}
             </span>
           )}
           {isOpen ? (
@@ -154,6 +156,8 @@ export function ChatPanel({
                 <div className="w-7 h-7 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
                 <p className="text-xs text-muted-foreground">Loading messages…</p>
               </div>
+            ) : error || connectionError ? (
+              <p className="py-12 text-center text-sm text-muted-foreground" role="alert">{error || connectionError}</p>
             ) : messages.length === 0 ? (
               <div className="flex flex-col items-center gap-3 py-12">
                 <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
@@ -173,7 +177,7 @@ export function ChatPanel({
                 <ChatMessage
                   key={msg._id}
                   message={msg}
-                  isOwn={msg.senderId._id === userMongoId}
+                  isOwn={msg.senderId?._id === userMongoId}
                   canDelete={canDelete}
                   onDelete={handleDelete}
                 />

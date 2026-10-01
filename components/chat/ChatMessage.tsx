@@ -19,7 +19,7 @@ export function ChatMessage({
   onDelete,
 }: ChatMessageProps) {
   const sender = message.senderId;
-  const senderName = `${sender.firstName} ${sender.lastName}`;
+  const senderName = sender ? `${sender.firstName} ${sender.lastName}`.trim() : "Deleted user";
 
   if (message.type === "system") {
     return (
@@ -64,12 +64,12 @@ export function ChatMessage({
               <span className="text-[12px] font-semibold text-indigo-500 dark:text-indigo-400">
                 {senderName}
               </span>
-              {sender.role === "organizer" && (
+              {sender?.role === "organizer" && (
                 <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider">
                   Organizer
                 </span>
               )}
-              {sender.role === "admin" && (
+              {sender?.role === "admin" && (
                 <span className="bg-amber-500/10 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider">
                   Admin
                 </span>

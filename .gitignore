@@ -12,9 +12,13 @@
 
 # testing
 /coverage
+/tests/artifacts/
 
 # next.js
 /.next/
+/.next-integration/
+/.next-preview/
+/data-audit*.json
 /out/
 
 # production
@@ -41,7 +45,13 @@ yarn-error.log*
 next-env.d.ts
 
 # folders
-documents
+documents/*
+!documents/NEXT_PHASE_ROADMAP.md
+!documents/CODEBASE_REVIEW.md
+!documents/OPERATIONS.md
+!documents/API_CONTRACT.md
+!documents/README.md
+/.lint-review.json
 
 # IDE / Editor files
 /.claude

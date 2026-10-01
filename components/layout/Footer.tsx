@@ -62,8 +62,8 @@ export function Footer() {
               A unified campus experience. Discover events, register effortlessly, and manage everything from a single calm interface.
             </p>
             <div className="flex items-center gap-4 text-muted-foreground">
-              <a href="https://github.com/nt56" className="hover:text-primary transition-colors hover:scale-110 transform"><Github className="h-5 w-5" /></a>
-              <a href="https://linkedin.com/in/nagabhushan-tirth-887865229/" className="hover:text-primary transition-colors hover:scale-110 transform"><Linkedin className="h-5 w-5" /></a>
+              <a href="https://github.com/nt56" aria-label="GitHub profile" className="hover:text-primary transition-colors"><Github className="h-5 w-5" /></a>
+              <a href="https://linkedin.com/in/nagabhushan-tirth-887865229/" aria-label="LinkedIn profile" className="hover:text-primary transition-colors"><Linkedin className="h-5 w-5" /></a>
             </div>
           </motion.div>
 
@@ -85,11 +85,11 @@ export function Footer() {
           <motion.div variants={fadeUp}>
             <h3 className="font-semibold text-foreground mb-4">Get Started</h3>
             <p className="text-sm text-muted-foreground mb-4">Join the community today.</p>
-            <Link href="/sign-up">
-              <Button size="sm" className="w-full rounded-full shadow-md hover:shadow-primary/20 hover:-translate-y-0.5 transition-all">
+              <Button asChild size="sm" className="w-full">
+                <Link href="/sign-up">
                 Create Account <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
               </Button>
-            </Link>
           </motion.div>
         </div>
 

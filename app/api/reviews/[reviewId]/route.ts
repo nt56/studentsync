@@ -1,3 +1,4 @@
+import { transactional, rethrowTransient } from "@/lib/transaction";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import Event from "@/models/Event";
@@ -14,7 +15,7 @@ interface RouteParams {
  * DELETE /api/reviews/:reviewId
  * Delete a review — owner (student) or admin only
  */
-export async function DELETE(_req: NextRequest, { params }: RouteParams) {
+async function mutationHandler(_req: NextRequest, { params }: RouteParams) {
   try {
     const { reviewId } = await params;
 
@@ -40,6 +41,7 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
     }
 
     const eventId = review.eventId.toString();
+    await Event.updateOne({ _id: eventId }, { $inc: { mutationVersion: 1 } });
     await review.deleteOne();
 
     // Recalculate denormalized stats on the event
@@ -56,7 +58,10 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
 
     return successResponse(null, "Review deleted successfully");
   } catch (error) {
+    rethrowTransient(error);
     console.error("DELETE /api/reviews/:reviewId error:", error);
     return ApiErrors.internalError();
   }
 }
+
+export const DELETE = transactional(mutationHandler);

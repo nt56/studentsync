@@ -1,5 +1,7 @@
 "use client";
 
+import { ListPagination } from "@/components/common/ListPagination";
+
 import { useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
@@ -23,20 +25,23 @@ import { format } from "date-fns";
 
 export default function UserManagementPage() {
   const dispatch = useAppDispatch();
-  const { items: users, isLoading } = useAppSelector((s) => s.users);
+  const [page, setPage] = useState(1);
+  const { items: users, pagination, isLoading } = useAppSelector((s) => s.users);
   const [search, setSearch] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    dispatch(fetchUsers({ limit: "100" }));
-  }, [dispatch]);
+    dispatch(fetchUsers({ page: String(page), limit: "20", search })).unwrap().then((result) => {
+      if (result.pagination && page > Math.max(1, result.pagination.totalPages)) setPage(Math.max(1, result.pagination.totalPages));
+    }).catch(() => {});
+  }, [dispatch, page, search]);
 
   const handleRoleChange = async (userId: string, role: string) => {
     try {
       await dispatch(updateUserRole({ id: userId, role })).unwrap();
       toast.success("User role updated");
-      dispatch(fetchUsers({ limit: "100" }));
+      dispatch(fetchUsers({ page: String(page), limit: "20", search }));
     } catch {
       toast.error("Failed to update role");
     }
@@ -48,6 +53,8 @@ export default function UserManagementPage() {
     try {
       await dispatch(deleteUser(deleteTarget)).unwrap();
       toast.success("User deleted");
+      const result = await dispatch(fetchUsers({ page: String(page), limit: "20", search })).unwrap();
+      if (page > Math.max(1, result.pagination.totalPages)) setPage(Math.max(1, result.pagination.totalPages));
     } catch {
       toast.error("Failed to delete user");
     } finally {
@@ -56,14 +63,7 @@ export default function UserManagementPage() {
     }
   };
 
-  const filteredUsers = users.filter(
-    (u) =>
-      !search ||
-      `${u.firstName} ${u.lastName}`
-        .toLowerCase()
-        .includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase()),
-  );
+  const filteredUsers = users;
 
   return (
     <div>
@@ -82,9 +82,9 @@ export default function UserManagementPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             className="w-full pl-10 pr-4 h-10 bg-card border border-input rounded-lg outline-none text-sm transition-colors focus:border-primary/40 focus:ring-2 focus:ring-primary/20"
-            placeholder="Search users..."
+            aria-label="Search all users" placeholder="Search users..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           />
         </div>
       </div>
@@ -92,8 +92,9 @@ export default function UserManagementPage() {
       {/* Table */}
       <div className="surface-card rounded-xl overflow-hidden">
         {isLoading ? (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Users table">
             <table className="w-full text-left border-collapse">
+              <caption className="sr-only">Users on the current page</caption>
               <tbody className="divide-y divide-border">
                 <TableRowSkeleton cols={5} />
                 <TableRowSkeleton cols={5} />
@@ -112,15 +113,16 @@ export default function UserManagementPage() {
             />
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Users table">
             <table className="w-full text-left border-collapse">
+              <caption className="sr-only">Users on the current page</caption>
               <thead>
                 <tr className="border-b border-border text-xs font-medium text-muted-foreground">
-                  <th className="px-5 py-3">User</th>
-                  <th className="px-5 py-3">Email</th>
-                  <th className="px-5 py-3">Role</th>
-                  <th className="px-5 py-3">Joined</th>
-                  <th className="px-5 py-3 text-right">Actions</th>
+                  <th scope="col" className="px-5 py-3">User</th>
+                  <th scope="col" className="px-5 py-3">Email</th>
+                  <th scope="col" className="px-5 py-3">Role</th>
+                  <th scope="col" className="px-5 py-3">Joined</th>
+                  <th scope="col" className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -147,10 +149,10 @@ export default function UserManagementPage() {
                       </td>
                       <td className="px-5 py-3.5">
                         <Select
-                          defaultValue={user.role}
+                          value={user.role}
                           onValueChange={(val) => handleRoleChange(uid!, val)}
                         >
-                          <SelectTrigger className="w-32 h-8 text-xs">
+                          <SelectTrigger aria-label={`Role for ${user.firstName} ${user.lastName}`} className="w-32 h-8 text-xs">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -169,6 +171,7 @@ export default function UserManagementPage() {
                         <button
                           type="button"
                           title="Delete user"
+                          aria-label={`Delete ${user.firstName} ${user.lastName}`}
                           className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-red-500"
                           onClick={() => setDeleteTarget(uid!)}
                         >
@@ -184,6 +187,7 @@ export default function UserManagementPage() {
         )}
       </div>
 
+      <ListPagination page={page} pagination={pagination} onPageChange={setPage} disabled={isLoading} />
       <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}

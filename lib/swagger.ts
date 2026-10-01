@@ -1,3 +1,4 @@
+import { additionalPaths } from "@/lib/openapi-additions";
 const swaggerSpec = {
   openapi: "3.0.3",
   info: {
@@ -47,12 +48,12 @@ const swaggerSpec = {
     {
       name: "Chat",
       description:
-        "Event-scoped real-time chat rooms. Each event has one chat room. Only registered students and organizers/admins can send messages.\n\n**WebSocket events** (Socket.IO path: `/api/socket`):\n\n| Event | Direction | Payload | Notes |\n|---|---|---|---|\n| `join-room` | Client → Server | `{ eventId }` | Subscribe to room `event:{id}` |\n| `leave-room` | Client → Server | `{ eventId }` | Unsubscribe from room |\n| `user-typing` | Client → Server | `{ eventId, user }` | Relayed to others in room |\n| `new-message` | Server → Client | `{ message }` | Broadcast after POST send |\n| `message-deleted` | Server → Client | `{ messageId }` | Broadcast after DELETE |\n| `user-typing` | Server → Client | `{ eventId, user }` | Typing relay |\n\n**Infrastructure:** Socket.IO server in `server.ts` with Upstash Redis adapter (`@socket.io/redis-adapter`) for horizontal scaling.",
+        "Event-scoped real-time chat rooms. Each event has one chat room. Reading, posting, and joining rooms require a registered participant, event staff, or an admin. Socket connections require a valid session.\n\n**WebSocket events** (Socket.IO path: `/api/socket`):\n\n| Event | Direction | Payload | Notes |\n|---|---|---|---|\n| `join-room` | Client → Server | `{ eventId }` | Subscribe to room `event:{id}` |\n| `leave-room` | Client → Server | `{ eventId }` | Unsubscribe from room |\n| `user-typing` | Client → Server | `{ eventId }` | Authenticated name relayed to other room members |\n| `new-message` | Server → Client | `{ message }` | Broadcast after POST send |\n| `message-deleted` | Server → Client | `{ messageId }` | Broadcast after DELETE |\n| `user-typing` | Server → Client | `{ eventId, user }` | Typing relay |\n\n**Infrastructure:** Socket.IO server in `server.ts` with Upstash Redis adapter (`@socket.io/redis-adapter`) for horizontal scaling.",
     },
     {
       name: "Notifications",
       description:
-        "In-app notifications for users. Stored notifications plus virtual time-based event reminders injected at read time for students.",
+        "In-app notifications for users. Stored notifications including persistent reminders. Read and dismissal state survives refresh.",
     },
   ],
   components: {
@@ -2054,7 +2055,7 @@ const swaggerSpec = {
         tags: ["Events"],
         summary: "Update event (Owner/Admin)",
         description:
-          "Update an event. Only the event organizer or an admin can update.",
+          "Update an event. Event owners, editors and admins can update.",
         security: [{ cookieAuth: [] }],
         parameters: [
           {
@@ -2556,7 +2557,7 @@ const swaggerSpec = {
         tags: ["Chat"],
         summary: "Get message history",
         description:
-          "Returns up to 50 messages for the event room, ordered oldest-first. Supports cursor-based pagination via `before` (ISO timestamp). Requires authentication.",
+          "Returns 50 messages by default (1–100 allowed), ordered oldest-first. Supports cursor-based pagination via `before` (ISO timestamp). Requires a registered participant, event staff, or admin. Socket connections require a session and room authorization as well.",
         security: [{ cookieAuth: [] }],
         parameters: [
           {
@@ -2569,7 +2570,7 @@ const swaggerSpec = {
           {
             name: "limit",
             in: "query",
-            schema: { type: "integer", default: 50, maximum: 100 },
+            schema: { type: "integer", default: 50, minimum: 1, maximum: 100 },
             description: "Max messages to return",
           },
           {
@@ -2634,7 +2635,7 @@ const swaggerSpec = {
         tags: ["Chat"],
         summary: "Send a message",
         description:
-          "Send a text message to the event chat room. **Students** must be registered for the event. **Organizers and Admins** can always send. After saving to MongoDB the server emits a `new-message` Socket.IO event to all connected clients in the room.",
+          "Send a text message to the event chat room. Requires a registered participant, event staff, or an admin. An unrelated organizer cannot post. After saving to MongoDB the server emits a `new-message` Socket.IO event to authorized clients in the room.",
         security: [{ cookieAuth: [] }],
         parameters: [
           {
@@ -2694,7 +2695,7 @@ const swaggerSpec = {
             },
           },
           "403": {
-            description: "Student not registered for this event",
+            description: "User is not a registered participant, event staff, or admin",
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/ErrorResponse" },
@@ -2782,7 +2783,7 @@ const swaggerSpec = {
         tags: ["Notifications"],
         summary: "List notifications",
         description:
-          "Returns stored notifications sorted newest-first. For students, virtual event-reminder notifications (next 48 h) are injected at read time and do not hit the DB.",
+          "Returns non-dismissed stored notifications sorted newest-first. Reminders are deduplicated and persisted. unreadCount and total cover all non-dismissed records, independently of limit.",
         security: [{ cookieAuth: [] }],
         parameters: [
           {
@@ -2833,7 +2834,7 @@ const swaggerSpec = {
       delete: {
         tags: ["Notifications"],
         summary: "Clear all notifications",
-        description: "Hard-deletes all stored notifications for the authenticated user.",
+        description: "Dismisses all notifications for the authenticated user; reminder tombstones prevent reappearance.",
         security: [{ cookieAuth: [] }],
         responses: {
           "200": {
@@ -2971,4 +2972,12 @@ const swaggerSpec = {
   },
 };
 
+Object.assign(swaggerSpec.paths, additionalPaths);
+swaggerSpec.servers = [{ url: "/", description: "Current application server" }];
+for (const name of ["Event", "CreateEventInput", "UpdateEventInput"] as const) {
+  Object.assign(swaggerSpec.components.schemas[name].properties, {
+    endDate: { type: "string", format: "date-time", description: "UTC end instant, after date. Older events fall back to a two-hour duration." },
+    timeZone: { type: "string", example: "Asia/Kolkata", description: "IANA timezone for local display and scheduling" },
+  });
+}
 export default swaggerSpec;

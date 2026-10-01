@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import Notification from "@/models/Notification";
-import Registration from "@/models/Registration";
+import { materializeReminders } from "@/lib/reminders";
+import { z } from "zod";
 import { requireAuth } from "@/lib/auth-guard";
 import { successResponse, ApiErrors } from "@/lib/api-response";
 import mongoose from "mongoose";
@@ -9,7 +10,7 @@ import mongoose from "mongoose";
 /**
  * GET /api/notifications
  * Returns stored notifications for the user.
- * For students: also injects virtual event-reminder notifications
+ * Also persists event-reminder notifications
  * for registered events happening within the next 48 hours.
  */
 export async function GET(request: NextRequest) {
@@ -21,13 +22,12 @@ export async function GET(request: NextRequest) {
 
     await connectDB();
     const userId = new mongoose.Types.ObjectId(authResult.mongoUserId);
-    const limit = Math.min(
-      parseInt(request.nextUrl.searchParams.get("limit") || "30"),
-      50,
-    );
-
-    // ── Stored notifications ───────────────────────────────────────────
-    const stored = await Notification.find({ userId })
+    const parsed = z.coerce.number().int().min(1).max(50).safeParse(request.nextUrl.searchParams.get("limit") || "30");
+    if (!parsed.success) return ApiErrors.badRequest("Limit must be an integer from 1 to 50");
+    const limit = parsed.data;
+    await materializeReminders(authResult.mongoUserId);
+    const filter = { userId, dismissedAt: { $exists: false } };
+    const stored = await Notification.find(filter)
       .sort({ createdAt: -1 })
       .limit(limit)
       .lean();
@@ -44,64 +44,10 @@ export async function GET(request: NextRequest) {
     }));
 
     // ── Virtual time-based notifications (students only) ───────────────
-    const virtual: typeof storedFormatted = [];
-
-    if (authResult.userRole === "student") {
-      const now = new Date();
-      const in48h = new Date(now.getTime() + 48 * 60 * 60 * 1000);
-
-      const registrations = await Registration.find({ studentId: userId })
-        .populate({
-          path: "eventId",
-          match: {
-            date: { $gte: now, $lte: in48h },
-            status: "upcoming",
-          },
-          select: "title date venue _id",
-        })
-        .lean();
-
-      for (const reg of registrations) {
-        const event = reg.eventId as {
-          _id: mongoose.Types.ObjectId;
-          title: string;
-          date: Date;
-          venue: string;
-        } | null;
-        if (!event) continue;
-
-        const eventDate = new Date(event.date);
-        const hoursAway =
-          (eventDate.getTime() - now.getTime()) / (1000 * 60 * 60);
-        const timeStr = eventDate.toLocaleTimeString("en-US", {
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-
-        virtual.push({
-          id: `vr_${event._id}`,
-          type: "event_reminder",
-          title: hoursAway <= 6 ? "Event Starting Soon!" : "Event Tomorrow!",
-          message: `${event.title} is on ${hoursAway <= 6 ? "today" : "tomorrow"} at ${timeStr} · ${event.venue}`,
-          link: `/events/${event._id}`,
-          isRead: false,
-          isVirtual: true,
-          createdAt: now.toISOString(),
-        });
-      }
-    }
-
-    // ── Merge, sort, return ────────────────────────────────────────────
-    const all = [...storedFormatted, ...virtual].sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    );
-
-    const unreadCount =
-      stored.filter((n) => !n.isRead).length + virtual.length;
-
+    const unreadCount = await Notification.countDocuments({ ...filter, isRead: false });
+    const total = await Notification.countDocuments(filter);
     return successResponse(
-      { items: all, unreadCount, total: all.length },
+      { items: storedFormatted, unreadCount, total },
       "Notifications retrieved successfully",
     );
   } catch (error) {
@@ -122,9 +68,9 @@ export async function DELETE() {
       return ApiErrors.badRequest("User profile not found");
 
     await connectDB();
-    await Notification.deleteMany({
+    await Notification.updateMany({
       userId: new mongoose.Types.ObjectId(authResult.mongoUserId),
-    });
+    }, { $set: { dismissedAt: new Date(), isRead: true } });
 
     return successResponse(null, "All notifications cleared");
   } catch (error) {

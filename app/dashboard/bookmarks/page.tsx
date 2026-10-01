@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { ListPagination } from "@/components/common/ListPagination";
+
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchBookmarks } from "@/store/slices/bookmarksSlice";
@@ -10,12 +12,15 @@ import { EmptyState } from "@/components/common/EmptyState";
 
 export default function BookmarksPage() {
   const dispatch = useAppDispatch();
+  const [page, setPage] = useState(1);
   const router = useRouter();
-  const { items, isLoading, initialized } = useAppSelector((s) => s.bookmarks);
+  const { items, pagination, isLoading, initialized, revision, error } = useAppSelector((s) => s.bookmarks);
 
   useEffect(() => {
-    dispatch(fetchBookmarks());
-  }, [dispatch]);
+    dispatch(fetchBookmarks({ page: String(page), limit: "12" })).unwrap().then((result) => {
+      if (result.pagination && page > Math.max(1, result.pagination.totalPages)) setPage(Math.max(1, result.pagination.totalPages));
+    }).catch(() => {});
+  }, [dispatch, page, revision]);
 
   if (isLoading && !initialized) return <EventCardGridSkeleton />;
 
@@ -25,12 +30,12 @@ export default function BookmarksPage() {
         <div>
           <h2 className="text-2xl font-bold text-foreground">Saved Events</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            {items.length} event{items.length !== 1 ? "s" : ""} bookmarked
+            {pagination?.total ?? 0} events bookmarked
           </p>
         </div>
       </div>
 
-      {items.length === 0 && !isLoading ? (
+      {error ? <p role="alert">{error}</p> : items.length === 0 && !isLoading ? (
         <EmptyState
           title="No saved events yet"
           description="Browse events and tap the bookmark icon to save them here for quick access."
@@ -44,6 +49,7 @@ export default function BookmarksPage() {
           ))}
         </div>
       )}
+      <ListPagination page={page} pagination={pagination} onPageChange={setPage} disabled={isLoading} />
     </div>
   );
 }

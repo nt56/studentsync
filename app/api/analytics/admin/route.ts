@@ -1,3 +1,4 @@
+import { eventEndExpression } from "@/lib/event-time";
 import { connectDB } from "@/lib/db";
 import { requireAuth } from "@/lib/auth-guard";
 import { successResponse, ApiErrors } from "@/lib/api-response";
@@ -43,7 +44,7 @@ export async function GET() {
       $addFields: {
         computedStatus: {
           $cond: {
-            if: { $gt: [now, "$date"] },
+            if: { $gte: [now, eventEndExpression] },
             then: "completed",
             else: {
               $cond: {

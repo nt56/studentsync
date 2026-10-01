@@ -1,3 +1,4 @@
+import { transactional, rethrowTransient, afterCommit, transactionSession } from "@/lib/transaction";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import User from "@/models/User";
@@ -10,6 +11,12 @@ import { ZodError } from "zod";
 import mongoose from "mongoose";
 import { createNotification } from "@/lib/notifications";
 import { sendRoleChangedEmail } from "@/lib/email";
+import Event from "@/models/Event";
+import Registration from "@/models/Registration";
+import Bookmark from "@/models/Bookmark";
+import Notification from "@/models/Notification";
+import Collaboration from "@/models/Collaboration";
+import Outbox from "@/models/Outbox";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -52,6 +59,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       "User retrieved successfully",
     );
   } catch (error) {
+    rethrowTransient(error);
     console.error("GET /api/users/:id error:", error);
     return ApiErrors.internalError();
   }
@@ -61,7 +69,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  * PATCH /api/users/:id
  * Update user role (admin only)
  */
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+async function patchHandler(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
 
@@ -81,6 +89,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     // Validate request body
     const validatedData = updateUserRoleSchema.parse(body);
+    if (id === authResult.mongoUserId && validatedData.role !== "admin") {
+      return ApiErrors.badRequest("Ask another administrator to change your role");
+    }
 
     // Update MongoDB User document
     const updatedUser = await User.findByIdAndUpdate(
@@ -95,20 +106,23 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     // Also update the Better Auth user collection so session.user.role is correct
     const betterAuthUserCollection = mongoose.connection.collection("user");
-    await betterAuthUserCollection.updateOne(
+    const identityUpdate = await betterAuthUserCollection.updateOne(
       { email: updatedUser.email },
       { $set: { role: validatedData.role } },
+      { session: transactionSession() },
     );
+    if (!identityUpdate.matchedCount) return ApiErrors.badRequest("Login identity is missing. Run the data audit before changing this role.");
+    afterCommit(() => { globalThis.io?.in(`user:${id}`).disconnectSockets(true); });
 
-    // Fire-and-forget: in-app notification + email to the affected user
-    createNotification({
+    // Persist before commit: in-app notification + email to the affected user
+    await createNotification({
       userId: id,
       type: "role_changed",
       title: "Your Role Has Changed",
       message: `Your account role has been updated to "${validatedData.role}".`,
       link: `/dashboard`,
     });
-    sendRoleChangedEmail(
+    await sendRoleChangedEmail(
       updatedUser.email,
       `${updatedUser.firstName} ${updatedUser.lastName}`,
       validatedData.role,
@@ -119,6 +133,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       "User role updated successfully",
     );
   } catch (error) {
+    rethrowTransient(error);
     console.error("PATCH /api/users/:id error:", error);
     if (error instanceof ZodError) {
       return ApiErrors.validationError(formatZodErrors(error));
@@ -131,7 +146,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
  * DELETE /api/users/:id
  * Delete a user (admin only)
  */
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+async function deleteHandler(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
 
@@ -152,15 +167,44 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     await connectDB();
 
-    const result = await User.findByIdAndDelete(id);
+    const result = await User.findByIdAndUpdate(id, { $inc: { mutationVersion: 1 } }, { new: true });
 
     if (!result) {
       return ApiErrors.notFound("User");
     }
 
+    if (await Event.exists({ organizerId: id })) {
+      return ApiErrors.badRequest("Reassign or remove this user’s events before deleting their account");
+    }
+
+    // Remove the login identity too; otherwise the next login recreates the profile.
+    const identities = mongoose.connection.collection("user");
+    const identity = await identities.findOne({ email: result.email }, { session: transactionSession() });
+    if (identity) {
+      await identities.deleteOne({ _id: identity._id }, { session: transactionSession() });
+      const identityIds = [identity._id, identity._id.toString()];
+          await mongoose.connection.collection("session").deleteMany({ userId: { $in: identityIds } }, { session: transactionSession() });
+    await mongoose.connection.collection("account").deleteMany({ userId: { $in: identityIds } }, { session: transactionSession() });
+    }
+    afterCommit(() => { globalThis.io?.in(`user:${id}`).disconnectSockets(true); });
+        const registrations = await Registration.find({ studentId: id }).select("eventId");
+    for (const registration of registrations) await Event.updateOne({ _id: registration.eventId }, { $inc: { mutationVersion: 1 } });
+    await Event.updateMany({ "staff.userId": id }, { $pull: { staff: { userId: id } } });
+    await Registration.deleteMany({ studentId: id });
+    await Bookmark.deleteMany({ userId: id });
+    await Notification.deleteMany({ userId: id });
+    await Outbox.deleteMany({ "to.email": result.email, status: { $in: ["pending", "failed"] } });
+    await Collaboration.deleteMany({ $or: [{ requesterId: id }, { targetOrganizerId: id }] });
+    await User.findByIdAndDelete(id);
+
     return successResponse(null, "User deleted successfully");
   } catch (error) {
+    rethrowTransient(error);
     console.error("DELETE /api/users/:id error:", error);
     return ApiErrors.internalError();
   }
 }
+
+export const PATCH = transactional(patchHandler);
+
+export const DELETE = transactional(deleteHandler);

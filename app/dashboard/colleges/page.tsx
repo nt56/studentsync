@@ -1,5 +1,7 @@
 "use client";
 
+import { ListPagination } from "@/components/common/ListPagination";
+
 import { useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
@@ -19,6 +21,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
@@ -36,7 +39,8 @@ import { format } from "date-fns";
 
 export default function CollegeManagementPage() {
   const dispatch = useAppDispatch();
-  const { items: colleges, isLoading } = useAppSelector((s) => s.colleges);
+  const [page, setPage] = useState(1);
+  const { items: colleges, pagination, isLoading } = useAppSelector((s) => s.colleges);
   const [search, setSearch] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -50,8 +54,10 @@ export default function CollegeManagementPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    dispatch(fetchColleges({ limit: "100" }));
-  }, [dispatch]);
+    dispatch(fetchColleges({ page: String(page), limit: "20", search })).unwrap().then((result) => {
+      if (result.pagination && page > Math.max(1, result.pagination.totalPages)) setPage(Math.max(1, result.pagination.totalPages));
+    }).catch(() => {});
+  }, [dispatch, page, search]);
 
   const openCreate = () => {
     setEditingId(null);
@@ -94,7 +100,7 @@ export default function CollegeManagementPage() {
         await dispatch(createCollege(data)).unwrap();
         toast.success("College created");
       }
-      dispatch(fetchColleges({ limit: "100" }));
+      dispatch(fetchColleges({ page: String(page), limit: "20", search }));
       setFormOpen(false);
     } catch {
       toast.error("Operation failed");
@@ -109,6 +115,8 @@ export default function CollegeManagementPage() {
     try {
       await dispatch(deleteCollege(deleteTarget)).unwrap();
       toast.success("College deleted");
+      const result = await dispatch(fetchColleges({ page: String(page), limit: "20", search })).unwrap();
+      if (page > Math.max(1, result.pagination.totalPages)) setPage(Math.max(1, result.pagination.totalPages));
     } catch {
       toast.error("Failed to delete college");
     } finally {
@@ -117,12 +125,7 @@ export default function CollegeManagementPage() {
     }
   };
 
-  const filteredColleges = colleges.filter(
-    (c) =>
-      !search ||
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.location?.toLowerCase().includes(search.toLowerCase()),
-  );
+  const filteredColleges = colleges;
 
   return (
     <div>
@@ -147,9 +150,9 @@ export default function CollegeManagementPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             className="w-full pl-10 pr-4 h-10 bg-card border border-input rounded-lg outline-none text-sm transition-colors focus:border-primary/40 focus:ring-2 focus:ring-primary/20"
-            placeholder="Search colleges..."
+            aria-label="Search all colleges" placeholder="Search colleges..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           />
         </div>
       </div>
@@ -157,8 +160,9 @@ export default function CollegeManagementPage() {
       {/* Table */}
       <div className="surface-card rounded-xl overflow-hidden">
         {isLoading ? (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Colleges table">
             <table className="w-full text-left border-collapse">
+              <caption className="sr-only">Colleges on the current page</caption>
               <tbody className="divide-y divide-border">
                 <TableRowSkeleton cols={5} />
                 <TableRowSkeleton cols={5} />
@@ -180,15 +184,16 @@ export default function CollegeManagementPage() {
             />
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Colleges table">
             <table className="w-full text-left border-collapse">
+              <caption className="sr-only">Colleges on the current page</caption>
               <thead>
                 <tr className="border-b border-border text-xs font-medium text-muted-foreground">
-                  <th className="px-5 py-3">Name</th>
-                  <th className="px-5 py-3">Location</th>
-                  <th className="px-5 py-3">Verified</th>
-                  <th className="px-5 py-3">Created</th>
-                  <th className="px-5 py-3 text-right">Actions</th>
+                  <th scope="col" className="px-5 py-3">Name</th>
+                  <th scope="col" className="px-5 py-3">Location</th>
+                  <th scope="col" className="px-5 py-3">Verified</th>
+                  <th scope="col" className="px-5 py-3">Created</th>
+                  <th scope="col" className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -232,7 +237,7 @@ export default function CollegeManagementPage() {
                         <div className="flex justify-end gap-1">
                           <button
                             type="button"
-                            title="Edit college"
+                            aria-label={`Edit ${college.name}`} title="Edit college"
                             className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
                             onClick={() => openEdit(college)}
                           >
@@ -240,7 +245,7 @@ export default function CollegeManagementPage() {
                           </button>
                           <button
                             type="button"
-                            title="Delete college"
+                            aria-label={`Delete ${college.name}`} title="Delete college"
                             className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-red-500"
                             onClick={() => setDeleteTarget(cid!)}
                           >
@@ -264,24 +269,25 @@ export default function CollegeManagementPage() {
             <DialogTitle>
               {editingId ? "Edit College" : "Add New College"}
             </DialogTitle>
+            <DialogDescription>Enter the college name and location.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <label className="text-sm font-medium mb-1.5 block">
+              <label htmlFor="college-name" className="text-sm font-medium mb-1.5 block">
                 College Name *
               </label>
               <Input
-                placeholder="e.g. MIT Engineering"
+                id="college-name" placeholder="e.g. MIT Engineering"
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
               />
             </div>
             <div>
-              <label className="text-sm font-medium mb-1.5 block">
+              <label htmlFor="college-location" className="text-sm font-medium mb-1.5 block">
                 Location
               </label>
               <Input
-                placeholder="e.g. Cambridge, MA"
+                id="college-location" placeholder="e.g. Cambridge, MA"
                 value={formLocation}
                 onChange={(e) => setFormLocation(e.target.value)}
               />
@@ -296,7 +302,7 @@ export default function CollegeManagementPage() {
                     Toggle to verify or unverify this college
                   </p>
                 </div>
-                <Switch
+                <Switch aria-label="Verified college"
                   checked={formIsVerified}
                   onCheckedChange={setFormIsVerified}
                 />
@@ -327,6 +333,7 @@ export default function CollegeManagementPage() {
         </DialogContent>
       </Dialog>
 
+      <ListPagination page={page} pagination={pagination} onPageChange={setPage} disabled={isLoading} />
       <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}

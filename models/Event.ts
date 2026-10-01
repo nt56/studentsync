@@ -2,6 +2,14 @@ import { Schema, models, model } from "mongoose";
 
 const EventSchema = new Schema(
   {
+    mutationVersion: { type: Number, default: 0 },
+    endDate: { type: Date },
+    timeZone: { type: String, default: "UTC" },
+    staff: [{
+      _id: false,
+      userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+      role: { type: String, enum: ["editor", "volunteer"], required: true },
+    }],
     title: {
       type: String,
       required: true,

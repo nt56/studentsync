@@ -4,6 +4,11 @@ export type UserRole = "student" | "organizer" | "admin";
 
 const UserSchema = new Schema(
   {
+    mutationVersion: { type: Number, default: 0 },
+    notificationPreferences: {
+      reminders: { type: Boolean, default: true },
+      email: { type: Boolean, default: true },
+    },
     firstName: {
       type: String,
       required: true,
@@ -12,7 +17,7 @@ const UserSchema = new Schema(
 
     lastName: {
       type: String,
-      required: true,
+      default: "",
       trim: true,
     },
 

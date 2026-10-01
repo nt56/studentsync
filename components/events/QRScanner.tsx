@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
-import { CheckCircle2, Loader2, ScanLine } from "lucide-react";
+import { Loader2, ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import api from "@/services/api";
@@ -14,12 +14,13 @@ interface QRScannerProps {
 export default function QRScanner({ onCheckedIn }: QRScannerProps) {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const [scanning, setScanning] = useState(false);
-  const [lastResult, setLastResult] = useState<string | null>(null);
+  const scanBusy = useRef(false);
+  const cooldown = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [processing, setProcessing] = useState(false);
 
   async function handleScan(decodedText: string) {
-    if (processing || decodedText === lastResult) return;
-    setLastResult(decodedText);
+    if (scanBusy.current) return;
+    scanBusy.current = true;
     setProcessing(true);
 
     try {
@@ -36,9 +37,9 @@ export default function QRScanner({ onCheckedIn }: QRScannerProps) {
       toast.error(message);
     } finally {
       // Brief pause before accepting next scan
-      setTimeout(() => {
+      cooldown.current = setTimeout(() => {
         setProcessing(false);
-        setLastResult(null);
+        scanBusy.current = false;
       }, 2000);
     }
   }
@@ -88,6 +89,7 @@ export default function QRScanner({ onCheckedIn }: QRScannerProps) {
   // Cleanup on unmount — release the camera so its indicator turns off.
   useEffect(() => {
     return () => {
+      if (cooldown.current) clearTimeout(cooldown.current);
       void teardownScanner();
     };
   }, []);

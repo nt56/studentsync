@@ -1,9 +1,10 @@
+import { canManageEvent } from "@/lib/event-access";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import Message from "@/models/Message";
 import Event from "@/models/Event";
 import { requireAuth } from "@/lib/auth-guard";
-import { successResponse, ApiErrors, errorResponse } from "@/lib/api-response";
+import { successResponse, ApiErrors } from "@/lib/api-response";
 
 /**
  * DELETE /api/messages/:id
@@ -14,7 +15,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const authResult = await requireAuth(["organizer", "admin"]);
+    const authResult = await requireAuth();
     if (!authResult.success) return authResult.response;
     if (!authResult.mongoUserId)
       return ApiErrors.badRequest("User profile not found");
@@ -28,15 +29,8 @@ export async function DELETE(
       return ApiErrors.notFound("Message");
     }
 
-    if (authResult.userRole === "organizer") {
-      const event = await Event.findById(message.eventId);
-      if (!event || event.organizerId.toString() !== authResult.mongoUserId) {
-        return errorResponse(
-          "You can only delete messages from your own events.",
-          403,
-        );
-      }
-    }
+    const event = await Event.findById(message.eventId);
+    if (!event || !canManageEvent(event, authResult.mongoUserId, authResult.userRole, "moderate")) return ApiErrors.forbidden();
 
     message.isDeleted = true;
     await message.save();

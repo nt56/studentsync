@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Space_Grotesk } from "next/font/google";
 import ReduxProvider from "@/components/providers/ReduxProvider";
 import ThemeProvider from "@/components/providers/ThemeProvider";
+import MotionProvider from "@/components/providers/MotionProvider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -37,12 +38,14 @@ export default function RootLayout({
         className={`${jakarta.variable} ${spaceGrotesk.variable} bg-background font-sans text-foreground antialiased`}
       >
         <ThemeProvider>
+          <MotionProvider>
           <ReduxProvider>
             <TooltipProvider delayDuration={200}>
               {children}
               <Toaster richColors position="top-right" />
             </TooltipProvider>
           </ReduxProvider>
+          </MotionProvider>
         </ThemeProvider>
       </body>
     </html>

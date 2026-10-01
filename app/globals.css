@@ -93,7 +93,7 @@
   --foreground: #e5eef9;
   --card: #111a2c;
   --card-foreground: #e5eef9;
-  --popover: rgba(15, 23, 42, 0.98);
+  --popover: #0f172a;
   --popover-foreground: #e5eef9;
   --primary: #60a5fa;
   --primary-foreground: #08111f;
@@ -153,7 +153,7 @@
   h6 {
     font-family: var(--font-space-grotesk), sans-serif;
     letter-spacing: -0.045em;
-    line-height: 0.98;
+    line-height: 1.15;
     text-wrap: balance;
   }
   p {
@@ -360,4 +360,35 @@
 }
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+:where(a, button, input, select, textarea):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 4px;
+}
+
+.page-enter { animation: fade-in-up 350ms ease-out both; }
+
+.skip-link {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  z-index: 100;
+  transform: translateY(-200%);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.skip-link:focus { transform: translateY(0); }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

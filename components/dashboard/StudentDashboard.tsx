@@ -1,10 +1,13 @@
 "use client";
 
+import { ListPagination } from "@/components/common/ListPagination";
+
 import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchRegistrations } from "@/store/slices/registrationsSlice";
+import { fetchStudentAnalytics } from "@/store/slices/analyticsSlice";
 import { DashboardSkeleton } from "@/components/common/Skeletons";
 import { EmptyState } from "@/components/common/EmptyState";
 import { EventStatusBadge } from "@/components/common/Badges";
@@ -28,18 +31,22 @@ import { cn } from "@/lib/utils";
 
 export default function StudentDashboard() {
   const dispatch = useAppDispatch();
+  const [page, setPage] = useState(1);
   const router = useRouter();
   const { user } = useAppSelector((s) => s.auth);
-  const { items: registrations, isLoading, error } = useAppSelector(
+  const { items: registrations, pagination, isLoading, error } = useAppSelector(
     (s) => s.registrations,
   );
+  const analytics = useAppSelector((s) => s.analytics.student.data);
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     if (!user?.id) return;
-    dispatch(fetchRegistrations({}));
-  }, [dispatch, user?.id]);
+    dispatch(fetchRegistrations({ page: String(page), limit: "10" })).unwrap().then((result) => {
+      if (result.pagination && page > Math.max(1, result.pagination.totalPages)) setPage(Math.max(1, result.pagination.totalPages));
+    }).catch(() => {});
+  }, [dispatch, user?.id, page]);
 
   const handleCancel = async () => {
     if (!cancelTarget) return;
@@ -47,7 +54,9 @@ export default function StudentDashboard() {
     try {
       await dispatch(cancelRegistration({ eventId: cancelTarget })).unwrap();
       toast.success("Registration cancelled");
-      dispatch(fetchRegistrations({}));
+      const result = await dispatch(fetchRegistrations({ page: String(page), limit: "10" })).unwrap();
+      if (page > Math.max(1, result.pagination.totalPages)) setPage(Math.max(1, result.pagination.totalPages));
+      dispatch(fetchStudentAnalytics());
     } catch {
       toast.error("Failed to cancel registration");
     } finally {
@@ -65,7 +74,7 @@ export default function StudentDashboard() {
         <p className="text-muted-foreground">
           We couldn&apos;t load your registrations. {error}
         </p>
-        <Button onClick={() => dispatch(fetchRegistrations({}))}>
+        <Button onClick={() => dispatch(fetchRegistrations({ page: String(page), limit: "10" }))}>
           Try Again
         </Button>
       </div>
@@ -86,31 +95,22 @@ export default function StudentDashboard() {
     return reg.eventId?._id;
   };
 
-  const upcoming = registrations.filter((r) => {
-    const ev = getEvent(r);
-    return ev && ev.status === "upcoming";
-  });
-  const past = registrations.filter((r) => {
-    const ev = getEvent(r);
-    return ev && (ev.status === "completed" || ev.status === "closed");
-  });
-
   const stats = [
     {
       label: "Total Registrations",
-      value: registrations.length,
+      value: analytics?.totalRegistrations ?? pagination?.total ?? "...",
       icon: CalendarCheck2,
       iconClassName: "bg-primary/10 text-primary",
     },
     {
       label: "Upcoming Events",
-      value: upcoming.length,
+      value: analytics?.upcomingCount ?? "...",
       icon: CalendarClock,
       iconClassName: "bg-emerald-500/10 text-emerald-600",
     },
     {
       label: "Past Events",
-      value: past.length,
+      value: analytics?.completedCount ?? "...",
       icon: History,
       iconClassName: "bg-amber-500/10 text-amber-600",
     },
@@ -170,15 +170,16 @@ export default function StudentDashboard() {
             />
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Registrations table">
             <table className="w-full text-left border-collapse">
+              <caption className="sr-only">Registrations on the current page</caption>
               <thead>
                 <tr className="border-b border-border text-xs font-medium text-muted-foreground">
-                  <th className="px-5 py-3">Event</th>
-                  <th className="px-5 py-3">Date</th>
-                  <th className="px-5 py-3">Venue</th>
-                  <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3 text-right">Actions</th>
+                  <th scope="col" className="px-5 py-3">Event</th>
+                  <th scope="col" className="px-5 py-3">Date</th>
+                  <th scope="col" className="px-5 py-3">Venue</th>
+                  <th scope="col" className="px-5 py-3">Status</th>
+                  <th scope="col" className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -241,6 +242,7 @@ export default function StudentDashboard() {
       </div>
 
       {/* Cancel Confirm Dialog */}
+      <ListPagination page={page} pagination={pagination} onPageChange={setPage} disabled={isLoading} />
       <ConfirmDialog
         open={!!cancelTarget}
         onOpenChange={(open) => !open && setCancelTarget(null)}

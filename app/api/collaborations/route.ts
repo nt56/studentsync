@@ -1,3 +1,4 @@
+import { transactional, rethrowTransient } from "@/lib/transaction";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import Collaboration from "@/models/Collaboration";
@@ -8,6 +9,17 @@ import { successResponse, ApiErrors } from "@/lib/api-response";
 import { z } from "zod";
 import mongoose from "mongoose";
 import { sendCollaborationInviteEmail } from "@/lib/email";
+import { formatZodErrors } from "@/lib/validators/utils";
+
+interface PopulatedCollaboration {
+  _id: mongoose.Types.ObjectId;
+  status: string;
+  respondedAt?: Date;
+  createdAt: Date;
+  eventId: { _id: mongoose.Types.ObjectId; title: string; date: Date; venue: string; status: string } | null;
+  requesterId: { _id: mongoose.Types.ObjectId; firstName: string; lastName: string; email: string } | null;
+  targetOrganizerId: { _id: mongoose.Types.ObjectId; firstName: string; lastName: string; email: string } | null;
+}
 
 const sendInviteSchema = z.object({
   eventId: z.string().min(1),
@@ -33,15 +45,15 @@ export async function GET() {
         .populate("eventId", "title date venue status")
         .populate("requesterId", "firstName lastName email")
         .sort({ createdAt: -1 })
-        .lean(),
+        .lean<PopulatedCollaboration[]>(),
       Collaboration.find({ requesterId: mongoId })
         .populate("eventId", "title date venue status")
         .populate("targetOrganizerId", "firstName lastName email")
         .sort({ createdAt: -1 })
-        .lean(),
+        .lean<PopulatedCollaboration[]>(),
     ]);
 
-    const formatCollab = (c: any, direction: "received" | "sent") => ({
+    const formatCollab = (c: PopulatedCollaboration, direction: "received" | "sent") => ({
       id: c._id.toString(),
       direction,
       status: c.status,
@@ -82,6 +94,7 @@ export async function GET() {
       "Collaborations retrieved",
     );
   } catch (error) {
+    rethrowTransient(error);
     console.error("GET /api/collaborations error:", error);
     return ApiErrors.internalError();
   }
@@ -91,7 +104,7 @@ export async function GET() {
  * POST /api/collaborations
  * Send a collaboration invite to another organizer
  */
-export async function POST(request: NextRequest) {
+async function postHandler(request: NextRequest) {
   try {
     const authResult = await requireOrganizer();
     if (!authResult.success) return authResult.response;
@@ -115,14 +128,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify event ownership
-    const event = await Event.findById(eventId).lean();
+    const event = await Event.findByIdAndUpdate(eventId, { $inc: { mutationVersion: 1 } }, { new: true }).lean();
     if (!event) return ApiErrors.notFound("Event");
     if (event.organizerId.toString() !== requesterId) {
       return ApiErrors.forbidden();
     }
 
     // Verify target is an organizer
-    const targetUser = await User.findById(targetOrganizerId).lean();
+    const targetUser = await User.findByIdAndUpdate(targetOrganizerId, { $inc: { mutationVersion: 1 } }, { new: true }).lean();
     if (!targetUser || targetUser.role !== "organizer") {
       return ApiErrors.badRequest("Target must be an organizer");
     }
@@ -135,13 +148,13 @@ export async function POST(request: NextRequest) {
         targetOrganizerId: new mongoose.Types.ObjectId(targetOrganizerId),
       });
 
-      // Fire-and-forget: email the target organizer about the invite
-      User.findById(requesterId)
+      // Persist before commit: email the target organizer about the invite
+      await User.findById(requesterId)
         .select("firstName lastName")
         .lean<{ firstName: string; lastName: string }>()
-        .then((requester) => {
+        .then(async (requester) => {
           if (!requester || !targetUser?.email) return;
-          sendCollaborationInviteEmail(
+          await sendCollaborationInviteEmail(
             targetUser.email as string,
             `${targetUser.firstName as string} ${targetUser.lastName as string}`,
             `${requester.firstName} ${requester.lastName}`,
@@ -149,25 +162,31 @@ export async function POST(request: NextRequest) {
               id: (event as { _id: { toString(): string } })._id.toString(),
               title: (event as { title: string }).title,
               date: (event as { date: Date }).date,
+              endDate: event.endDate as Date | undefined,
+              timeZone: event.timeZone as string | undefined,
               venue: (event as { venue: string }).venue,
             },
           );
         })
-        .catch(() => {});
+        ;
 
       return successResponse(
         { id: collab._id.toString(), status: collab.status },
         "Collaboration invite sent",
         201,
       );
-    } catch (err: any) {
-      if (err.code === 11000) {
+    } catch (err: unknown) {
+      if (err instanceof Error && "code" in err && err.code === 11000) {
         return ApiErrors.badRequest("Invite already sent to this organizer");
       }
       throw err;
     }
   } catch (error) {
+    rethrowTransient(error);
     console.error("POST /api/collaborations error:", error);
+    if (error instanceof z.ZodError) return ApiErrors.validationError(formatZodErrors(error));
     return ApiErrors.internalError();
   }
 }
+
+export const POST = transactional(postHandler);

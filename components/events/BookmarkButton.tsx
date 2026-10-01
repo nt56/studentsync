@@ -55,6 +55,9 @@ export function BookmarkButton({
 
   return (
     <button
+      type="button"
+      aria-label={isBookmarked ? "Remove bookmark" : "Save event"}
+      aria-pressed={isBookmarked}
       onClick={handleToggle}
       disabled={localLoading}
       title={isBookmarked ? "Remove bookmark" : "Save event"}

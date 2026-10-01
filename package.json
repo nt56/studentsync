@@ -7,6 +7,10 @@
     "build": "next build",
     "start": "cross-env NODE_ENV=production NODE_OPTIONS=--disable-warning=DEP0205 tsx server.ts",
     "lint": "eslint",
+    "test": "tsx --test tests/*.test.ts",
+    "test:integration": "tsx tests/integration.mts",
+    "worker": "tsx scripts/outbox-worker.ts",
+    "db:audit": "tsx scripts/audit-data.mts",
     "seed:admin": "npx tsx scripts/seed-admin.ts"
   },
   "dependencies": {
@@ -63,6 +67,7 @@
     "cross-env": "^10.1.0",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.1.6",
+    "mongodb-memory-server": "^11.3.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

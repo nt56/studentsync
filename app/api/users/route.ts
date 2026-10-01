@@ -1,3 +1,4 @@
+import { escapeRegex } from "@/lib/utils";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import User from "@/models/User";
@@ -50,6 +51,9 @@ export async function GET(request: NextRequest) {
     if (collegeId) {
       filter.collegeId = new mongoose.Types.ObjectId(collegeId);
     }
+
+    const search = searchParams.get("search")?.trim().slice(0, 100);
+    if (search) filter.$or = ["firstName", "lastName", "email"].map((field) => ({ [field]: { $regex: escapeRegex(search), $options: "i" } }));
 
     // Get total count
     const total = await User.countDocuments(filter);

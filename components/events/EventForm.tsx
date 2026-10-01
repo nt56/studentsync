@@ -1,5 +1,6 @@
 "use client";
 
+import { fromZonedInput, zonedInput, eventEnd, validTimeZone } from "@/lib/event-time";
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
@@ -9,7 +10,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { createEvent, updateEvent } from "@/store/slices/eventsSlice";
-import { fetchColleges } from "@/store/slices/collegesSlice";
+import { fetchCollegeOptions } from "@/store/slices/collegesSlice";
 import { uploadService } from "@/services/uploadService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,6 +61,8 @@ const eventFormSchema = z
       .string()
       .min(10, "Description must be at least 10 characters")
       .max(2000),
+    endDate: z.string().min(1, "End time is required"),
+    timeZone: z.string().refine(validTimeZone, "Use a valid IANA timezone"),
     date: z.string().min(1, "Event date is required"),
     venue: z.string().min(3, "Venue must be at least 3 characters").max(200),
     registrationDeadline: z
@@ -113,7 +116,7 @@ export default function EventForm({
 }: EventFormProps) {
   const dispatch = useAppDispatch();
   const router = useRouter();
-  const { items: colleges } = useAppSelector((s) => s.colleges);
+  const { options: colleges } = useAppSelector((s) => s.colleges);
   const [submitting, setSubmitting] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(
     defaultValues?.image || null,
@@ -151,7 +154,7 @@ export default function EventForm({
   };
 
   useEffect(() => {
-    dispatch(fetchColleges({ limit: "100" }));
+    dispatch(fetchCollegeOptions());
   }, [dispatch]);
 
   const form = useForm<EventFormValues>({
@@ -161,13 +164,13 @@ export default function EventForm({
       title: defaultValues?.title || "",
       description: defaultValues?.description || "",
       date: defaultValues?.date
-        ? new Date(defaultValues.date).toISOString().slice(0, 16)
+        ? zonedInput(defaultValues.date, defaultValues.timeZone || "UTC")
         : "",
+      endDate: defaultValues?.date ? zonedInput(eventEnd({ date: defaultValues.date, endDate: defaultValues.endDate }), defaultValues.timeZone || "UTC") : "",
+      timeZone: defaultValues?.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone,
       venue: defaultValues?.venue || "",
       registrationDeadline: defaultValues?.registrationDeadline
-        ? new Date(defaultValues.registrationDeadline)
-            .toISOString()
-            .slice(0, 16)
+        ? zonedInput(defaultValues.registrationDeadline, defaultValues.timeZone || "UTC")
         : "",
       capacity: defaultValues?.capacity || 100,
       collegeId:
@@ -194,10 +197,9 @@ export default function EventForm({
     try {
       const payload = {
         ...values,
-        date: new Date(values.date).toISOString(),
-        registrationDeadline: new Date(
-          values.registrationDeadline,
-        ).toISOString(),
+        date: fromZonedInput(values.date, values.timeZone),
+        endDate: fromZonedInput(values.endDate, values.timeZone),
+        registrationDeadline: fromZonedInput(values.registrationDeadline, values.timeZone),
         ...(imageUrl ? { image: imageUrl } : {}),
         latitude: pickedCoords?.lat ?? null,
         longitude: pickedCoords?.lng ?? null,
@@ -229,6 +231,10 @@ export default function EventForm({
     <div className="max-w-3xl">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField control={form.control} name="timeZone" render={({ field }) => <FormItem><FormLabel>Event timezone</FormLabel><FormControl><Input {...field} placeholder="Asia/Kolkata" /></FormControl><p className="text-xs text-muted-foreground">All times below use this IANA timezone.</p><FormMessage /></FormItem>} />
+            <FormField control={form.control} name="endDate" render={({ field }) => <FormItem><FormLabel>Event end</FormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>} />
+          </div>
           {/* Title */}
           <FormField
             control={form.control}

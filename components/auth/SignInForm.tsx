@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -20,9 +20,6 @@ import {
   Loader2,
   ArrowRight,
   Github,
-  CalendarCheck2,
-  LayoutDashboard,
-  Sparkles,
 } from "lucide-react";
 import Image from "next/image";
 import { signInWithGoogle, signInWithGithub } from "@/lib/auth-client";
@@ -34,21 +31,6 @@ const signInSchema = z.object({
 });
 
 type SignInValues = z.infer<typeof signInSchema>;
-
-const signInHighlights = [
-  {
-    icon: CalendarCheck2,
-    title: "Resume your campus calendar",
-    description:
-      "Pick up saved registrations, upcoming sessions, and the events that matter this week.",
-  },
-  {
-    icon: LayoutDashboard,
-    title: "Jump back into your dashboard",
-    description:
-      "Students, organizers, and admins all land in a cleaner workspace built for the next action.",
-  },
-];
 
 export function SignInForm() {
   const { login } = useAuth();
@@ -63,14 +45,14 @@ export function SignInForm() {
     register,
     handleSubmit,
     setValue,
-    watch,
+    control,
     formState: { errors },
   } = useForm<SignInValues>({
     resolver: zodResolver(signInSchema),
     defaultValues: { email: "", password: "", rememberMe: false },
   });
 
-  const rememberMe = watch("rememberMe");
+  const rememberMe = useWatch({ control, name: "rememberMe" });
 
   const onSubmit = async (data: SignInValues) => {
     setIsSubmitting(true);

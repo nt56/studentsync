@@ -9,7 +9,7 @@ export interface ChatMessage {
     lastName: string;
     profileImage: string | null;
     role: string;
-  };
+  } | null;
   content: string;
   type: "text" | "system";
   isDeleted: boolean;

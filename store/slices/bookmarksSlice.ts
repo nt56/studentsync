@@ -7,6 +7,7 @@ export interface BookmarkedEvent extends EventItem {
 }
 
 interface BookmarksState {
+  revision: number;
   items: BookmarkedEvent[];
   bookmarkedEventIds: string[];
   pagination: {
@@ -22,6 +23,7 @@ interface BookmarksState {
 }
 
 const initialState: BookmarksState = {
+  revision: 0,
   items: [],
   bookmarkedEventIds: [],
   pagination: null,
@@ -89,9 +91,7 @@ const bookmarksSlice = createSlice({
         state.initialized = true;
         state.items = action.payload.items || action.payload;
         state.pagination = action.payload.pagination || null;
-        state.bookmarkedEventIds = (state.items as BookmarkedEvent[]).map(
-          (item) => item.id || (item._id as string),
-        );
+        state.bookmarkedEventIds = action.payload.bookmarkedEventIds || state.items.map((item) => item.id);
       })
       .addCase(fetchBookmarks.rejected, (state, action) => {
         state.isLoading = false;
@@ -101,6 +101,7 @@ const bookmarksSlice = createSlice({
 
     builder
       .addCase(addBookmark.fulfilled, (state, action) => {
+        state.revision++;
         const eventId = action.payload.eventId as string;
         if (!state.bookmarkedEventIds.includes(eventId)) {
           state.bookmarkedEventIds.push(eventId);
@@ -109,6 +110,7 @@ const bookmarksSlice = createSlice({
 
     builder
       .addCase(removeBookmark.fulfilled, (state, action) => {
+        state.revision++;
         const eventId = action.payload;
         state.bookmarkedEventIds = state.bookmarkedEventIds.filter((id) => id !== eventId);
         state.items = state.items.filter(

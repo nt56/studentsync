@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import StarRating from "./StarRating";
 import { toast } from "sonner";
 import api from "@/services/api";
+import { isAxiosError } from "axios";
 
 interface ReviewFormProps {
   eventId: string;
@@ -31,8 +32,8 @@ export default function ReviewForm({ eventId, onSubmitted }: ReviewFormProps) {
       await api.post(`/events/${eventId}/reviews`, { rating, comment });
       toast.success("Review submitted!");
       onSubmitted();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? "Failed to submit review.");
+    } catch (err: unknown) {
+      toast.error(isAxiosError(err) ? err.response?.data?.message ?? "Failed to submit review." : "Failed to submit review.");
     } finally {
       setLoading(false);
     }

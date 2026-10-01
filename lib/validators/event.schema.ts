@@ -1,9 +1,14 @@
 import { z } from "zod";
+import { validTimeZone } from "@/lib/event-time";
+
+const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid ID");
 
 /**
  * Schema for creating a new event
  */
 export const createEventSchema = z.object({
+  endDate: z.string().datetime().optional(),
+  timeZone: z.string().refine(validTimeZone, "Use a valid IANA timezone").default("UTC"),
   title: z
     .string()
     .min(3, "Title must be at least 3 characters")
@@ -38,7 +43,7 @@ export const createEventSchema = z.object({
     .min(1, "Capacity must be at least 1")
     .max(10000, "Capacity cannot exceed 10,000"),
 
-  collegeId: z.string().min(1, "College ID is required"),
+  collegeId: objectId,
 
   category: z
     .enum([
@@ -54,10 +59,10 @@ export const createEventSchema = z.object({
     .default("other"),
 
   image: z.string().optional(),
-  latitude: z.number().optional().nullable(),
-  longitude: z.number().optional().nullable(),
+  latitude: z.number().min(-90).max(90).optional().nullable(),
+  longitude: z.number().min(-180).max(180).optional().nullable(),
   isInterCollege: z.boolean().optional().default(false),
-  partnerCollegeIds: z.array(z.string()).optional().default([]),
+  partnerCollegeIds: z.array(objectId).optional().default([]),
 });
 
 /**
@@ -65,6 +70,12 @@ export const createEventSchema = z.object({
  */
 export const updateEventSchema = createEventSchema
   .partial()
+  .extend({
+    timeZone: createEventSchema.shape.timeZone.removeDefault().optional(),
+    category: createEventSchema.shape.category.removeDefault(),
+    isInterCollege: createEventSchema.shape.isInterCollege.removeDefault(),
+    partnerCollegeIds: createEventSchema.shape.partnerCollegeIds.removeDefault(),
+  })
   .refine((data) => Object.keys(data).length > 0, {
     message: "At least one field must be provided for update",
   });
@@ -76,8 +87,8 @@ export const eventQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(10),
   status: z.enum(["upcoming", "closed", "completed"]).optional(),
-  collegeId: z.string().optional(),
-  organizerId: z.string().optional(),
+  collegeId: objectId.optional(),
+  organizerId: objectId.optional(),
   category: z
     .enum([
       "workshop",
@@ -92,7 +103,7 @@ export const eventQuerySchema = z.object({
   search: z.string().optional(),
   sortBy: z.enum(["date", "createdAt", "title"]).default("date"),
   sortOrder: z.enum(["asc", "desc"]).default("asc"),
-  isInterCollege: z.coerce.boolean().optional(),
+  isInterCollege: z.enum(["true", "false"]).transform((value) => value === "true").optional(),
 });
 
 export type CreateEventInput = z.infer<typeof createEventSchema>;

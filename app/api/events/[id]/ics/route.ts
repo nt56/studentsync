@@ -1,3 +1,4 @@
+import { eventEnd } from "@/lib/event-time";
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import Event from "@/models/Event";
@@ -28,6 +29,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       title: string;
       description: string;
       date: Date;
+      endDate?: Date;
       venue: string;
     }>();
 
@@ -47,12 +49,12 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const { error, value } = createEvent({
       start: startArr,
       startInputType: "utc",
-      duration: { hours: 2 },
+      duration: { minutes: Math.ceil((eventEnd(event).getTime() - start.getTime()) / 60000) },
       title: event.title,
       description: event.description,
       location: event.venue,
       uid: `${event._id.toString()}@studentsync`,
-      url: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/events/${event._id.toString()}`,
+      url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/events/${event._id.toString()}`,
     });
 
     if (error || !value) {

@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
     } catch {
       brevoBody = await res.text();
     }
-  } catch (err) {
+  } catch {
     return ApiErrors.internalError();
   }
 

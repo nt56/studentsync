@@ -1,3 +1,4 @@
+import { eventEndExpression } from "@/lib/event-time";
 import { connectDB } from "@/lib/db";
 import User from "@/models/User";
 import "@/models/College"; // register schema so populate("collegeId") works
@@ -22,22 +23,11 @@ export async function GET() {
     await connectDB();
 
     // Find user profile
-    let user = await User.findOne({ email: authResult.userEmail })
+    const user = await User.findOne({ email: authResult.userEmail })
       .populate("collegeId", "name")
       .lean<IUser>();
 
-    if (!user) {
-      // Create user profile if it doesn't exist (edge case)
-      const newUser = await User.create({
-        firstName: authResult.session.user.name?.split(" ")[0] || "User",
-        lastName:
-          authResult.session.user.name?.split(" ").slice(1).join(" ") || "",
-        email: authResult.userEmail,
-        role: "student",
-        authUserId: authResult.userId,
-      });
-      user = newUser.toObject() as IUser;
-    }
+    if (!user) return ApiErrors.unauthorized();
 
     // Get additional stats
     const [registrationCount, upcomingEvents] = await Promise.all([
@@ -45,10 +35,9 @@ export async function GET() {
       Registration.find({ studentId: user._id })
         .populate({
           path: "eventId",
-          match: { status: "upcoming" },
+          match: { $expr: { $gt: [eventEndExpression, new Date()] } },
           select: "title date",
         })
-        .limit(5)
         .lean(),
     ]);
 
@@ -97,19 +86,9 @@ export async function POST() {
 
     await connectDB();
 
-    let user = await User.findOne({ email: authResult.userEmail });
-
-    if (!user) {
-      // Create user profile from Better Auth session data
-      user = await User.create({
-        firstName: authResult.session.user.name?.split(" ")[0] || "User",
-        lastName:
-          authResult.session.user.name?.split(" ").slice(1).join(" ") || "",
-        email: authResult.userEmail,
-        role: "student",
-        authUserId: authResult.userId,
-      });
-    } else if (!user.authUserId) {
+    const user = await User.findOne({ email: authResult.userEmail });
+    if (!user) return ApiErrors.unauthorized();
+    if (!user.authUserId) {
       // Link existing user to Better Auth user
       user.authUserId = authResult.userId;
       await user.save();

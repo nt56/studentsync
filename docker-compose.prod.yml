@@ -22,7 +22,7 @@ services:
       PORT: "3000"
       # Runtime connection strings point at the internal service containers.
       # (compose `environment` overrides any values in .env)
-      MONGODB_URI: mongodb://${MONGO_USER:-root}:${MONGO_PASSWORD:-changeme}@mongo:27017/studentsync?authSource=admin
+      MONGODB_URI: mongodb://${MONGO_USER:-root}:${MONGO_PASSWORD:?Set MONGO_PASSWORD}@mongo:27017/studentsync?authSource=admin&replicaSet=rs0
       REDIS_URL: redis://redis:6379
     depends_on:
       mongo:
@@ -33,19 +33,32 @@ services:
 
   mongo:
     image: mongo:7
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--keyFile", "/data/keyfile/key"]
+    depends_on:
+      mongo-keyfile:
+        condition: service_completed_successfully
     container_name: studentsync-mongo
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-root}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-changeme}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?Set MONGO_PASSWORD}
     volumes:
       - mongo-data:/data/db
+      - mongo-keyfile:/data/keyfile:ro
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.getSiblingDB('admin').auth(process.env.MONGO_INITDB_ROOT_USERNAME, process.env.MONGO_INITDB_ROOT_PASSWORD); try { rs.status() } catch (e) { if (e.code === 94) rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}); else throw e; } quit(db.hello().isWritablePrimary ? 0 : 1)"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 20s
     restart: unless-stopped
+
+  mongo-keyfile:
+    image: mongo:7
+    user: root
+    entrypoint: ["bash", "-ec"]
+    command: ["if [ ! -s /keys/key ]; then openssl rand -base64 756 > /keys/key; fi; chown mongodb:mongodb /keys/key; chmod 400 /keys/key"]
+    volumes:
+      - mongo-keyfile:/keys
 
   redis:
     image: redis:7-alpine
@@ -62,4 +75,5 @@ services:
 
 volumes:
   mongo-data:
+  mongo-keyfile:
   redis-data:

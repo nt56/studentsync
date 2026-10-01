@@ -25,8 +25,8 @@ export function useAuth() {
   }, [dispatch, initialized]);
 
   const login = useCallback(
-    async (email: string, password: string, _rememberMe?: boolean) => {
-      const result = await dispatch(loginUser({ email, password }));
+    async (email: string, password: string, rememberMe?: boolean) => {
+      const result = await dispatch(loginUser({ email, password, rememberMe }));
       if (loginUser.fulfilled.match(result)) {
         // Fire-and-forget: GuestGuard waits for isLoading:false before redirecting,
         // which happens when this fetchCurrentUser resolves.

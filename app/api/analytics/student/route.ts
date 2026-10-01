@@ -6,6 +6,11 @@ import mongoose from "mongoose";
 import { subDays, format } from "date-fns";
 import { computeEventStatus } from "@/types/event";
 
+interface StudentRegistration {
+  registeredAt: Date;
+  eventId: { date: Date; endDate?: Date; registrationDeadline: Date; category: string } | null;
+}
+
 /**
  * GET /api/analytics/student
  * Personal analytics for the logged-in student
@@ -21,28 +26,27 @@ export async function GET() {
 
   // All registrations with populated event (include registrationDeadline for status computation)
   const registrations = await Registration.find({ studentId })
-    .populate("eventId", "category title date registrationDeadline")
-    .lean();
+    .populate("eventId", "category title date endDate registrationDeadline")
+    .lean<StudentRegistration[]>();
 
   const totalRegistrations = registrations.length;
 
   // Status counts — computed from dates, not the stale stored field
   const upcomingCount = registrations.filter((r) => {
-    const ev = r.eventId as any;
+    const ev = r.eventId;
     if (!ev) return false;
-    return computeEventStatus({ date: ev.date, registrationDeadline: ev.registrationDeadline }) === "upcoming";
+    return computeEventStatus(ev) !== "completed";
   }).length;
   const completedCount = registrations.filter((r) => {
-    const ev = r.eventId as any;
+    const ev = r.eventId;
     if (!ev) return false;
-    return computeEventStatus({ date: ev.date, registrationDeadline: ev.registrationDeadline }) === "completed";
+    return computeEventStatus(ev) === "completed";
   }).length;
 
   // Category distribution
   const categoryMap = new Map<string, number>();
   for (const reg of registrations) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const cat = (reg.eventId as any)?.category ?? "other";
+    const cat = reg.eventId?.category ?? "other";
     categoryMap.set(cat, (categoryMap.get(cat) ?? 0) + 1);
   }
   const categoryDistribution = Array.from(categoryMap.entries()).map(

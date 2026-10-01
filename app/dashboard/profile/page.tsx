@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchCurrentUser, patchUser } from "@/store/slices/authSlice";
-import { fetchColleges } from "@/store/slices/collegesSlice";
+import { fetchCollegeOptions } from "@/store/slices/collegesSlice";
 import { authService } from "@/services/authService";
 import { uploadService } from "@/services/uploadService";
 import { ProfileSkeleton } from "@/components/common/Skeletons";
@@ -53,7 +53,7 @@ const getSelectedCollegeId = (
 export default function ProfilePage() {
   const dispatch = useAppDispatch();
   const { user, isLoading } = useAppSelector((s) => s.auth);
-  const { items: colleges } = useAppSelector((s) => s.colleges);
+  const { options: colleges } = useAppSelector((s) => s.colleges);
 
   // Profile form state
   const [firstName, setFirstName] = useState("");
@@ -76,7 +76,7 @@ export default function ProfilePage() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
-    dispatch(fetchColleges({}));
+    dispatch(fetchCollegeOptions());
   }, [dispatch]);
 
   // Populate form from user data

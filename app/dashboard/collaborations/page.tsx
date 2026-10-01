@@ -11,24 +11,23 @@ import { Loader2, Handshake, CheckCircle2, XCircle, Clock } from "lucide-react";
 import axios from "axios";
 
 interface CollaboratorUser {
-  _id: string;
-  firstName: string;
-  lastName: string;
+  id: string;
+  name: string;
   email: string;
   college?: { name: string };
 }
 
 interface CollabEvent {
-  _id: string;
+  id: string;
   title: string;
   date: string;
 }
 
 interface Collaboration {
-  _id: string;
-  eventId: CollabEvent | null;
-  requesterId: CollaboratorUser | null;
-  targetOrganizerId: CollaboratorUser | null;
+  id: string;
+  event: CollabEvent | null;
+  requester: CollaboratorUser | null;
+  targetOrganizer: CollaboratorUser | null;
   status: "pending" | "accepted" | "rejected";
   respondedAt?: string;
   createdAt: string;
@@ -147,28 +146,28 @@ export default function CollaborationsPage() {
               <div className="space-y-4">
                 {data.received.map((c) => (
                   <div
-                    key={c._id}
+                    key={c.id}
                     className="surface-card rounded-xl border border-border p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
                   >
                     <div className="space-y-1">
                       <p className="font-semibold text-foreground">
-                        {c.eventId?.title ?? "Unknown event"}
+                        {c.event?.title ?? "Unknown event"}
                       </p>
-                      {c.eventId?.date && (
+                      {c.event?.date && (
                         <p className="text-xs text-muted-foreground">
-                          {format(new Date(c.eventId.date), "PPP")}
+                          {format(new Date(c.event.date), "PPP")}
                         </p>
                       )}
                       <p className="text-sm text-muted-foreground">
                         From:{" "}
                         <span className="font-medium">
-                          {c.requesterId
-                            ? `${c.requesterId.firstName} ${c.requesterId.lastName}`
+                          {c.requester
+                            ? c.requester.name
                             : "Unknown"}
                         </span>
-                        {c.requesterId?.college?.name && (
+                        {c.requester?.college?.name && (
                           <span className="text-muted-foreground ml-1">
-                            · {c.requesterId.college.name}
+                            · {c.requester.college.name}
                           </span>
                         )}
                       </p>
@@ -185,10 +184,10 @@ export default function CollaborationsPage() {
                             size="sm"
                             variant="outline"
                             className="text-green-700 border-green-300 hover:bg-green-50 dark:text-green-400 dark:border-green-800 dark:hover:bg-green-900/20"
-                            disabled={responding === c._id}
-                            onClick={() => respond(c._id, "accepted")}
+                            disabled={responding === c.id}
+                            onClick={() => respond(c.id, "accepted")}
                           >
-                            {responding === c._id ? (
+                            {responding === c.id ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
                               <CheckCircle2 className="h-4 w-4 mr-1" />
@@ -199,10 +198,10 @@ export default function CollaborationsPage() {
                             size="sm"
                             variant="outline"
                             className="text-red-600 border-red-300 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/20"
-                            disabled={responding === c._id}
-                            onClick={() => respond(c._id, "rejected")}
+                            disabled={responding === c.id}
+                            onClick={() => respond(c.id, "rejected")}
                           >
-                            {responding === c._id ? (
+                            {responding === c.id ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
                               <XCircle className="h-4 w-4 mr-1" />
@@ -234,28 +233,28 @@ export default function CollaborationsPage() {
               <div className="space-y-4">
                 {data.sent.map((c) => (
                   <div
-                    key={c._id}
+                    key={c.id}
                     className="surface-card rounded-xl border border-border p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
                   >
                     <div className="space-y-1">
                       <p className="font-semibold text-foreground">
-                        {c.eventId?.title ?? "Unknown event"}
+                        {c.event?.title ?? "Unknown event"}
                       </p>
-                      {c.eventId?.date && (
+                      {c.event?.date && (
                         <p className="text-xs text-muted-foreground">
-                          {format(new Date(c.eventId.date), "PPP")}
+                          {format(new Date(c.event.date), "PPP")}
                         </p>
                       )}
                       <p className="text-sm text-muted-foreground">
                         To:{" "}
                         <span className="font-medium">
-                          {c.targetOrganizerId
-                            ? `${c.targetOrganizerId.firstName} ${c.targetOrganizerId.lastName}`
+                          {c.targetOrganizer
+                            ? c.targetOrganizer.name
                             : "Unknown"}
                         </span>
-                        {c.targetOrganizerId?.college?.name && (
+                        {c.targetOrganizer?.college?.name && (
                           <span className="text-muted-foreground ml-1">
-                            · {c.targetOrganizerId.college.name}
+                            · {c.targetOrganizer.college.name}
                           </span>
                         )}
                       </p>

@@ -1,3 +1,4 @@
+import { transactional, rethrowTransient } from "@/lib/transaction";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import Collaboration from "@/models/Collaboration";
@@ -7,6 +8,8 @@ import { successResponse, ApiErrors } from "@/lib/api-response";
 import { z } from "zod";
 import mongoose from "mongoose";
 import { sendCollaborationResponseEmail } from "@/lib/email";
+import User from "@/models/User";
+import { formatZodErrors } from "@/lib/validators/utils";
 
 const respondSchema = z.object({
   action: z.enum(["accepted", "rejected"]),
@@ -17,7 +20,7 @@ const respondSchema = z.object({
  * Accept or reject a collaboration invite
  * Only the target organizer can respond
  */
-export async function PATCH(
+async function patchHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -46,65 +49,47 @@ export async function PATCH(
       return ApiErrors.badRequest("Invite already responded to");
     }
 
-    collab.status = action;
-    collab.respondedAt = new Date();
-    await collab.save();
+    if (!await Event.exists({ _id: collab.eventId })) return ApiErrors.notFound("Event");
+    const targetUser = await User.findById(collab.targetOrganizerId).select("collegeId").lean();
+    if (action === "accepted" && !targetUser?.collegeId) {
+      return ApiErrors.badRequest("Add your college to your profile before accepting an inter-college invitation");
+    }
+    await Event.updateOne({ _id: collab.eventId }, { $inc: { mutationVersion: 1 } });
+    const updated = await Collaboration.findOneAndUpdate(
+      { _id: id, status: "pending" },
+      { $set: { status: action, respondedAt: new Date() } },
+      { new: true },
+    );
+    if (!updated) return ApiErrors.badRequest("Invite already responded to");
 
     // If accepted → add partner college + mark event as inter-college
     if (action === "accepted") {
-      const requester = await (await import("@/models/User")).default
-        .findById(collab.requesterId)
-        .lean();
-
-      if (requester?.collegeId) {
-        // Add the target organizer's college to partnerCollegeIds
-        const targetUser = await (await import("@/models/User")).default
-          .findById(collab.targetOrganizerId)
-          .lean();
-
-        const partnerCollegeId = targetUser?.collegeId;
-
-        await Event.findByIdAndUpdate(collab.eventId, {
-          isInterCollege: true,
-          $addToSet: {
-            partnerCollegeIds: partnerCollegeId
-              ? new mongoose.Types.ObjectId(partnerCollegeId.toString())
-              : undefined,
-          },
-        });
-      }
+      await Event.findByIdAndUpdate(collab.eventId, {
+        $set: { isInterCollege: true },
+        $addToSet: { partnerCollegeIds: targetUser!.collegeId },
+      });
     }
 
-    // Fire-and-forget: email the requester about the response
-    Promise.all([
-      (await import("@/models/User")).default
-        .findById(collab.requesterId)
-        .select("firstName lastName email")
-        .lean<{ firstName: string; lastName: string; email: string }>(),
-      (await import("@/models/User")).default
-        .findById(collab.targetOrganizerId)
-        .select("firstName lastName")
-        .lean<{ firstName: string; lastName: string }>(),
-      (await import("@/models/Event")).default
-        .findById(collab.eventId)
-        .select("title")
-        .lean<{ title: string }>(),
-    ])
-      .then(([requester, target, evt]) => {
-        if (!requester?.email || !target || !evt) return;
-        sendCollaborationResponseEmail(
-          requester.email,
-          `${requester.firstName} ${requester.lastName}`,
-          `${target.firstName} ${target.lastName}`,
-          evt.title,
-          action,
-        );
-      })
-      .catch(() => {});
+    if (action === "accepted") {
+      await Event.updateOne({ _id: collab.eventId }, { $pull: { staff: { userId: collab.targetOrganizerId } } });
+      await Event.updateOne({ _id: collab.eventId },
+        { $push: { staff: { userId: collab.targetOrganizerId, role: "editor" } } });
+    }
+    const requester = await User.findById(collab.requesterId);
+    const target = await User.findById(collab.targetOrganizerId);
+    const evt = await Event.findById(collab.eventId);
+    if (requester && target && evt) await sendCollaborationResponseEmail(
+      requester.email, `${requester.firstName} ${requester.lastName}`,
+      `${target.firstName} ${target.lastName}`, evt.title, action,
+    );
 
     return successResponse({ id, status: action }, "Response recorded");
   } catch (error) {
+    rethrowTransient(error);
     console.error("PATCH /api/collaborations/:id error:", error);
+    if (error instanceof z.ZodError) return ApiErrors.validationError(formatZodErrors(error));
     return ApiErrors.internalError();
   }
 }
+
+export const PATCH = transactional(patchHandler);

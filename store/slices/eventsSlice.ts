@@ -7,6 +7,9 @@ export interface EventItem {
   title: string;
   description: string;
   date: string;
+  endDate?: string;
+  timeZone?: string;
+  permissions?: string[];
   venue: string;
   organizerId: string | { _id: string; firstName: string; lastName: string };
   collegeId: string | { _id: string; name: string };
@@ -48,6 +51,7 @@ interface EventsState {
   pagination: Pagination | null;
   isLoading: boolean;
   error: string | null;
+  listRequestId?: string;
 }
 
 const initialState: EventsState = {
@@ -147,16 +151,19 @@ const eventsSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchEvents.pending, (state) => {
+      .addCase(fetchEvents.pending, (state, action) => {
+        state.listRequestId = action.meta.requestId;
         state.isLoading = true;
         state.error = null;
       })
       .addCase(fetchEvents.fulfilled, (state, action) => {
+        if (state.listRequestId !== action.meta.requestId) return;
         state.isLoading = false;
         state.items = action.payload.items || action.payload;
         state.pagination = action.payload.pagination || null;
       })
       .addCase(fetchEvents.rejected, (state, action) => {
+        if (state.listRequestId !== action.meta.requestId) return;
         state.isLoading = false;
         state.error = action.payload as string;
       });

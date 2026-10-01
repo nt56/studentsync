@@ -16,7 +16,7 @@ services:
       PORT: "3000"
       # Override .env so dev always uses the local containers (compose env wins
       # over env_file). Point these elsewhere if you prefer Atlas/Upstash.
-      MONGODB_URI: mongodb://mongo:27017/studentsync
+      MONGODB_URI: mongodb://mongo:27017/studentsync?replicaSet=rs0
       REDIS_URL: redis://redis:6379
     volumes:
       - .:/app                # live source for hot reload
@@ -31,13 +31,14 @@ services:
 
   mongo:
     image: mongo:7
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     container_name: studentsync-mongo
     ports:
-      - "27017:27017"         # exposed so you can inspect with Compass/mongosh
+      - "127.0.0.1:27017:27017"
     volumes:
       - mongo-data:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD", "mongosh", "--quiet", "--eval", "try { rs.status() } catch (e) { if (e.code === 94) rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}); else throw e; } quit(db.hello().isWritablePrimary ? 0 : 1)"]
       interval: 10s
       timeout: 5s
       retries: 5

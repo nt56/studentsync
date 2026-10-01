@@ -1,6 +1,10 @@
 # ── Dependencies & build output (rebuilt inside the image) ──
 node_modules
 .next
+.next-integration
+.next-preview
+tests/artifacts
+data-audit*.json
 out
 build
 coverage

@@ -14,7 +14,9 @@ College students often miss events because information is scattered across Whats
 - Organizers can create, manage events and track participant lists
 - Admins can manage the entire platform — users, colleges, and events
 
-**Current status:** Phase 1 (Core MVP) — Backend complete with full REST API, authentication, and role-based access control. Frontend development is next.
+**Current status:** The full web application includes student, organizer, and admin dashboards, event discovery, registrations, chat, QR attendance, reviews, maps, collaborations, analytics, bookmarks, and calendar downloads. Notifications are polled; event chat uses Socket.IO.
+
+Start with the [next-phase learning roadmap](documents/NEXT_PHASE_ROADMAP.md) and [codebase review](documents/CODEBASE_REVIEW.md) for implemented improvements and future proposals. Read [Operations](documents/OPERATIONS.md) before upgrading: transactional mutations now require a MongoDB replica set. Notification preferences, event staff roles, end times/timezones, and a durable email worker are implemented.
 
 ---
 
@@ -28,7 +30,7 @@ College students often miss events because information is scattered across Whats
 | **Auth**        | Better Auth (Email/Password, session-based) |
 | **Validation**  | Zod v4                                      |
 | **Styling**     | Tailwind CSS v4                             |
-| **Runtime**     | Node.js 18+                                 |
+| **Runtime**     | Node.js 22+ (see Dockerfile)                  |
 | **Package Mgr** | npm                                         |
 
 ---
@@ -38,7 +40,8 @@ College students often miss events because information is scattered across Whats
 | Capability                    | Student | Organizer | Admin |
 | ----------------------------- | ------- | --------- | ----- |
 | Browse & search events        | ✅      | ✅        | ✅    |
-| Register / cancel for events  | ✅      | ✅        | ✅    |
+| Register for events           | ✅      | ❌        | ❌    |
+| Cancel registration           | ✅ (own) | ✅ (managed) | ✅ |
 | View own registrations        | ✅      | ✅        | ✅    |
 | Create & manage events        | ❌      | ✅        | ✅    |
 | View event participant list   | ❌      | ✅ (own)  | ✅    |

@@ -1,8 +1,7 @@
 /**
  * Email service — Brevo (Sendinblue) transactional emails.
  *
- * All send functions are non-throwing and safe to call fire-and-forget.
- * They log errors silently so they never break the main request flow.
+ * Send functions await durable enqueueing. The worker handles provider delivery.
  *
  * Required env vars:
  *   BREVO_API_KEY         — API key from Brevo dashboard
@@ -10,7 +9,7 @@
  *   BREVO_SENDER_NAME     — Display name (defaults to "StudentSync")
  */
 
-const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
+import { enqueueEmail } from "@/lib/outbox";
 
 function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
@@ -31,85 +30,9 @@ function esc(value: string): string {
 
 // ─── Core send ────────────────────────────────────────────────────────────────
 
-interface SendEmailOptions {
-  to: { email: string; name: string };
-  subject: string;
-  htmlContent: string;
+async function sendEmail(options: { to: { email: string; name: string }; subject: string; htmlContent: string; essential?: boolean }): Promise<void> {
+  await enqueueEmail(options);
 }
-
-async function sendEmail(options: SendEmailOptions): Promise<void> {
-  const apiKey = process.env.BREVO_API_KEY;
-  const senderEmail = process.env.BREVO_SENDER_EMAIL;
-
-  if (!apiKey) {
-    console.error("[Email] BREVO_API_KEY not set — email skipped");
-    return;
-  }
-  if (!senderEmail) {
-    console.error("[Email] BREVO_SENDER_EMAIL not set — email skipped");
-    return;
-  }
-
-  const payload = {
-    sender: {
-      name: process.env.BREVO_SENDER_NAME || "StudentSync",
-      email: senderEmail,
-    },
-    to: [options.to],
-    subject: options.subject,
-    htmlContent: options.htmlContent,
-    ...(process.env.BREVO_REPLY_TO_EMAIL && {
-      replyTo: {
-        email: process.env.BREVO_REPLY_TO_EMAIL,
-        name: process.env.BREVO_REPLY_TO_NAME || "StudentSync Support",
-      },
-    }),
-  };
-
-  console.log(
-    `[Email] → "${options.subject}" to ${options.to.email} (from ${senderEmail})`,
-  );
-
-  try {
-    const res = await fetch(BREVO_API_URL, {
-      method: "POST",
-      headers: {
-        "api-key": apiKey,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (res.ok) {
-      let messageId = "";
-      try {
-        const json = (await res.json()) as { messageId?: string };
-        messageId = json.messageId || "";
-      } catch {
-        // body wasn't JSON — ignore
-      }
-      console.log(
-        `[Email] ✓ Accepted by Brevo for ${options.to.email} (status ${res.status}${messageId ? `, messageId ${messageId}` : ""})`,
-      );
-    } else {
-      const body = await res.text();
-      console.error(`[Email] ✗ Brevo error ${res.status} for "${options.subject}":`, body);
-      // The most common cause: the sender address is not a verified sender in
-      // Brevo. Surface a hint so it isn't mistaken for a code bug.
-      if (res.status === 400 && /sender/i.test(body)) {
-        console.error(
-          `[Email] ⚠ '${senderEmail}' is likely not a verified sender. ` +
-            `Verify it in Brevo → Senders, Domains & Dedicated IPs.`,
-        );
-      }
-    }
-  } catch (err) {
-    console.error("[Email] ✗ Network/fetch error:", err);
-  }
-}
-
-// ─── HTML builder ─────────────────────────────────────────────────────────────
 
 function buildEmail(content: string): string {
   return `<!DOCTYPE html>
@@ -182,15 +105,18 @@ function eventCard(event: EventEmailData, extraRows: [string, string][] = []): s
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone: event.timeZone || "UTC",
   });
   const time = event.date.toLocaleTimeString("en-US", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: event.timeZone || "UTC",
   });
 
   const rows: [string, string][] = [
     ["&#128197; Date", date],
-    ["&#128336; Time", time],
+    ["&#128336; Time", `${time} (${esc(event.timeZone || "UTC")})`],
+    ...(event.endDate ? [["Ends", esc(new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short", timeZone: event.timeZone || "UTC" }).format(event.endDate))] as [string, string]] : []),
     ["&#128205; Venue", esc(event.venue)],
     ...extraRows,
   ];
@@ -214,6 +140,8 @@ export interface EventEmailData {
   id: string;
   title: string;
   date: Date;
+  endDate?: Date;
+  timeZone?: string;
   venue: string;
 }
 
@@ -266,6 +194,7 @@ export async function sendPasswordResetEmail(
   `;
 
   await sendEmail({
+    essential: true,
     to: { email, name },
     subject: "Reset your StudentSync password",
     htmlContent: buildEmail(content),
@@ -292,6 +221,7 @@ export async function sendVerificationEmail(
   `;
 
   await sendEmail({
+    essential: true,
     to: { email, name },
     subject: "Verify your StudentSync email",
     htmlContent: buildEmail(content),

@@ -1,3 +1,4 @@
+import { transactionSession } from "@/lib/transaction";
 import { connectDB } from "@/lib/db";
 import Notification from "@/models/Notification";
 import type { NotificationType } from "@/models/Notification";
@@ -19,6 +20,7 @@ export async function createNotification(
     await connectDB();
     await Notification.create(params);
   } catch (error) {
+    if (transactionSession()) throw error;
     console.error("Failed to create notification:", error);
   }
 }
@@ -40,6 +42,7 @@ export async function notifyAdmins(
       admins.map((admin) => ({ userId: admin._id, ...params })),
     );
   } catch (error) {
+    if (transactionSession()) throw error;
     console.error("Failed to notify admins:", error);
   }
 }

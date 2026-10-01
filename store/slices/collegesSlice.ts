@@ -13,6 +13,7 @@ export interface College {
 }
 
 interface CollegesState {
+  options: College[];
   items: College[];
   pagination: {
     page: number;
@@ -26,6 +27,7 @@ interface CollegesState {
 }
 
 const initialState: CollegesState = {
+  options: [],
   items: [],
   pagination: null,
   isLoading: false,
@@ -46,6 +48,21 @@ export const fetchColleges = createAsyncThunk(
     }
   },
 );
+
+/** Selector options are separate from management-table pages. */
+export const fetchCollegeOptions = createAsyncThunk("colleges/fetchOptions", async () => {
+  const options: College[] = [];
+  let page = 1;
+  let more = true;
+  while (more) {
+    const response = await collegeService.getColleges({ page: String(page), limit: "100" });
+    const result = response.data as { items: College[]; pagination: { hasMore: boolean } };
+    options.push(...result.items);
+    more = result.pagination.hasMore;
+    page++;
+  }
+  return options;
+});
 
 export const createCollege = createAsyncThunk(
   "colleges/createCollege",
@@ -104,6 +121,7 @@ const collegesSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
+    builder.addCase(fetchCollegeOptions.fulfilled, (state, action) => { state.options = action.payload; });
     builder
       .addCase(fetchColleges.pending, (state) => {
         state.isLoading = true;

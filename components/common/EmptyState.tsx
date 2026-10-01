@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { LucideIcon, SearchX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -19,13 +18,7 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4 text-center animate-fade-in">
-      <Image
-        src="/empty.png"
-        alt="No results"
-        width={280}
-        height={280}
-        className="mb-6"
-      />
+      <div className="mb-6 rounded-2xl border border-border bg-accent p-5"><Icon className="size-8 text-primary" aria-hidden="true" /></div>
       <h3 className="text-xl font-bold text-foreground mb-2">
         {title}
       </h3>
@@ -35,7 +28,7 @@ export function EmptyState({
       {actionLabel && onAction && (
         <Button
           onClick={onAction}
-          className="bg-primary hover:bg-primary/90 text-white"
+          className="bg-primary hover:bg-primary/90 text-primary-foreground"
         >
           {actionLabel}
         </Button>

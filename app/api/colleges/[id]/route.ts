@@ -8,6 +8,9 @@ import { formatZodErrors } from "@/lib/validators/utils";
 import { formatCollegeResponse, ICollege } from "@/types";
 import { ZodError } from "zod";
 import mongoose from "mongoose";
+import { escapeRegex } from "@/lib/utils";
+import Event from "@/models/Event";
+import User from "@/models/User";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -73,7 +76,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     // Check if new name conflicts with existing college
     if (validatedData.name) {
       const existingCollege = await College.findOne({
-        name: { $regex: `^${validatedData.name}$`, $options: "i" },
+        name: { $regex: `^${escapeRegex(validatedData.name)}$`, $options: "i" },
         _id: { $ne: id },
       });
 
@@ -125,6 +128,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     await connectDB();
 
+    if (await Event.exists({ $or: [{ collegeId: id }, { partnerCollegeIds: id }] }) || await User.exists({ collegeId: id })) {
+      return ApiErrors.badRequest("Reassign this college’s events and users before deleting it");
+    }
     const result = await College.findByIdAndDelete(id);
 
     if (!result) {

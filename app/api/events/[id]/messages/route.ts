@@ -1,9 +1,11 @@
+import Event from "@/models/Event";
+import { transactional, rethrowTransient, afterCommit } from "@/lib/transaction";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import Message from "@/models/Message";
-import Registration from "@/models/Registration";
+import { canAccessEventChat } from "@/lib/chat-access";
 import { requireAuth } from "@/lib/auth-guard";
-import { successResponse, ApiErrors, errorResponse } from "@/lib/api-response";
+import { successResponse, ApiErrors } from "@/lib/api-response";
 import mongoose from "mongoose";
 
 /**
@@ -26,11 +28,15 @@ export async function GET(
 
     await connectDB();
 
-    const limit = Math.min(
-      parseInt(request.nextUrl.searchParams.get("limit") || "50"),
-      100,
-    );
+    if (!authResult.mongoUserId || !await canAccessEventChat(eventId, authResult.mongoUserId, authResult.userRole)) {
+      return ApiErrors.forbidden();
+    }
+
+    const limit = Number(request.nextUrl.searchParams.get("limit") ?? "50");
     const before = request.nextUrl.searchParams.get("before");
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100 || (before && Number.isNaN(Date.parse(before)))) {
+      return ApiErrors.badRequest("Invalid chat pagination parameters");
+    }
 
     const query: Record<string, unknown> = {
       eventId: new mongoose.Types.ObjectId(eventId),
@@ -51,6 +57,7 @@ export async function GET(
       "Messages retrieved",
     );
   } catch (error) {
+    rethrowTransient(error);
     console.error("GET /api/events/:id/messages error:", error);
     return ApiErrors.internalError();
   }
@@ -60,7 +67,7 @@ export async function GET(
  * POST /api/events/:id/messages
  * Send a message. Students must be registered; organizers/admins can always send.
  */
-export async function POST(
+async function mutationHandler(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -76,7 +83,7 @@ export async function POST(
     }
 
     const body = await request.json();
-    const content = (body.content || "").trim();
+    const content = typeof body?.content === "string" ? body.content.trim() : "";
     if (!content || content.length > 1000) {
       return ApiErrors.badRequest(
         "Message must be between 1 and 1000 characters",
@@ -85,20 +92,13 @@ export async function POST(
 
     await connectDB();
 
+    if (!await Event.findByIdAndUpdate(eventId, { $inc: { mutationVersion: 1 } })) return ApiErrors.notFound("Event");
+
     const userId = new mongoose.Types.ObjectId(authResult.mongoUserId);
     const eventObjectId = new mongoose.Types.ObjectId(eventId);
 
-    if (authResult.userRole === "student") {
-      const registration = await Registration.findOne({
-        eventId: eventObjectId,
-        studentId: userId,
-      });
-      if (!registration) {
-        return errorResponse(
-          "You must be registered for this event to send messages.",
-          403,
-        );
-      }
+    if (!await canAccessEventChat(eventId, authResult.mongoUserId, authResult.userRole)) {
+      return ApiErrors.forbidden();
     }
 
     const message = await Message.create({
@@ -112,16 +112,14 @@ export async function POST(
       .populate("senderId", "firstName lastName profileImage role")
       .lean();
 
-    // Broadcast to all connected clients in the event room via Socket.IO + Redis adapter
-    if (globalThis.io) {
-      globalThis.io
-        .to(`event:${eventId}`)
-        .emit("new-message", { message: populated });
-    }
+    afterCommit(() => { globalThis.io?.to(`event:${eventId}`).emit("new-message", { message: populated }); });
 
     return successResponse({ message: populated }, "Message sent", 201);
   } catch (error) {
+    rethrowTransient(error);
     console.error("POST /api/events/:id/messages error:", error);
     return ApiErrors.internalError();
   }
 }
+
+export const POST = transactional(mutationHandler);

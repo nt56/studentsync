@@ -1,10 +1,13 @@
 "use client";
 
+import { ListPagination } from "@/components/common/ListPagination";
+
 import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchEvents, deleteEvent } from "@/store/slices/eventsSlice";
+import { fetchOrganizerAnalytics } from "@/store/slices/analyticsSlice";
 import { DashboardSkeleton } from "@/components/common/Skeletons";
 import { EmptyState } from "@/components/common/EmptyState";
 import { EventStatusBadge } from "@/components/common/Badges";
@@ -30,9 +33,11 @@ import { cn } from "@/lib/utils";
 
 export default function OrganizerDashboard() {
   const dispatch = useAppDispatch();
+  const [page, setPage] = useState(1);
   const router = useRouter();
   const { user } = useAppSelector((s) => s.auth);
-  const { items: events, isLoading, error } = useAppSelector((s) => s.events);
+  const { items: events, pagination, isLoading, error } = useAppSelector((s) => s.events);
+  const analytics = useAppSelector((s) => s.analytics.organizer.data);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -40,8 +45,10 @@ export default function OrganizerDashboard() {
   // returns the wrong result set and triggers a wasteful double-fetch.
   useEffect(() => {
     if (!user?.id) return;
-    dispatch(fetchEvents({ organizerId: user.id }));
-  }, [dispatch, user?.id]);
+    dispatch(fetchEvents({ organizerId: user.id, page: String(page), limit: "10" })).unwrap().then((result) => {
+      if (result.pagination && page > Math.max(1, result.pagination.totalPages)) setPage(Math.max(1, result.pagination.totalPages));
+    }).catch(() => {});
+  }, [dispatch, user?.id, page]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -49,6 +56,11 @@ export default function OrganizerDashboard() {
     try {
       await dispatch(deleteEvent(deleteTarget)).unwrap();
       toast.success("Event deleted successfully");
+      if (user?.id) {
+        const result = await dispatch(fetchEvents({ organizerId: user.id, page: String(page), limit: "10" })).unwrap();
+        if (page > Math.max(1, result.pagination.totalPages)) setPage(Math.max(1, result.pagination.totalPages));
+        dispatch(fetchOrganizerAnalytics());
+      }
     } catch {
       toast.error("Failed to delete event");
     } finally {
@@ -68,7 +80,7 @@ export default function OrganizerDashboard() {
         </p>
         <Button
           onClick={() =>
-            user?.id && dispatch(fetchEvents({ organizerId: user.id }))
+            user?.id && dispatch(fetchEvents({ organizerId: user.id, page: String(page), limit: "10" }))
           }
         >
           Try Again
@@ -77,28 +89,22 @@ export default function OrganizerDashboard() {
     );
   }
 
-  const totalRegistrations = events.reduce(
-    (sum, e) => sum + (e.registrationCount || 0),
-    0,
-  );
-  const activeEvents = events.filter((e) => e.status === "upcoming").length;
-
   const stats = [
     {
       label: "Total Events",
-      value: events.length,
+      value: analytics?.totalEvents ?? pagination?.total ?? "...",
       icon: CalendarCheck2,
       iconClassName: "bg-primary/10 text-primary",
     },
     {
       label: "Total Registrations",
-      value: totalRegistrations,
+      value: analytics?.totalRegistrations ?? "...",
       icon: Users,
       iconClassName: "bg-blue-500/10 text-blue-600",
     },
     {
       label: "Active Events",
-      value: activeEvents,
+      value: analytics?.eventsByStatus.find((item) => item.status === "upcoming")?.count ?? 0,
       icon: CalendarClock,
       iconClassName: "bg-emerald-500/10 text-emerald-600",
     },
@@ -166,15 +172,16 @@ export default function OrganizerDashboard() {
             />
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Events table">
             <table className="w-full text-left border-collapse">
+              <caption className="sr-only">Events on the current page</caption>
               <thead>
                 <tr className="border-b border-border text-xs font-medium text-muted-foreground">
-                  <th className="px-5 py-3">Event</th>
-                  <th className="px-5 py-3">Date</th>
-                  <th className="px-5 py-3">Registrations</th>
-                  <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3 text-right">Actions</th>
+                  <th scope="col" className="px-5 py-3">Event</th>
+                  <th scope="col" className="px-5 py-3">Date</th>
+                  <th scope="col" className="px-5 py-3">Registrations</th>
+                  <th scope="col" className="px-5 py-3">Status</th>
+                  <th scope="col" className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -247,6 +254,7 @@ export default function OrganizerDashboard() {
         )}
       </div>
 
+      <ListPagination page={page} pagination={pagination} onPageChange={setPage} disabled={isLoading} />
       <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}

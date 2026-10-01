@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+import { transactionSession, rethrowTransient } from "@/lib/transaction";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { ApiErrors } from "@/lib/api-response";
@@ -30,6 +32,7 @@ export async function requireAuth(
   try {
     const session = await auth.api.getSession({
       headers: await headers(),
+      query: { disableCookieCache: true },
     });
 
     if (!session) {
@@ -39,29 +42,19 @@ export async function requireAuth(
       };
     }
 
-    const userRole = (session.user.role as UserRole) || "student";
-
-    // Check role if specified
-    if (allowedRoles && allowedRoles.length > 0) {
-      if (!allowedRoles.includes(userRole)) {
-        return {
-          success: false,
-          response: ApiErrors.forbidden(),
-        };
-      }
-    }
-
     // Get MongoDB user ID — auto-create for OAuth users who don't have one yet
     await connectDB();
     let mongoUser = await User.findOne({ email: session.user.email });
 
     if (!mongoUser) {
+      const identity = await mongoose.connection.collection("user").findOne({ email: session.user.email }, { session: transactionSession() });
+      if (!identity) return { success: false, response: ApiErrors.unauthorized() };
       // OAuth user signing in for the first time — create MongoDB User profile
       const nameParts = (session.user.name || "").trim().split(/\s+/);
       const firstName = nameParts[0] || "User";
       const lastName = nameParts.slice(1).join(" ") || "";
 
-      mongoUser = await User.create({
+      mongoUser = await User.findOneAndUpdate({ email: session.user.email }, { $setOnInsert: {
         firstName,
         lastName,
         email: session.user.email,
@@ -72,7 +65,18 @@ export async function requireAuth(
         authUserId: session.user.id,
         // gender, dateOfBirth, phone, collegeId — left empty for OAuth users
         // They can update these later via PATCH /api/auth/profile
-      });
+      } }, { upsert: true, new: true, runValidators: true });
+    }
+
+    if (transactionSession()) {
+      mongoUser = await User.findByIdAndUpdate(mongoUser._id,
+        { $inc: { mutationVersion: 1 } }, { new: true });
+      if (!mongoUser) return { success: false, response: ApiErrors.unauthorized() };
+    }
+    // Read current privileges from the application profile, not a cached cookie.
+    const userRole = (mongoUser.role as UserRole) || "student";
+    if (allowedRoles?.length && !allowedRoles.includes(userRole)) {
+      return { success: false, response: ApiErrors.forbidden() };
     }
 
     return {
@@ -84,6 +88,7 @@ export async function requireAuth(
       mongoUserId: mongoUser?._id?.toString(),
     };
   } catch (error) {
+    rethrowTransient(error);
     console.error("Auth error:", error);
     return {
       success: false,

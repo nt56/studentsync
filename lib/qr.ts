@@ -40,5 +40,9 @@ export function signQrToken(payload: QrPayload): string {
 }
 
 export function verifyQrToken(token: string): QrPayload {
-  return jwt.verify(token, getQrSecret()) as QrPayload;
+  const payload = jwt.verify(token, getQrSecret(), { algorithms: ["HS256"] });
+  if (typeof payload === "string" || ![payload.registrationId, payload.eventId, payload.studentId].every((id) => typeof id === "string" && /^[a-f\d]{24}$/i.test(id))) {
+    throw new Error("Invalid QR payload");
+  }
+  return payload as QrPayload;
 }

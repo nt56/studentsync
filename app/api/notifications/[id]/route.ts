@@ -12,7 +12,7 @@ interface RouteParams {
 /**
  * PATCH /api/notifications/:id
  * Mark a single notification as read.
- * Ignores virtual notification IDs (prefixed with "vr_") gracefully.
+ * Reminder IDs use normal stored notification IDs.
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
@@ -24,9 +24,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return ApiErrors.badRequest("User profile not found");
 
     // Virtual notifications have no DB record — return success without DB call
-    if (id.startsWith("vr_")) {
-      return successResponse(null, "Notification marked as read");
-    }
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return ApiErrors.badRequest("Invalid notification ID");
@@ -67,9 +64,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     if (!authResult.mongoUserId)
       return ApiErrors.badRequest("User profile not found");
 
-    if (id.startsWith("vr_")) {
-      return successResponse(null, "Notification dismissed");
-    }
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return ApiErrors.badRequest("Invalid notification ID");
@@ -77,10 +71,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     await connectDB();
 
-    const result = await Notification.findOneAndDelete({
+    const result = await Notification.findOneAndUpdate({
       _id: new mongoose.Types.ObjectId(id),
       userId: new mongoose.Types.ObjectId(authResult.mongoUserId),
-    });
+    }, { $set: { dismissedAt: new Date(), isRead: true } });
 
     if (!result) {
       return ApiErrors.notFound("Notification");

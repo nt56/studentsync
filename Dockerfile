@@ -9,7 +9,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # =========================
 FROM base AS deps
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN MONGOMS_DISABLE_POSTINSTALL=1 npm ci
 
 
 # =========================
@@ -62,6 +62,11 @@ COPY --from=builder   --chown=nextjs:nodejs /app/server.ts      ./server.ts
 COPY --from=builder   --chown=nextjs:nodejs /app/next.config.ts ./next.config.ts
 COPY --from=builder   --chown=nextjs:nodejs /app/tsconfig.json  ./tsconfig.json
 COPY --from=builder   --chown=nextjs:nodejs /app/package.json   ./package.json
+
+COPY --from=builder --chown=nextjs:nodejs /app/lib ./lib
+COPY --from=builder --chown=nextjs:nodejs /app/models ./models
+COPY --from=builder --chown=nextjs:nodejs /app/types ./types
+COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 
 USER nextjs
 
