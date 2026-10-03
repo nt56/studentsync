@@ -16,7 +16,9 @@ College students often miss events because information is scattered across Whats
 
 **Current status:** The full web application includes student, organizer, and admin dashboards, event discovery, registrations, chat, QR attendance, reviews, maps, collaborations, analytics, bookmarks, and calendar downloads. Notifications are polled; event chat uses Socket.IO.
 
-Start with the [next-phase learning roadmap](documents/NEXT_PHASE_ROADMAP.md) and [codebase review](documents/CODEBASE_REVIEW.md) for implemented improvements and future proposals. Read [Operations](documents/OPERATIONS.md) before upgrading: transactional mutations now require a MongoDB replica set. Notification preferences, event staff roles, end times/timezones, and a durable email worker are implemented.
+Start with the [next-phase roadmap and readiness review](documents/NEXT_PHASE_ROADMAP.md). The [API contract](documents/API_CONTRACT.md) explains requests, responses, and permissions; [Operations](documents/OPERATIONS.md) explains running the app and email worker. Notification preferences, event staff roles, end times/timezones, and a durable email worker are implemented.
+
+**Database scope:** one application database, with no backup database or secondary copies requested. The existing Docker configuration uses one MongoDB instance in single-member replica-set mode for transactions. Plain standalone MongoDB is not supported by the current mutation code; see Operations for the distinction.
 
 ---
 

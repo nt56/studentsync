@@ -1,6 +1,19 @@
 # StudentSync: next phase and learning roadmap
 
-Reviewed: September 30–October 1, 2026. This roadmap combines completed foundations and future proposals. The October 1 follow-up implemented the review foundations: transaction-safe mutations, isolated database tests, pagination/totals, persistent reminders and preferences, an email outbox, staff permissions, and event end/timezone fields. See [CODEBASE_REVIEW.md](CODEBASE_REVIEW.md) for verification and [OPERATIONS.md](OPERATIONS.md) before rollout. CI and the additional product features below remain proposals.
+Reviewed: October 3, 2026. This roadmap combines implemented foundations and future proposals. The code includes transactional mutations, isolated database tests, pagination/totals, persistent reminders and preferences, an email outbox, staff permissions, and event end/timezone fields. Read [OPERATIONS.md](OPERATIONS.md) for runtime requirements and [API_CONTRACT.md](API_CONTRACT.md) for API behavior. CI and the additional product features below remain proposals.
+
+## Readiness review — October 3, 2026
+
+**Verdict: ready to begin a small next feature, with a database compatibility condition; not yet verified for release.** Start with attendee CSV export or event duplication. Waitlists should follow fresh verification of capacity and transaction behavior.
+
+- **Database scope:** one application database; no backup database, restored copy, or secondary MongoDB members requested. The existing Compose configuration uses one MongoDB instance in single-member replica-set mode. This has no second data copy. If even that mode is excluded, standalone support is a prerequisite backend redesign: current mutation routes depend on multi-document transactions.
+- **Checked in this review:** all 12 regression/contract tests passed; ESLint, TypeScript, and the production build passed. The build used a separate output folder and an unreachable placeholder MongoDB URI, so it did not require the existing database. OpenAPI coverage checks route/method presence, not every response payload.
+- **Runtime verification:** the integration suite was not run because it starts an additional temporary database with synthetic data. The existing database topology and live user journeys were not checked. Historical implementation claims below are not fresh runtime verification.
+- **Automation gap:** no `.github/workflows` directory exists. CI remains unfinished; begin with lint, types, unit/contract tests, and build. The existing integration runner requires a temporary test database, so it cannot be included under a strict no-additional-database constraint.
+- **Older references:** `DOCKER.md` is marked historical; `.agent/` still contains older model counts and API descriptions. Use the current code, API contract, and operations guide when those references disagree.
+- **Documentation decision:** keep both `API_CONTRACT.md` (API inputs, outputs, permissions) and `OPERATIONS.md` (runtime, worker, optional maintenance). Removed backup/restore prerequisites and references to missing project documents. Existing deletions of `CODEBASE_REVIEW.md` and `documents/README.md` were preserved.
+
+Before releasing the next feature, verify its authorization and full user journey, resolve the database compatibility condition, and rerun the checks after implementation. No database was created, copied, migrated, or repaired during this review.
 
 ## Where the project stands
 
@@ -16,9 +29,7 @@ StudentSync already goes well beyond its original MVP. The code includes:
 | Communication | Transactional email, polled in-app notifications, persistent reminders, sharing links, Google Calendar links and ICS downloads |
 | Infrastructure | Next.js custom Node server, MongoDB, optional Redis, Cloudinary uploads, Docker, contract-tested OpenAPI route coverage |
 
-The old Phase 1 plan and README understated the current implementation. The Phase 2 implementation plan is useful history. `FUTURE_ROADMAP.md` contains earlier suggestions; this document adds learning outcomes, dependencies, and concrete completion criteria. `MOBILE_GUIDE.md` describes a separate app that is not present in this repository.
-
-See [CODEBASE_REVIEW.md](CODEBASE_REVIEW.md) for fixes made now, validation results, and remaining risks.
+This document is the current feature plan, with learning outcomes, dependencies, and completion criteria. A separate mobile app is not present in this repository.
 
 ## Recommended order
 
@@ -43,9 +54,9 @@ This sequence teaches increasingly difficult concepts while reusing what you alr
 
 **Start in:** `app/api/registrations/route.ts`, `app/api/events/[id]/route.ts`, `models/Event.ts`, `models/Registration.ts`, Docker configuration.
 
-**Prerequisite:** choose a replica-set MongoDB deployment (Atlas or a local replica set). The updated Docker services configure a replica set; existing installations need the migration steps in OPERATIONS.md. MongoDB documents that standalone deployments do not support transactions: [transaction deployment requirements](https://www.mongodb.com/docs/manual/core/transactions-production-consideration/).
+**Prerequisite:** transaction support in the existing database. Each Docker stack configures one MongoDB instance in single-member replica-set mode, with no secondary database copy. See [OPERATIONS.md](OPERATIONS.md) for the current configuration and the consequence of requiring plain standalone MongoDB. MongoDB documents that standalone deployments do not support transactions: [transaction deployment requirements](https://www.mongodb.com/docs/manual/core/transactions-production-consideration/).
 
-**Verified:** eight parallel requests for the final seat produce exactly one registration and one confirmation job. Injected enqueue failure rolls back event deletion. Larger load tests, such as fifty requests for five seats, can extend this coverage.
+**Existing integration assertions (not rerun October 3):** eight parallel requests for the final seat must produce exactly one registration and one confirmation job. Injected enqueue failure must roll back event deletion. Larger load tests, such as fifty requests for five seats, can extend this coverage.
 
 ### A2. Automated integration tests and CI
 
@@ -146,7 +157,7 @@ Use simple scoring before adding machine learning. The project already has text 
 
 **Done when:** the app opens without connectivity, explains which actions need the network, never silently loses registrations, and removes private cached data on logout. Do not cache auth API responses indiscriminately.
 
-Then use `MOBILE_GUIDE.md` for a separate React Native app after the API contracts and tests are stable. Avoid building two clients while the backend contract is still changing.
+Plan a separate React Native app after the API contracts and tests are stable. Avoid building two clients while the backend contract is still changing.
 
 ## Later, after the foundation
 
