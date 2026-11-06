@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import { transactionSession, rethrowTransient } from "@/lib/transaction";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { ApiErrors } from "@/lib/api-response";
@@ -47,7 +46,7 @@ export async function requireAuth(
     let mongoUser = await User.findOne({ email: session.user.email });
 
     if (!mongoUser) {
-      const identity = await mongoose.connection.collection("user").findOne({ email: session.user.email }, { session: transactionSession() });
+      const identity = await mongoose.connection.collection("user").findOne({ email: session.user.email });
       if (!identity) return { success: false, response: ApiErrors.unauthorized() };
       // OAuth user signing in for the first time — create MongoDB User profile
       const nameParts = (session.user.name || "").trim().split(/\s+/);
@@ -68,11 +67,6 @@ export async function requireAuth(
       } }, { upsert: true, new: true, runValidators: true });
     }
 
-    if (transactionSession()) {
-      mongoUser = await User.findByIdAndUpdate(mongoUser._id,
-        { $inc: { mutationVersion: 1 } }, { new: true });
-      if (!mongoUser) return { success: false, response: ApiErrors.unauthorized() };
-    }
     // Read current privileges from the application profile, not a cached cookie.
     const userRole = (mongoUser.role as UserRole) || "student";
     if (allowedRoles?.length && !allowedRoles.includes(userRole)) {
@@ -88,7 +82,6 @@ export async function requireAuth(
       mongoUserId: mongoUser?._id?.toString(),
     };
   } catch (error) {
-    rethrowTransient(error);
     console.error("Auth error:", error);
     return {
       success: false,

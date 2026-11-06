@@ -2,7 +2,7 @@ import { eventEndExpression } from "@/lib/event-time";
 import { connectDB } from "@/lib/db";
 import { requireAuth } from "@/lib/auth-guard";
 import { successResponse, ApiErrors } from "@/lib/api-response";
-import Event from "@/models/Event";
+import Event, { liveEvent } from "@/models/Event";
 import Registration from "@/models/Registration";
 import User from "@/models/User";
 import College from "@/models/College";
@@ -23,7 +23,7 @@ export async function GET() {
   const [totalUsers, totalEvents, totalRegistrations, totalColleges] =
     await Promise.all([
       User.countDocuments(),
-      Event.countDocuments(),
+      Event.countDocuments({ ...liveEvent }),
       Registration.countDocuments(),
       College.countDocuments(),
     ]);
@@ -40,6 +40,7 @@ export async function GET() {
   // Events by status — computed from dates, not the stale stored field
   const now = new Date();
   const eventsByStatusRaw = await Event.aggregate([
+    { $match: { ...liveEvent } },
     {
       $addFields: {
         computedStatus: {
@@ -66,6 +67,7 @@ export async function GET() {
 
   // Events by category
   const eventsByCategoryRaw = await Event.aggregate([
+    { $match: { ...liveEvent } },
     { $group: { _id: "$category", count: { $sum: 1 } } },
     { $sort: { count: -1 } },
   ]);
@@ -121,6 +123,7 @@ export async function GET() {
 
   // Top colleges by event count
   const topCollegesRaw = await Event.aggregate([
+    { $match: { ...liveEvent } },
     { $group: { _id: "$collegeId", count: { $sum: 1 } } },
     { $sort: { count: -1 } },
     { $limit: 8 },

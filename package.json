@@ -11,7 +11,9 @@
     "test:integration": "tsx tests/integration.mts",
     "worker": "tsx scripts/outbox-worker.ts",
     "db:audit": "tsx scripts/audit-data.mts",
-    "seed:admin": "npx tsx scripts/seed-admin.ts"
+    "db:backfill-seats": "tsx scripts/backfill-seats.ts",
+    "seed:admin": "npx tsx scripts/seed-admin.ts",
+    "seed:demo": "tsx scripts/seed-demo.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

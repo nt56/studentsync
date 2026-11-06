@@ -1,4 +1,4 @@
-import { transactional, rethrowTransient, afterCommit, transactionSession } from "@/lib/transaction";
+import { releaseSeat } from "@/lib/seats";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import User from "@/models/User";
@@ -9,8 +9,8 @@ import { formatZodErrors } from "@/lib/validators/utils";
 import { formatUserResponse, IUser } from "@/types";
 import { ZodError } from "zod";
 import mongoose from "mongoose";
-import { createNotification } from "@/lib/notifications";
-import { sendRoleChangedEmail } from "@/lib/email";
+import { randomUUID } from "node:crypto";
+import { finishRoleNotice } from "@/lib/recovery-notices";
 import Event from "@/models/Event";
 import Registration from "@/models/Registration";
 import Bookmark from "@/models/Bookmark";
@@ -59,7 +59,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       "User retrieved successfully",
     );
   } catch (error) {
-    rethrowTransient(error);
     console.error("GET /api/users/:id error:", error);
     return ApiErrors.internalError();
   }
@@ -69,7 +68,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  * PATCH /api/users/:id
  * Update user role (admin only)
  */
-async function patchHandler(request: NextRequest, { params }: RouteParams) {
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
 
@@ -93,47 +92,50 @@ async function patchHandler(request: NextRequest, { params }: RouteParams) {
       return ApiErrors.badRequest("Ask another administrator to change your role");
     }
 
-    // Update MongoDB User document
-    const updatedUser = await User.findByIdAndUpdate(
-      id,
-      { role: validatedData.role },
-      { new: true, runValidators: true },
-    ).lean<IUser>();
-
-    if (!updatedUser) {
+    const existing = await User.findById(id).lean<IUser>();
+    if (!existing) {
       return ApiErrors.notFound("User");
     }
 
-    // Also update the Better Auth user collection so session.user.role is correct
-    const betterAuthUserCollection = mongoose.connection.collection("user");
-    const identityUpdate = await betterAuthUserCollection.updateOne(
-      { email: updatedUser.email },
+    // Fixed write order, safe to repeat after a crash:
+    //   1. Better Auth identity (display role in the session)
+    //   2. application profile (the role every permission check reads)
+    // A crash after step 1 leaves the profile - and so every privilege - unchanged;
+    // repeating the request completes it, and `db:audit` flags any mismatch.
+    const identityUpdate = await mongoose.connection.collection("user").updateOne(
+      { email: existing.email },
       { $set: { role: validatedData.role } },
-      { session: transactionSession() },
     );
     if (!identityUpdate.matchedCount) return ApiErrors.badRequest("Login identity is missing. Run the data audit before changing this role.");
-    afterCommit(() => { globalThis.io?.in(`user:${id}`).disconnectSockets(true); });
 
-    // Persist before commit: in-app notification + email to the affected user
-    await createNotification({
-      userId: id,
-      type: "role_changed",
-      title: "Your Role Has Changed",
-      message: `Your account role has been updated to "${validatedData.role}".`,
-      link: `/dashboard`,
-    });
-    await sendRoleChangedEmail(
-      updatedUser.email,
-      `${updatedUser.firstName} ${updatedUser.lastName}`,
-      validatedData.role,
-    );
+    // The notice marker is written with the role, so a crash cannot lose the
+    // announcement. Repeating a completed change sets no marker and stays silent.
+    const updatedUser = await User.findByIdAndUpdate(
+      id,
+      {
+        role: validatedData.role,
+        ...(existing.role !== validatedData.role
+          ? { pendingRoleNotice: { key: randomUUID(), role: validatedData.role, at: new Date() } }
+          : {}),
+      },
+      { new: true, runValidators: true },
+    ).lean<IUser>();
+    if (!updatedUser) {
+      return ApiErrors.notFound("User");
+    }
+    globalThis.io?.in(`user:${id}`).disconnectSockets(true);
+
+    try {
+      await finishRoleNotice(id);
+    } catch (error) {
+      console.error("Role notice deferred to the worker:", error);
+    }
 
     return successResponse(
       formatUserResponse(updatedUser),
       "User role updated successfully",
     );
   } catch (error) {
-    rethrowTransient(error);
     console.error("PATCH /api/users/:id error:", error);
     if (error instanceof ZodError) {
       return ApiErrors.validationError(formatZodErrors(error));
@@ -146,7 +148,7 @@ async function patchHandler(request: NextRequest, { params }: RouteParams) {
  * DELETE /api/users/:id
  * Delete a user (admin only)
  */
-async function deleteHandler(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
 
@@ -167,7 +169,7 @@ async function deleteHandler(request: NextRequest, { params }: RouteParams) {
 
     await connectDB();
 
-    const result = await User.findByIdAndUpdate(id, { $inc: { mutationVersion: 1 } }, { new: true });
+    const result = await User.findById(id);
 
     if (!result) {
       return ApiErrors.notFound("User");
@@ -177,20 +179,26 @@ async function deleteHandler(request: NextRequest, { params }: RouteParams) {
       return ApiErrors.badRequest("Reassign or remove this user’s events before deleting their account");
     }
 
-    // Remove the login identity too; otherwise the next login recreates the profile.
+    // Ordered so a crash is safe to repeat: the login identity goes first (nobody
+    // can sign in or be re-provisioned), the profile goes last, so a retry still
+    // finds it and finishes the remaining steps. Every step is idempotent.
     const identities = mongoose.connection.collection("user");
-    const identity = await identities.findOne({ email: result.email }, { session: transactionSession() });
+    const identity = await identities.findOne({ email: result.email });
     if (identity) {
-      await identities.deleteOne({ _id: identity._id }, { session: transactionSession() });
       const identityIds = [identity._id, identity._id.toString()];
-          await mongoose.connection.collection("session").deleteMany({ userId: { $in: identityIds } }, { session: transactionSession() });
-    await mongoose.connection.collection("account").deleteMany({ userId: { $in: identityIds } }, { session: transactionSession() });
+      await identities.deleteOne({ _id: identity._id });
+      await mongoose.connection.collection("session").deleteMany({ userId: { $in: identityIds } });
+      await mongoose.connection.collection("account").deleteMany({ userId: { $in: identityIds } });
     }
-    afterCommit(() => { globalThis.io?.in(`user:${id}`).disconnectSockets(true); });
-        const registrations = await Registration.find({ studentId: id }).select("eventId");
-    for (const registration of registrations) await Event.updateOne({ _id: registration.eventId }, { $inc: { mutationVersion: 1 } });
+    globalThis.io?.in(`user:${id}`).disconnectSockets(true);
+
+    // Each seat is released only by the delete that actually removed its registration.
+    const registrations = await Registration.find({ studentId: id }).select("_id eventId").lean<{ _id: mongoose.Types.ObjectId; eventId: mongoose.Types.ObjectId }[]>();
+    for (const registration of registrations) {
+      const removed = await Registration.deleteOne({ _id: registration._id });
+      if (removed.deletedCount === 1) await releaseSeat(registration.eventId);
+    }
     await Event.updateMany({ "staff.userId": id }, { $pull: { staff: { userId: id } } });
-    await Registration.deleteMany({ studentId: id });
     await Bookmark.deleteMany({ userId: id });
     await Notification.deleteMany({ userId: id });
     await Outbox.deleteMany({ "to.email": result.email, status: { $in: ["pending", "failed"] } });
@@ -199,12 +207,7 @@ async function deleteHandler(request: NextRequest, { params }: RouteParams) {
 
     return successResponse(null, "User deleted successfully");
   } catch (error) {
-    rethrowTransient(error);
     console.error("DELETE /api/users/:id error:", error);
     return ApiErrors.internalError();
   }
 }
-
-export const PATCH = transactional(patchHandler);
-
-export const DELETE = transactional(deleteHandler);

@@ -1,8 +1,7 @@
-import { transactional, rethrowTransient } from "@/lib/transaction";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import Collaboration from "@/models/Collaboration";
-import Event from "@/models/Event";
+import Event, { liveEvent } from "@/models/Event";
 import User from "@/models/User";
 import { requireOrganizer } from "@/lib/auth-guard";
 import { successResponse, ApiErrors } from "@/lib/api-response";
@@ -42,12 +41,12 @@ export async function GET() {
 
     const [received, sent] = await Promise.all([
       Collaboration.find({ targetOrganizerId: mongoId })
-        .populate("eventId", "title date venue status")
+        .populate({ path: "eventId", match: liveEvent, select: "title date venue status" })
         .populate("requesterId", "firstName lastName email")
         .sort({ createdAt: -1 })
         .lean<PopulatedCollaboration[]>(),
       Collaboration.find({ requesterId: mongoId })
-        .populate("eventId", "title date venue status")
+        .populate({ path: "eventId", match: liveEvent, select: "title date venue status" })
         .populate("targetOrganizerId", "firstName lastName email")
         .sort({ createdAt: -1 })
         .lean<PopulatedCollaboration[]>(),
@@ -94,7 +93,6 @@ export async function GET() {
       "Collaborations retrieved",
     );
   } catch (error) {
-    rethrowTransient(error);
     console.error("GET /api/collaborations error:", error);
     return ApiErrors.internalError();
   }
@@ -104,7 +102,7 @@ export async function GET() {
  * POST /api/collaborations
  * Send a collaboration invite to another organizer
  */
-async function postHandler(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
     const authResult = await requireOrganizer();
     if (!authResult.success) return authResult.response;
@@ -128,14 +126,14 @@ async function postHandler(request: NextRequest) {
     }
 
     // Verify event ownership
-    const event = await Event.findByIdAndUpdate(eventId, { $inc: { mutationVersion: 1 } }, { new: true }).lean();
+    const event = await Event.findOne({ _id: eventId, ...liveEvent }).lean();
     if (!event) return ApiErrors.notFound("Event");
     if (event.organizerId.toString() !== requesterId) {
       return ApiErrors.forbidden();
     }
 
     // Verify target is an organizer
-    const targetUser = await User.findByIdAndUpdate(targetOrganizerId, { $inc: { mutationVersion: 1 } }, { new: true }).lean();
+    const targetUser = await User.findById(targetOrganizerId).lean();
     if (!targetUser || targetUser.role !== "organizer") {
       return ApiErrors.badRequest("Target must be an organizer");
     }
@@ -148,7 +146,7 @@ async function postHandler(request: NextRequest) {
         targetOrganizerId: new mongoose.Types.ObjectId(targetOrganizerId),
       });
 
-      // Persist before commit: email the target organizer about the invite
+      // Queue the invite email; the key makes a repeat harmless
       await User.findById(requesterId)
         .select("firstName lastName")
         .lean<{ firstName: string; lastName: string }>()
@@ -166,6 +164,7 @@ async function postHandler(request: NextRequest) {
               timeZone: event.timeZone as string | undefined,
               venue: (event as { venue: string }).venue,
             },
+            `collaboration:${collab._id}:invite`,
           );
         })
         ;
@@ -182,11 +181,8 @@ async function postHandler(request: NextRequest) {
       throw err;
     }
   } catch (error) {
-    rethrowTransient(error);
     console.error("POST /api/collaborations error:", error);
     if (error instanceof z.ZodError) return ApiErrors.validationError(formatZodErrors(error));
     return ApiErrors.internalError();
   }
 }
-
-export const POST = transactional(postHandler);

@@ -1,7 +1,7 @@
-import { transactional, rethrowTransient } from "@/lib/transaction";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import Event from "@/models/Event";
+import Event, { liveEvent } from "@/models/Event";
+import { refreshReviewStats } from "@/lib/review-stats";
 import Review from "@/models/Review";
 import Registration from "@/models/Registration";
 import {  requireStudent } from "@/lib/auth-guard";
@@ -33,6 +33,8 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
 
     await connectDB();
 
+    if (await Event.exists({ _id: id, deleting: true })) return ApiErrors.notFound("Event");
+
     const reviews = await Review.find({ eventId: id })
       .populate("studentId", "firstName lastName profileImage")
       .sort({ createdAt: -1 })
@@ -54,7 +56,6 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
 
     return successResponse(formatted, "Reviews retrieved successfully");
   } catch (error) {
-    rethrowTransient(error);
     console.error("GET /api/events/:id/reviews error:", error);
     return ApiErrors.internalError();
   }
@@ -64,7 +65,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
  * POST /api/events/:id/reviews
  * Submit a review — student only, must be registered, event must be completed
  */
-async function mutationHandler(req: NextRequest, { params }: RouteParams) {
+export async function POST(req: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
 
@@ -87,7 +88,7 @@ async function mutationHandler(req: NextRequest, { params }: RouteParams) {
 
     await connectDB();
 
-    const event = await Event.findByIdAndUpdate(id, { $inc: { mutationVersion: 1 } }, { new: true }).lean<IEvent>();
+    const event = await Event.findOne({ _id: id, ...liveEvent }).lean<IEvent>();
     if (!event) return ApiErrors.notFound("Event");
 
     if (computeEventStatus(event) !== "completed") {
@@ -128,24 +129,12 @@ async function mutationHandler(req: NextRequest, { params }: RouteParams) {
       comment: parsed.data.comment,
     });
 
-    // Recalculate and denormalize averageRating + reviewCount
-    const agg = await Review.aggregate([
-      { $match: { eventId: new mongoose.Types.ObjectId(id) } },
-      { $group: { _id: null, avg: { $avg: "$rating" }, count: { $sum: 1 } } },
-    ]);
-
-    const { avg = 0, count = 0 } = agg[0] ?? {};
-    await Event.findByIdAndUpdate(id, {
-      averageRating: Math.round(avg * 10) / 10,
-      reviewCount: count,
-    });
+    // Denormalized totals; the worker repairs them if this step is interrupted.
+    await refreshReviewStats(id);
 
     return successResponse(null, "Review submitted successfully", 201);
   } catch (error) {
-    rethrowTransient(error);
     console.error("POST /api/events/:id/reviews error:", error);
     return ApiErrors.internalError();
   }
 }
-
-export const POST = transactional(mutationHandler);

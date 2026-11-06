@@ -2,7 +2,7 @@ import { canManageEvent } from "@/lib/event-access";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import Message from "@/models/Message";
-import Event from "@/models/Event";
+import Event, { liveEvent } from "@/models/Event";
 import { requireAuth } from "@/lib/auth-guard";
 import { successResponse, ApiErrors } from "@/lib/api-response";
 
@@ -29,7 +29,7 @@ export async function DELETE(
       return ApiErrors.notFound("Message");
     }
 
-    const event = await Event.findById(message.eventId);
+    const event = await Event.findOne({ _id: message.eventId, ...liveEvent });
     if (!event || !canManageEvent(event, authResult.mongoUserId, authResult.userRole, "moderate")) return ApiErrors.forbidden();
 
     message.isDeleted = true;

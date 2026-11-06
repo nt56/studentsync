@@ -1,6 +1,8 @@
 import { Schema, models, model } from "mongoose";
 
 const OutboxSchema = new Schema({
+  // Deterministic per logical email; a duplicate means "already queued".
+  dedupeKey: { type: String },
   to: { email: { type: String, required: true }, name: String },
   subject: { type: String, required: true },
   htmlContent: { type: String, required: true },
@@ -14,6 +16,7 @@ const OutboxSchema = new Schema({
   finishedAt: Date,
 }, { timestamps: true });
 OutboxSchema.index({ status: 1, availableAt: 1, leaseUntil: 1 });
+OutboxSchema.index({ dedupeKey: 1 }, { unique: true, sparse: true });
 // Remove delivered payloads, including authentication links, after seven days.
 OutboxSchema.index({ finishedAt: 1 }, { expireAfterSeconds: 7 * 86400 });
 export default models.Outbox || model("Outbox", OutboxSchema);

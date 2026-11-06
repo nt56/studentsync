@@ -1,13 +1,13 @@
-import { transactional, rethrowTransient } from "@/lib/transaction";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import Collaboration from "@/models/Collaboration";
-import Event from "@/models/Event";
+import Event, { liveEvent } from "@/models/Event";
 import { requireOrganizer } from "@/lib/auth-guard";
 import { successResponse, ApiErrors } from "@/lib/api-response";
 import { z } from "zod";
 import mongoose from "mongoose";
 import { sendCollaborationResponseEmail } from "@/lib/email";
+import { setStaffRole } from "@/lib/event-staff";
 import User from "@/models/User";
 import { formatZodErrors } from "@/lib/validators/utils";
 
@@ -19,8 +19,13 @@ const respondSchema = z.object({
  * PATCH /api/collaborations/:id
  * Accept or reject a collaboration invite
  * Only the target organizer can respond
+ *
+ * The response is claimed with a conditional update (pending -> accepted/rejected),
+ * which exactly one request can win. The follow-up writes (partner college, staff
+ * membership, email) are idempotent, so repeating the same response after a crash
+ * finishes them instead of failing with "already responded".
  */
-async function patchHandler(
+export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -45,51 +50,52 @@ async function patchHandler(
       return ApiErrors.forbidden();
     }
 
-    if (collab.status !== "pending") {
+    // Repeating the response that was already recorded is allowed (retry after a crash).
+    if (collab.status !== "pending" && collab.status !== action) {
       return ApiErrors.badRequest("Invite already responded to");
     }
 
-    if (!await Event.exists({ _id: collab.eventId })) return ApiErrors.notFound("Event");
+    if (!await Event.exists({ _id: collab.eventId, ...liveEvent })) return ApiErrors.notFound("Event");
     const targetUser = await User.findById(collab.targetOrganizerId).select("collegeId").lean();
     if (action === "accepted" && !targetUser?.collegeId) {
       return ApiErrors.badRequest("Add your college to your profile before accepting an inter-college invitation");
     }
-    await Event.updateOne({ _id: collab.eventId }, { $inc: { mutationVersion: 1 } });
-    const updated = await Collaboration.findOneAndUpdate(
-      { _id: id, status: "pending" },
-      { $set: { status: action, respondedAt: new Date() } },
-      { new: true },
-    );
-    if (!updated) return ApiErrors.badRequest("Invite already responded to");
 
-    // If accepted → add partner college + mark event as inter-college
+    if (collab.status === "pending") {
+      const claimed = await Collaboration.findOneAndUpdate(
+        { _id: id, status: "pending" },
+        { $set: { status: action, respondedAt: new Date() } },
+        { new: true },
+      );
+      if (!claimed) {
+        // Lost a race: fine only if the winner recorded the same response.
+        const current = await Collaboration.findById(id).select("status").lean<{ status: string } | null>();
+        if (current?.status !== action) return ApiErrors.badRequest("Invite already responded to");
+      }
+    }
+
+    // If accepted -> add partner college, mark inter-college, grant editor access.
     if (action === "accepted") {
-      await Event.findByIdAndUpdate(collab.eventId, {
+      await Event.updateOne({ _id: collab.eventId }, {
         $set: { isInterCollege: true },
         $addToSet: { partnerCollegeIds: targetUser!.collegeId },
       });
+      await setStaffRole(collab.eventId, collab.targetOrganizerId, "editor");
     }
 
-    if (action === "accepted") {
-      await Event.updateOne({ _id: collab.eventId }, { $pull: { staff: { userId: collab.targetOrganizerId } } });
-      await Event.updateOne({ _id: collab.eventId },
-        { $push: { staff: { userId: collab.targetOrganizerId, role: "editor" } } });
-    }
     const requester = await User.findById(collab.requesterId);
     const target = await User.findById(collab.targetOrganizerId);
     const evt = await Event.findById(collab.eventId);
     if (requester && target && evt) await sendCollaborationResponseEmail(
       requester.email, `${requester.firstName} ${requester.lastName}`,
       `${target.firstName} ${target.lastName}`, evt.title, action,
+      `collaboration:${id}:response:${action}`,
     );
 
     return successResponse({ id, status: action }, "Response recorded");
   } catch (error) {
-    rethrowTransient(error);
     console.error("PATCH /api/collaborations/:id error:", error);
     if (error instanceof z.ZodError) return ApiErrors.validationError(formatZodErrors(error));
     return ApiErrors.internalError();
   }
 }
-
-export const PATCH = transactional(patchHandler);

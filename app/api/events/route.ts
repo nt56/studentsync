@@ -1,8 +1,7 @@
 import { eventEnd, eventEndExpression } from "@/lib/event-time";
-import { transactional, rethrowTransient } from "@/lib/transaction";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import Event from "@/models/Event";
+import Event, { liveEvent } from "@/models/Event";
 import Registration from "@/models/Registration";
 import { requireAuth, requireOrganizer } from "@/lib/auth-guard";
 import { successResponse, ApiErrors } from "@/lib/api-response";
@@ -56,7 +55,7 @@ export async function GET(request: NextRequest) {
 
     // Build filter
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const filter: any = {};
+    const filter: any = { ...liveEvent };
     if (searchParams.get("staff") === "me") {
       const staffAuth = await requireAuth();
       if (!staffAuth.success) return staffAuth.response;
@@ -148,7 +147,6 @@ export async function GET(request: NextRequest) {
       "Events retrieved successfully",
     );
   } catch (error) {
-    rethrowTransient(error);
     console.error("GET /api/events error:", error);
     if (error instanceof ZodError) {
       return ApiErrors.validationError(formatZodErrors(error));
@@ -162,7 +160,7 @@ export async function GET(request: NextRequest) {
  * Create a new event
  * Requires organizer or admin role
  */
-async function postHandler(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
     // Check authentication and authorization
     const authResult = await requireOrganizer();
@@ -211,8 +209,10 @@ async function postHandler(request: NextRequest) {
       ),
     });
 
-    // Notify admins of new event (persisted before commit)
+    // Notify admins of the new event (one notification per admin per event)
     await notifyAdmins({
+      dedupeKey: `event:${event._id}:created`,
+      eventId: event._id,
       type: "new_event",
       title: "New Event Created",
       message: `A new event "${event.title}" has been created.`,
@@ -225,7 +225,6 @@ async function postHandler(request: NextRequest) {
       201,
     );
   } catch (error) {
-    rethrowTransient(error);
     console.error("POST /api/events error:", error);
     if (error instanceof ZodError) {
       return ApiErrors.validationError(formatZodErrors(error));
@@ -233,5 +232,3 @@ async function postHandler(request: NextRequest) {
     return ApiErrors.internalError();
   }
 }
-
-export const POST = transactional(postHandler);

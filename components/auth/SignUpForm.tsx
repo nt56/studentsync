@@ -1,9 +1,10 @@
 "use client";
 
+import { DatePicker } from "@/components/ui/date-picker";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -315,10 +316,19 @@ export function SignUpForm() {
                 <Label className={labelClassName}>
                   Date of Birth <span className="text-red-500">*</span>
                 </Label>
-                <Input
-                  type="date"
-                  className={fieldClassName}
-                  {...register("dateOfBirth")}
+                <Controller
+                  control={control}
+                  name="dateOfBirth"
+                  render={({ field }) => (
+                    <DatePicker
+                      value={field.value}
+                      onChange={field.onChange}
+                      captionLayout="dropdown"
+                      max={new Date().toISOString().split("T")[0]}
+                      placeholder="Select date of birth"
+                      aria-invalid={!!errors.dateOfBirth}
+                    />
+                  )}
                 />
                 {errors.dateOfBirth && (
                   <p className="text-xs text-red-500 mt-1">

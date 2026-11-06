@@ -30,7 +30,7 @@ function esc(value: string): string {
 
 // ─── Core send ────────────────────────────────────────────────────────────────
 
-async function sendEmail(options: { to: { email: string; name: string }; subject: string; htmlContent: string; essential?: boolean }): Promise<void> {
+async function sendEmail(options: { to: { email: string; name: string }; subject: string; htmlContent: string; essential?: boolean; dedupeKey?: string }): Promise<void> {
   await enqueueEmail(options);
 }
 
@@ -234,6 +234,7 @@ export async function sendRegistrationConfirmedEmail(
   email: string,
   name: string,
   event: EventEmailData,
+  dedupeKey?: string,
 ): Promise<void> {
   const content = `
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#1e293b;">You&apos;re In! &#9989;</h1>
@@ -248,6 +249,7 @@ export async function sendRegistrationConfirmedEmail(
   `;
 
   await sendEmail({
+    dedupeKey,
     to: { email, name },
     subject: `Registration Confirmed — ${event.title}`,
     htmlContent: buildEmail(content),
@@ -260,6 +262,7 @@ export async function sendRegistrationCancelledEmail(
   email: string,
   name: string,
   eventTitle: string,
+  dedupeKey?: string,
 ): Promise<void> {
   const content = `
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#1e293b;">Registration Cancelled</h1>
@@ -273,6 +276,7 @@ export async function sendRegistrationCancelledEmail(
   `;
 
   await sendEmail({
+    dedupeKey,
     to: { email, name },
     subject: `Registration Cancelled — ${eventTitle}`,
     htmlContent: buildEmail(content),
@@ -285,6 +289,7 @@ export async function sendEventUpdatedEmail(
   email: string,
   name: string,
   event: EventEmailData,
+  dedupeKey?: string,
 ): Promise<void> {
   const content = `
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#1e293b;">Event Updated &#128226;</h1>
@@ -299,6 +304,7 @@ export async function sendEventUpdatedEmail(
   `;
 
   await sendEmail({
+    dedupeKey,
     to: { email, name },
     subject: `Event Updated — ${event.title}`,
     htmlContent: buildEmail(content),
@@ -311,6 +317,7 @@ export async function sendEventCancelledEmail(
   email: string,
   name: string,
   eventTitle: string,
+  dedupeKey?: string,
 ): Promise<void> {
   const content = `
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#1e293b;">Event Cancelled &#128532;</h1>
@@ -324,6 +331,7 @@ export async function sendEventCancelledEmail(
   `;
 
   await sendEmail({
+    dedupeKey,
     to: { email, name },
     subject: `Event Cancelled — ${eventTitle}`,
     htmlContent: buildEmail(content),
@@ -356,6 +364,7 @@ export async function sendRoleChangedEmail(
   email: string,
   name: string,
   newRole: "student" | "organizer" | "admin",
+  dedupeKey?: string,
 ): Promise<void> {
   const { label, capability, cardStyle } = ROLE_META[newRole];
 
@@ -378,6 +387,7 @@ export async function sendRoleChangedEmail(
   `;
 
   await sendEmail({
+    dedupeKey,
     to: { email, name },
     subject: `Your StudentSync Role Has Been Updated — ${label}`,
     htmlContent: buildEmail(content),
@@ -391,6 +401,7 @@ export async function sendCollaborationInviteEmail(
   name: string,
   requesterName: string,
   event: EventEmailData,
+  dedupeKey?: string,
 ): Promise<void> {
   const content = `
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#1e293b;">Collaboration Invite &#129309;</h1>
@@ -405,6 +416,7 @@ export async function sendCollaborationInviteEmail(
   `;
 
   await sendEmail({
+    dedupeKey,
     to: { email, name },
     subject: `Collaboration Invite — ${event.title}`,
     htmlContent: buildEmail(content),
@@ -419,6 +431,7 @@ export async function sendCollaborationResponseEmail(
   targetName: string,
   eventTitle: string,
   action: "accepted" | "rejected",
+  dedupeKey?: string,
 ): Promise<void> {
   const isAccepted = action === "accepted";
   const emoji = isAccepted ? "&#9989;" : "&#10060;";
@@ -447,6 +460,7 @@ export async function sendCollaborationResponseEmail(
   `;
 
   await sendEmail({
+    dedupeKey,
     to: { email, name },
     subject: `Collaboration Invite ${statusLabel} — ${eventTitle}`,
     htmlContent: buildEmail(content),

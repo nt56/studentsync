@@ -72,7 +72,7 @@ test("chat access requires membership, ownership, or admin privileges", async ()
   const eventId = "c".repeat(24);
   let registered = false;
   let exists = true;
-  mock.method(Event, "findById", () => ({ select: () => ({ lean: async () => exists ? { organizerId: ownerId } : null }) }));
+  mock.method(Event, "findOne", () => ({ select: () => ({ lean: async () => exists ? { organizerId: ownerId } : null }) }));
   mock.method(Registration, "exists", async () => registered ? { _id: "registration" } : null);
   try {
     assert.equal(await canAccessEventChat(eventId, studentId, "student"), false);

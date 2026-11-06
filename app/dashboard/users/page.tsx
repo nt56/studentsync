@@ -1,5 +1,6 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
 import { ListPagination } from "@/components/common/ListPagination";
 
 import { useEffect, useState } from "react";
@@ -32,7 +33,7 @@ export default function UserManagementPage() {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    dispatch(fetchUsers({ page: String(page), limit: "20", search })).unwrap().then((result) => {
+    dispatch(fetchUsers({ page: String(page), limit: "10", search })).unwrap().then((result) => {
       if (result.pagination && page > Math.max(1, result.pagination.totalPages)) setPage(Math.max(1, result.pagination.totalPages));
     }).catch(() => {});
   }, [dispatch, page, search]);
@@ -41,7 +42,7 @@ export default function UserManagementPage() {
     try {
       await dispatch(updateUserRole({ id: userId, role })).unwrap();
       toast.success("User role updated");
-      dispatch(fetchUsers({ page: String(page), limit: "20", search }));
+      dispatch(fetchUsers({ page: String(page), limit: "10", search }));
     } catch {
       toast.error("Failed to update role");
     }
@@ -53,7 +54,7 @@ export default function UserManagementPage() {
     try {
       await dispatch(deleteUser(deleteTarget)).unwrap();
       toast.success("User deleted");
-      const result = await dispatch(fetchUsers({ page: String(page), limit: "20", search })).unwrap();
+      const result = await dispatch(fetchUsers({ page: String(page), limit: "10", search })).unwrap();
       if (page > Math.max(1, result.pagination.totalPages)) setPage(Math.max(1, result.pagination.totalPages));
     } catch {
       toast.error("Failed to delete user");
@@ -80,8 +81,8 @@ export default function UserManagementPage() {
       <div className="mb-5">
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            className="w-full pl-10 pr-4 h-10 bg-card border border-input rounded-lg outline-none text-sm transition-colors focus:border-primary/40 focus:ring-2 focus:ring-primary/20"
+          <Input
+            className="h-10 rounded-lg pl-10 pr-4"
             aria-label="Search all users" placeholder="Search users..."
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}

@@ -2,6 +2,7 @@ import { connectDB } from "@/lib/db";
 import { requireAuth } from "@/lib/auth-guard";
 import { successResponse, ApiErrors } from "@/lib/api-response";
 import Registration from "@/models/Registration";
+import { liveEvent } from "@/models/Event";
 import mongoose from "mongoose";
 import { subDays, format } from "date-fns";
 import { computeEventStatus } from "@/types/event";
@@ -26,7 +27,7 @@ export async function GET() {
 
   // All registrations with populated event (include registrationDeadline for status computation)
   const registrations = await Registration.find({ studentId })
-    .populate("eventId", "category title date endDate registrationDeadline")
+    .populate({ path: "eventId", match: liveEvent, select: "category title date endDate registrationDeadline" })
     .lean<StudentRegistration[]>();
 
   const totalRegistrations = registrations.length;

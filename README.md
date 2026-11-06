@@ -18,7 +18,7 @@ College students often miss events because information is scattered across Whats
 
 Start with the [next-phase roadmap and readiness review](documents/NEXT_PHASE_ROADMAP.md). The [API contract](documents/API_CONTRACT.md) explains requests, responses, and permissions; [Operations](documents/OPERATIONS.md) explains running the app and email worker. Notification preferences, event staff roles, end times/timezones, and a durable email worker are implemented.
 
-**Database scope:** one application database, with no backup database or secondary copies requested. The existing Docker configuration uses one MongoDB instance in single-member replica-set mode for transactions. Plain standalone MongoDB is not supported by the current mutation code; see Operations for the distinction.
+**Database scope:** one application database, with no backup database or secondary copies requested. The app runs on a plain standalone MongoDB: no transactions, no replica set. Atomic single-document updates, unique indexes, idempotent writes, and a worker that repairs interrupted sequences replace them; see Operations.
 
 ---
 

@@ -1,5 +1,4 @@
-import Event from "@/models/Event";
-import { transactional, rethrowTransient, afterCommit } from "@/lib/transaction";
+import Event, { liveEvent } from "@/models/Event";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import Message from "@/models/Message";
@@ -57,7 +56,6 @@ export async function GET(
       "Messages retrieved",
     );
   } catch (error) {
-    rethrowTransient(error);
     console.error("GET /api/events/:id/messages error:", error);
     return ApiErrors.internalError();
   }
@@ -67,7 +65,7 @@ export async function GET(
  * POST /api/events/:id/messages
  * Send a message. Students must be registered; organizers/admins can always send.
  */
-async function mutationHandler(
+export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -92,7 +90,7 @@ async function mutationHandler(
 
     await connectDB();
 
-    if (!await Event.findByIdAndUpdate(eventId, { $inc: { mutationVersion: 1 } })) return ApiErrors.notFound("Event");
+    if (!await Event.exists({ _id: eventId, ...liveEvent })) return ApiErrors.notFound("Event");
 
     const userId = new mongoose.Types.ObjectId(authResult.mongoUserId);
     const eventObjectId = new mongoose.Types.ObjectId(eventId);
@@ -112,14 +110,11 @@ async function mutationHandler(
       .populate("senderId", "firstName lastName profileImage role")
       .lean();
 
-    afterCommit(() => { globalThis.io?.to(`event:${eventId}`).emit("new-message", { message: populated }); });
+    globalThis.io?.to(`event:${eventId}`).emit("new-message", { message: populated });
 
     return successResponse({ message: populated }, "Message sent", 201);
   } catch (error) {
-    rethrowTransient(error);
     console.error("POST /api/events/:id/messages error:", error);
     return ApiErrors.internalError();
   }
 }
-
-export const POST = transactional(mutationHandler);

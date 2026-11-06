@@ -10,7 +10,7 @@ const args = process.argv.slice(2);
 const value = (flag: string) => args[args.indexOf(flag) + 1];
 const reportSchema = z.object({
   database: z.string(), fingerprint: z.string(), createdAt: z.string(),
-  issues: z.array(z.object({ model: z.string(), id: z.string().regex(/^[a-f\d]{24}$/i), problem: z.string(), repair: z.enum(["delete-orphan", "sync-role", "event-time", "review-stats", "manual"]) })),
+  issues: z.array(z.object({ model: z.string(), id: z.string().regex(/^[a-f\d]{24}$/i), problem: z.string(), repair: z.enum(["delete-orphan", "sync-role", "event-time", "review-stats", "seat-count", "manual"]) })),
 });
 try {
   const { connectDB } = await import("../lib/db");

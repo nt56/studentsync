@@ -3,7 +3,7 @@ import { connectDB } from "@/lib/db";
 import User from "@/models/User";
 import "@/models/College"; // register schema so populate("collegeId") works
 import Registration from "@/models/Registration";
-import Event from "@/models/Event";
+import Event, { liveEvent } from "@/models/Event";
 import { requireAuth } from "@/lib/auth-guard";
 import { successResponse, ApiErrors } from "@/lib/api-response";
 import { formatUserResponse, IUser } from "@/types";
@@ -35,7 +35,7 @@ export async function GET() {
       Registration.find({ studentId: user._id })
         .populate({
           path: "eventId",
-          match: { $expr: { $gt: [eventEndExpression, new Date()] } },
+          match: { ...liveEvent, $expr: { $gt: [eventEndExpression, new Date()] } },
           select: "title date",
         })
         .lean(),
@@ -46,6 +46,7 @@ export async function GET() {
     if (user.role === "organizer" || user.role === "admin") {
       organizedEventsCount = await Event.countDocuments({
         organizerId: user._id,
+        ...liveEvent,
       });
     }
 

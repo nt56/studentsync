@@ -1,23 +1,21 @@
-import Notification from "@/models/Notification";
 import { eventEnd } from "@/lib/event-time";
 import { canManageEvent } from "@/lib/event-access";
-import { transactional, rethrowTransient, afterCommit } from "@/lib/transaction";
+import { markEventDeleting, finalizeEventDeletion } from "@/lib/event-deletion";
+import { recountMissingSeatCount } from "@/lib/seats";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import Event from "@/models/Event";
+import Event, { liveEvent } from "@/models/Event";
 import Registration from "@/models/Registration";
-import Review from "@/models/Review";
-import Bookmark from "@/models/Bookmark";
-import Message from "@/models/Message";
-import Collaboration from "@/models/Collaboration";
 import { requireAuth } from "@/lib/auth-guard";
 import { successResponse, ApiErrors } from "@/lib/api-response";
 import { updateEventSchema } from "@/lib/validators/event.schema";
 import { formatZodErrors } from "@/lib/validators/utils";
 import { formatEventResponse, IEvent } from "@/types";
+import { EVENT_PERMISSIONS } from "@/lib/contracts";
 import { ZodError } from "zod";
 import mongoose from "mongoose";
-import { sendEventUpdatedEmail, sendEventCancelledEmail } from "@/lib/email";
+import { randomUUID } from "node:crypto";
+import { finishEventUpdateNotice } from "@/lib/recovery-notices";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -38,7 +36,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     await connectDB();
 
-    const event = await Event.findById(id).lean<IEvent>();
+    const event = await Event.findOne({ _id: id, ...liveEvent }).lean<IEvent>();
 
     if (!event) {
       return ApiErrors.notFound("Event");
@@ -61,13 +59,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const formatted = formatEventResponse(event, registrationCount, isRegistered);
-    formatted.permissions = authResult.success ? (["edit", "delete", "staff", "attendees", "checkIn", "chat", "moderate"] as const).filter((permission) => canManageEvent(event, authResult.mongoUserId, authResult.userRole, permission)) : [];
+    formatted.permissions = authResult.success ? EVENT_PERMISSIONS.filter((permission) => canManageEvent(event, authResult.mongoUserId, authResult.userRole, permission)) : [];
     return successResponse(
       formatted,
       "Event retrieved successfully",
     );
   } catch (error) {
-    rethrowTransient(error);
     console.error("GET /api/events/:id error:", error);
     return ApiErrors.internalError();
   }
@@ -78,7 +75,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
  * Update an event
  * Requires organizer role and ownership
  */
-async function putHandler(request: NextRequest, { params }: RouteParams) {
+export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
 
@@ -95,7 +92,7 @@ async function putHandler(request: NextRequest, { params }: RouteParams) {
     await connectDB();
 
     // Find the event
-    const event = await Event.findByIdAndUpdate(id, { $inc: { mutationVersion: 1 } }, { new: true });
+    const event = await Event.findOne({ _id: id, ...liveEvent });
 
     if (!event) {
       return ApiErrors.notFound("Event");
@@ -113,9 +110,8 @@ async function putHandler(request: NextRequest, { params }: RouteParams) {
     // Validate request body
     const validatedData = updateEventSchema.parse(body);
 
-    if (validatedData.capacity !== undefined) {
-      const registered = await Registration.countDocuments({ eventId: id });
-      if (validatedData.capacity < registered) return ApiErrors.badRequest("Capacity cannot be lower than the number of registered attendees");
+    if (validatedData.capacity !== undefined && typeof event.registeredCount !== "number") {
+      await recountMissingSeatCount(id); // legacy event without a seat counter
     }
 
     // Validate dates if provided
@@ -139,7 +135,12 @@ async function putHandler(request: NextRequest, { params }: RouteParams) {
     if (end <= new Date(validatedData.date || event.date)) return ApiErrors.badRequest("End time must be after start time");
 
     // Update the event
-    const updateData: Record<string, unknown> = { ...validatedData, endDate: end };
+    const updateData: Record<string, unknown> = {
+      ...validatedData,
+      endDate: end,
+      // Written with the edit, so a crash cannot lose the attendees' update emails.
+      updateNotice: { key: randomUUID(), at: new Date() },
+    };
 
     if (validatedData.date) {
       updateData.date = new Date(validatedData.date);
@@ -160,12 +161,23 @@ async function putHandler(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const updatedEvent = await Event.findByIdAndUpdate(id, updateData, {
-      new: true,
-      runValidators: true,
-    }).lean<IEvent>();
+    // Lowering capacity is conditional on the live seat counter: a registration
+    // that takes a seat concurrently makes this update match nothing, so
+    // capacity can never drop below the seats already taken.
+    const updatedEvent = await Event.findOneAndUpdate(
+      {
+        _id: id,
+        ...liveEvent,
+        ...(validatedData.capacity !== undefined ? { registeredCount: { $lte: validatedData.capacity } } : {}),
+      },
+      updateData,
+      { new: true, runValidators: true },
+    ).lean<IEvent>();
 
     if (!updatedEvent) {
+      if (validatedData.capacity !== undefined && await Event.exists({ _id: id, ...liveEvent })) {
+        return ApiErrors.badRequest("Capacity cannot be lower than the number of registered attendees");
+      }
       return ApiErrors.notFound("Event");
     }
 
@@ -174,35 +186,18 @@ async function putHandler(request: NextRequest, { params }: RouteParams) {
       eventId: updatedEvent._id,
     });
 
-    // Persist before commit: email all registered students about the update
-    await Registration.find({ eventId: updatedEvent._id })
-      .populate<{ studentId: { firstName: string; lastName: string; email: string } }>(
-        "studentId",
-        "firstName lastName email",
-      )
-      .lean<{ studentId: { firstName: string; lastName: string; email: string } }[]>()
-      .then(async (regs) => {
-        for (const reg of regs) {
-          const s = reg.studentId;
-          if (!s?.email) continue;
-          await sendEventUpdatedEmail(s.email, `${s.firstName} ${s.lastName}`, {
-            id: updatedEvent._id.toString(),
-            title: updatedEvent.title,
-            date: updatedEvent.date,
-            endDate: updatedEvent.endDate,
-            timeZone: updatedEvent.timeZone,
-            venue: updatedEvent.venue,
-          });
-        }
-      })
-      ;
+    // The edit is committed; if queueing fails the worker finishes it from the marker.
+    try {
+      await finishEventUpdateNotice(id);
+    } catch (error) {
+      console.error("Event update emails deferred to the worker:", error);
+    }
 
     return successResponse(
       formatEventResponse(updatedEvent, registrationCount),
       "Event updated successfully",
     );
   } catch (error) {
-    rethrowTransient(error);
     console.error("PUT /api/events/:id error:", error);
     if (error instanceof ZodError) {
       return ApiErrors.validationError(formatZodErrors(error));
@@ -215,8 +210,12 @@ async function putHandler(request: NextRequest, { params }: RouteParams) {
  * DELETE /api/events/:id
  * Delete an event
  * Requires organizer role and ownership
+ *
+ * Two phases: one atomic write marks the event `deleting` (hidden from every
+ * query), then an idempotent cleanup removes the children and the event.
+ * If the request dies in between, the worker finishes the cleanup.
  */
-async function deleteHandler(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
 
@@ -233,7 +232,7 @@ async function deleteHandler(request: NextRequest, { params }: RouteParams) {
     await connectDB();
 
     // Find the event
-    const event = await Event.findByIdAndUpdate(id, { $inc: { mutationVersion: 1 } }, { new: true });
+    const event = await Event.findOne({ _id: id, ...liveEvent });
 
     if (!event) {
       return ApiErrors.notFound("Event");
@@ -246,39 +245,19 @@ async function deleteHandler(request: NextRequest, { params }: RouteParams) {
       return ApiErrors.forbidden();
     }
 
-    // Collect registered students before deleting (for cancellation emails)
-    const registeredStudents = await Registration.find({ eventId: id })
-      .populate<{ studentId: { firstName: string; lastName: string; email: string } }>(
-        "studentId",
-        "firstName lastName email",
-      )
-      .lean<{ studentId: { firstName: string; lastName: string; email: string } }[]>();
-
-    // Delete the event and all its registrations
-        await Notification.deleteMany({ eventId: id });
-    await Event.findByIdAndDelete(id);
-    await Registration.deleteMany({ eventId: id });
-    await Review.deleteMany({ eventId: id });
-    await Bookmark.deleteMany({ eventId: id });
-    await Message.deleteMany({ eventId: id });
-    await Collaboration.deleteMany({ eventId: id });
-    afterCommit(() => { globalThis.io?.in(`event:${id}`).socketsLeave(`event:${id}`); });
-
-    // Persist before commit: notify registered students that the event is cancelled
-    for (const reg of registeredStudents) {
-      const s = reg.studentId;
-      if (!s?.email) continue;
-      await sendEventCancelledEmail(s.email, `${s.firstName} ${s.lastName}`, event.title);
+    if (!await markEventDeleting(id)) {
+      return ApiErrors.notFound("Event"); // a concurrent delete won
+    }
+    globalThis.io?.in(`event:${id}`).socketsLeave(`event:${id}`);
+    try {
+      await finalizeEventDeletion(id);
+    } catch (error) {
+      console.error("Event cleanup deferred to the worker:", error);
     }
 
     return successResponse(null, "Event deleted successfully");
   } catch (error) {
-    rethrowTransient(error);
     console.error("DELETE /api/events/:id error:", error);
     return ApiErrors.internalError();
   }
 }
-
-export const PUT = transactional(putHandler);
-
-export const DELETE = transactional(deleteHandler);

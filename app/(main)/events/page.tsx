@@ -1,5 +1,6 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
 import {
   useState,
   useEffect,
@@ -121,8 +122,6 @@ function BrowseEventsContent({ querySearch, queryCategory }: { querySearch: stri
 
   const hasActiveFilters =
     search || category || status !== "upcoming" || collegeId || isInterCollege;
-  const filterControlClassName =
-    "h-11 w-full rounded-lg border border-input bg-card px-4 text-sm outline-none transition-colors focus:border-primary/40 focus:ring-2 focus:ring-primary/20";
 
   return (
     <div className="page-enter px-4 py-8 sm:px-6">
@@ -140,8 +139,8 @@ function BrowseEventsContent({ querySearch, queryCategory }: { querySearch: stri
           <div className="grid grid-cols-2 gap-3 md:grid-cols-12 md:gap-4">
             <div className="relative col-span-2 md:col-span-3">
               <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                className={`${filterControlClassName} pl-11 pr-4`}
+              <Input
+                className="h-11 rounded-lg pl-11 pr-4"
                 placeholder="Search by title or keyword"
                 type="text"
                 aria-label="Search events by title or keyword"

@@ -1,5 +1,6 @@
 "use client";
 
+import { Input } from "@/components/ui/input";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -32,7 +33,7 @@ export default function AllEventsPage() {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    const params: Record<string, string> = { page: String(page), limit: "20" };
+    const params: Record<string, string> = { page: String(page), limit: "10" };
     if (search) params.search = search;
     dispatch(fetchEvents(params));
   }, [dispatch, page, search]);
@@ -66,8 +67,8 @@ export default function AllEventsPage() {
       <div className="mb-5">
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            className="w-full pl-10 pr-4 h-10 bg-card border border-input rounded-lg outline-none text-sm transition-colors focus:border-primary/40 focus:ring-2 focus:ring-primary/20"
+          <Input
+            className="h-10 rounded-lg pl-10 pr-4"
             placeholder="Search events..."
             value={search}
             onChange={(e) => {

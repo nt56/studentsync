@@ -1,9 +1,9 @@
-import Notification from "@/models/Notification";
 import { canManageEvent } from "@/lib/event-access";
-import { transactional, rethrowTransient, afterCommit } from "@/lib/transaction";
+import { reserveSeat, releaseSeat } from "@/lib/seats";
+import { queueRegistrationEffects, finishCancellation } from "@/lib/registration-effects";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import Event from "@/models/Event";
+import Event, { liveEvent } from "@/models/Event";
 import Registration from "@/models/Registration";
 import { requireAuth } from "@/lib/auth-guard";
 import { successResponse, ApiErrors } from "@/lib/api-response";
@@ -22,12 +22,6 @@ import {
 } from "@/types";
 import { ZodError } from "zod";
 import mongoose from "mongoose";
-import { createNotification } from "@/lib/notifications";
-import {
-  sendRegistrationConfirmedEmail,
-  sendRegistrationCancelledEmail,
-} from "@/lib/email";
-import User from "@/models/User";
 
 /**
  * GET /api/registrations
@@ -70,7 +64,7 @@ export async function GET(request: NextRequest) {
         return ApiErrors.badRequest("Invalid event ID");
       }
 
-      const event = await Event.findById(eventId);
+      const event = await Event.findOne({ _id: eventId, ...liveEvent });
       if (!event) {
         return ApiErrors.notFound("Event");
       }
@@ -101,6 +95,7 @@ export async function GET(request: NextRequest) {
       .limit(limit)
       .populate({
         path: "eventId",
+        match: liveEvent,
         select: "title date endDate timeZone venue status registrationDeadline",
       })
       .populate({
@@ -183,7 +178,6 @@ export async function GET(request: NextRequest) {
       "Registrations retrieved successfully",
     );
   } catch (error) {
-    rethrowTransient(error);
     console.error("GET /api/registrations error:", error);
     if (error instanceof ZodError) {
       return ApiErrors.validationError(formatZodErrors(error));
@@ -196,8 +190,14 @@ export async function GET(request: NextRequest) {
  * POST /api/registrations
  * Register for an event
  * Requires student role
+ *
+ * Standalone-safe seat allocation (no transaction):
+ *   1. atomically reserve a seat (conditional $inc; zero matches means full)
+ *   2. insert the registration (unique {eventId, studentId} index)
+ *   3. if the insert fails, give the seat back
+ * A crash between 1 and 3 is repaired by `reconcileSeats` in the worker.
  */
-async function postHandler(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
     // Check authentication
     const authResult = await requireAuth(["student"]);
@@ -225,8 +225,7 @@ async function postHandler(request: NextRequest) {
     const eventId = new mongoose.Types.ObjectId(validatedData.eventId);
     const studentId = new mongoose.Types.ObjectId(authResult.mongoUserId);
 
-    // Lock this event before counting seats; retries see the winning commit.
-    const event = await Event.findByIdAndUpdate(eventId, { $inc: { mutationVersion: 1 } }, { new: true });
+    const event = await Event.findOne({ _id: eventId, ...liveEvent });
 
     if (!event) {
       return ApiErrors.notFound("Event");
@@ -244,71 +243,44 @@ async function postHandler(request: NextRequest) {
       return ApiErrors.badRequest("Registration deadline has passed");
     }
 
-    // Check if already registered
-    const existingRegistration = await Registration.findOne({
-      eventId,
-      studentId,
-    });
-
-    if (existingRegistration) {
+    // Cheap early exit; the unique index below is the real guard.
+    if (await Registration.exists({ eventId, studentId })) {
       return ApiErrors.badRequest("You are already registered for this event");
     }
 
-    // Check capacity
-    const currentRegistrations = await Registration.countDocuments({ eventId });
-    if (currentRegistrations >= event.capacity) {
+    if (!await reserveSeat(eventId)) {
       return ApiErrors.badRequest("Event has reached maximum capacity");
     }
 
-    // Create registration
-    const registration = await Registration.create({
-      eventId,
-      studentId,
-      registeredAt: new Date(),
-    });
+    let registration;
+    try {
+      registration = await Registration.create({
+        eventId,
+        studentId,
+        registeredAt: new Date(),
+        effectsPending: true,
+      });
+    } catch (error) {
+      // Compensate: the seat was reserved but no registration exists. If this
+      // also fails the counter is one too high until the reconciler repairs it.
+      await releaseSeat(eventId).catch((releaseError) => console.error("Seat release failed; reconciler will repair", releaseError));
+      throw error;
+    }
 
-    // Persist notifications and enqueue email with the registration
-    const eventDate = event.date.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-    await createNotification({
-      userId: authResult.mongoUserId,
-      type: "registration_confirmed",
-      title: "Registration Confirmed!",
-      message: `You're registered for "${event.title}" on ${eventDate}.`,
-      link: `/events/${event._id}`,
-    });
-    await createNotification({
-      userId: event.organizerId.toString(),
-      type: "new_registration",
-      title: "New Registration",
-      message: `A student just registered for "${event.title}".`,
-      link: `/dashboard/manage-events`,
-    });
+    // The event may have been marked for deletion after the seat was reserved.
+    // Its cleanup may already have run, so remove this row rather than orphan it.
+    if (!await Event.exists({ _id: eventId, ...liveEvent })) {
+      await Registration.deleteOne({ _id: registration._id });
+      return ApiErrors.notFound("Event");
+    }
 
-    // Confirmation email to student
-    await User.findById(authResult.mongoUserId)
-      .select("firstName lastName email")
-      .lean<{ firstName: string; lastName: string; email: string }>()
-      .then(async (student) => {
-        if (!student) return;
-        await sendRegistrationConfirmedEmail(
-          student.email,
-          `${student.firstName} ${student.lastName}`,
-          {
-            id: event._id.toString(),
-            title: event.title,
-            date: event.date,
-            endDate: event.endDate,
-            timeZone: event.timeZone,
-            venue: event.venue,
-          },
-        );
-      })
-      ;
+    // The registration is committed. If queueing fails the request still
+    // succeeds: `effectsPending` lets the worker finish the notifications.
+    try {
+      await queueRegistrationEffects(registration._id);
+    } catch (error) {
+      console.error("Registration effects deferred to the worker:", error);
+    }
 
     return successResponse(
       formatRegistrationResponse(registration.toObject() as IRegistration),
@@ -316,7 +288,6 @@ async function postHandler(request: NextRequest) {
       201,
     );
   } catch (error) {
-    rethrowTransient(error);
     console.error("POST /api/registrations error:", error);
 
     // Handle duplicate key error (already registered)
@@ -341,7 +312,7 @@ async function postHandler(request: NextRequest) {
  * Students can cancel their own registrations
  * Organizers can remove registrations from their events
  */
-async function deleteHandler(request: NextRequest) {
+export async function DELETE(request: NextRequest) {
   try {
     // Check authentication
     const authResult = await requireAuth();
@@ -375,7 +346,7 @@ async function deleteHandler(request: NextRequest) {
 
     if (studentId && studentId !== authResult.mongoUserId) {
       if (!mongoose.Types.ObjectId.isValid(studentId)) return ApiErrors.badRequest("Invalid student ID");
-      const event = await Event.findById(eventId);
+      const event = await Event.findOne({ _id: eventId, ...liveEvent });
       if (!event) return ApiErrors.notFound("Event");
       if (!canManageEvent(event, authResult.mongoUserId, authResult.userRole, "edit")) return ApiErrors.forbidden();
       deleteFilter.studentId = new mongoose.Types.ObjectId(studentId);
@@ -383,59 +354,28 @@ async function deleteHandler(request: NextRequest) {
       deleteFilter.studentId = new mongoose.Types.ObjectId(authResult.mongoUserId);
     }
 
-    await Event.updateOne({ _id: eventId }, { $inc: { mutationVersion: 1 } });
-    const result = await Registration.findOneAndDelete(deleteFilter);
+    // Claim the row: exactly one request wins, so a double cancel releases one seat.
+    // Follow-ups and the delete run from the claim, and the worker finishes them
+    // if this request dies, so a crash cannot lose the student's confirmation.
+    const claimed = await Registration.findOneAndUpdate(
+      { ...deleteFilter, cancelling: { $exists: false } },
+      { $set: { cancelling: authResult.userRole === "student" ? "self" : "staff", cancellingAt: new Date() } },
+      { new: true },
+    );
 
-    if (!result) {
+    if (!claimed) {
       return ApiErrors.notFound("Registration");
     }
 
-    await Notification.updateMany({ userId: result.studentId, eventId: result.eventId, type: "event_reminder" }, { $set: { dismissedAt: new Date(), isRead: true } });
-
-    // Existing sockets must lose access when membership is cancelled.
-    if (globalThis.io) {
-      afterCommit(() => { globalThis.io?.in(`user:${result.studentId}`).socketsLeave(`event:${eventId}`); });
-    }
-
-    // Persist before commit: notify organizer + email student on self-cancellation
-    const cancelledEvent = await Event.findById(result.eventId)
-      .select("title organizerId")
-      .lean<{ title: string; organizerId: mongoose.Types.ObjectId }>();
-
-    if (cancelledEvent && authResult.userRole === "student") {
-      await createNotification({
-        userId: cancelledEvent.organizerId.toString(),
-        type: "registration_cancelled",
-        title: "Registration Cancelled",
-        message: `A student cancelled their registration for "${cancelledEvent.title}".`,
-        link: `/dashboard/manage-events`,
-      });
-
-      // Email the student confirming their cancellation
-      const cancelledStudentId =
-        deleteFilter.studentId?.toString() ?? authResult.mongoUserId;
-      await User.findById(cancelledStudentId)
-        .select("firstName lastName email")
-        .lean<{ firstName: string; lastName: string; email: string }>()
-        .then(async (student) => {
-          if (!student) return;
-          await sendRegistrationCancelledEmail(
-            student.email,
-            `${student.firstName} ${student.lastName}`,
-            cancelledEvent.title,
-          );
-        })
-        ;
+    try {
+      await finishCancellation(claimed._id);
+    } catch (error) {
+      console.error("Cancellation deferred to the worker:", error);
     }
 
     return successResponse(null, "Registration cancelled successfully");
   } catch (error) {
-    rethrowTransient(error);
     console.error("DELETE /api/registrations error:", error);
     return ApiErrors.internalError();
   }
 }
-
-export const POST = transactional(postHandler);
-
-export const DELETE = transactional(deleteHandler);

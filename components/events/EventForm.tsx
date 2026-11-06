@@ -44,6 +44,9 @@ import {
   Globe2,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { DateTimePicker } from "@/components/ui/date-picker";
+import { TimeZoneSelect } from "@/components/ui/timezone-select";
+import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import type { EventItem } from "@/store/slices/eventsSlice";
@@ -232,8 +235,8 @@ export default function EventForm({
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
           <div className="grid gap-4 sm:grid-cols-2">
-            <FormField control={form.control} name="timeZone" render={({ field }) => <FormItem><FormLabel>Event timezone</FormLabel><FormControl><Input {...field} placeholder="Asia/Kolkata" /></FormControl><p className="text-xs text-muted-foreground">All times below use this IANA timezone.</p><FormMessage /></FormItem>} />
-            <FormField control={form.control} name="endDate" render={({ field }) => <FormItem><FormLabel>Event end</FormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>} />
+            <FormField control={form.control} name="timeZone" render={({ field }) => <FormItem><FormLabel>Event timezone</FormLabel><FormControl><TimeZoneSelect value={field.value} onChange={field.onChange} /></FormControl><p className="text-xs text-muted-foreground">All times below use this IANA timezone.</p><FormMessage /></FormItem>} />
+            <FormField control={form.control} name="endDate" render={({ field }) => <FormItem><FormLabel>Event end</FormLabel><FormControl><DateTimePicker value={field.value} onChange={field.onChange} placeholder="Pick end date & time" /></FormControl><FormMessage /></FormItem>} />
           </div>
           {/* Title */}
           <FormField
@@ -282,10 +285,10 @@ export default function EventForm({
 
           {/* Event Image */}
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium mb-2">
+            <Label className="mb-2">
               <ImagePlus className="h-4 w-4 text-primary" />
               Event Image
-            </label>
+            </Label>
             {imageUrl ? (
               <div className="relative w-full h-56 rounded-lg overflow-hidden border border-input">
                 <Image
@@ -323,7 +326,7 @@ export default function EventForm({
                 )}
               </button>
             )}
-            <input
+            <Input
               ref={imageInputRef}
               type="file"
               accept="image/jpeg,image/png,image/webp,image/gif"
@@ -344,10 +347,10 @@ export default function EventForm({
                     Event Date & Time <span className="text-red-500">*</span>
                   </FormLabel>
                   <FormControl>
-                    <Input
-                      type="datetime-local"
+                    <DateTimePicker
+                      value={field.value}
+                      onChange={field.onChange}
                       className="bg-secondary border-none"
-                      {...field}
                     />
                   </FormControl>
                   <FormMessage />
@@ -365,10 +368,10 @@ export default function EventForm({
                     <span className="text-red-500">*</span>
                   </FormLabel>
                   <FormControl>
-                    <Input
-                      type="datetime-local"
+                    <DateTimePicker
+                      value={field.value}
+                      onChange={field.onChange}
                       className="bg-secondary border-none"
-                      {...field}
                     />
                   </FormControl>
                   <FormMessage />
@@ -425,13 +428,13 @@ export default function EventForm({
 
           {/* Location Picker */}
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium mb-3">
+            <Label className="mb-3">
               <MapPin className="h-4 w-4 text-primary" />
               Event Location on Map
               <span className="text-muted-foreground font-normal text-xs">
                 (optional)
               </span>
-            </label>
+            </Label>
             <LocationPicker
               latitude={pickedCoords?.lat}
               longitude={pickedCoords?.lng}

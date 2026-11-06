@@ -2,7 +2,7 @@ import { canManageEvent } from "@/lib/event-access";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import Registration from "@/models/Registration";
-import Event from "@/models/Event";
+import Event, { liveEvent } from "@/models/Event";
 import { requireAuth } from "@/lib/auth-guard";
 import { successResponse, ApiErrors, errorResponse } from "@/lib/api-response";
 import { verifyQrToken, type QrPayload } from "@/lib/qr";
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     // AUTHORIZATION: only the organizer who owns this event (or an admin) may
     // check attendees in. Without this, any organizer could check in attendees
     // for events they don't run.
-    const event = await Event.findById(registration.eventId)
+    const event = await Event.findOne({ _id: registration.eventId, ...liveEvent })
       .select("organizerId staff")
       .lean();
     if (!event) return ApiErrors.notFound("Event");

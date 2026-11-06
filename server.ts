@@ -60,16 +60,12 @@ async function main() {
   // Durable jobs are stored before the API returns. A lease prevents two server
   // instances from claiming the same job; interrupted jobs become available again.
   if (process.env.OUTBOX_WORKER_ENABLED !== "false") {
-    const { processOutbox } = await import("./lib/outbox");
-    const { materializeReminders } = await import("./lib/reminders");
+    const { runWorkerPass } = await import("./lib/worker");
     let workerBusy = false;
     const timer = setInterval(async () => {
       if (workerBusy) return;
       workerBusy = true;
-      try { await materializeReminders(); }
-      catch (error) { console.error("Reminder worker failed", error); }
-      try { await processOutbox(); }
-      catch (error) { console.error("Email worker failed", error); }
+      try { await runWorkerPass(); }
       finally { workerBusy = false; }
     }, 15_000);
     timer.unref();

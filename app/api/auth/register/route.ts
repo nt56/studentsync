@@ -9,7 +9,7 @@ import {
   formatZodErrors,
   ApiErrors,
 } from "@/lib/api-response";
-import { notifyAdmins } from "@/lib/notifications";
+import { isDuplicateKeyError, notifyAdmins } from "@/lib/notifications";
 import { enforceRateLimit, clientIp } from "@/lib/rate-limit";
 
 /**
@@ -95,6 +95,7 @@ export async function POST(request: NextRequest) {
     // Check if MongoDB user already exists (edge case)
     const existingUser = await User.findOne({ email });
     if (!existingUser) {
+      // requireAuth may provision the same profile concurrently; either row is fine.
       await User.create({
         firstName,
         lastName,
@@ -105,13 +106,16 @@ export async function POST(request: NextRequest) {
         role: "student", // ALWAYS student on registration
         collegeId: collegeId || undefined,
         authUserId: authData.user?.id,
+      }).catch((error: unknown) => {
+        if (!isDuplicateKeyError(error)) throw error;
       });
     }
 
     // Welcome email is sent by the Better Auth `databaseHooks.user.create.after`
     // hook (see lib/auth.ts) so that OAuth signups are covered too — don't send
     // it here as well or email/password users would receive it twice.
-    notifyAdmins({
+    await notifyAdmins({
+      dedupeKey: `user:${authData.user?.id}:created`,
       type: "new_user",
       title: "New User Registered",
       message: `${firstName} ${lastName} (${email}) just joined as a student.`,

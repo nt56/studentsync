@@ -54,7 +54,7 @@ export default function CollegeManagementPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    dispatch(fetchColleges({ page: String(page), limit: "20", search })).unwrap().then((result) => {
+    dispatch(fetchColleges({ page: String(page), limit: "10", search })).unwrap().then((result) => {
       if (result.pagination && page > Math.max(1, result.pagination.totalPages)) setPage(Math.max(1, result.pagination.totalPages));
     }).catch(() => {});
   }, [dispatch, page, search]);
@@ -100,7 +100,7 @@ export default function CollegeManagementPage() {
         await dispatch(createCollege(data)).unwrap();
         toast.success("College created");
       }
-      dispatch(fetchColleges({ page: String(page), limit: "20", search }));
+      dispatch(fetchColleges({ page: String(page), limit: "10", search }));
       setFormOpen(false);
     } catch {
       toast.error("Operation failed");
@@ -115,7 +115,7 @@ export default function CollegeManagementPage() {
     try {
       await dispatch(deleteCollege(deleteTarget)).unwrap();
       toast.success("College deleted");
-      const result = await dispatch(fetchColleges({ page: String(page), limit: "20", search })).unwrap();
+      const result = await dispatch(fetchColleges({ page: String(page), limit: "10", search })).unwrap();
       if (page > Math.max(1, result.pagination.totalPages)) setPage(Math.max(1, result.pagination.totalPages));
     } catch {
       toast.error("Failed to delete college");
@@ -148,8 +148,8 @@ export default function CollegeManagementPage() {
       <div className="mb-5">
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            className="w-full pl-10 pr-4 h-10 bg-card border border-input rounded-lg outline-none text-sm transition-colors focus:border-primary/40 focus:ring-2 focus:ring-primary/20"
+          <Input
+            className="h-10 rounded-lg pl-10 pr-4"
             aria-label="Search all colleges" placeholder="Search colleges..."
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}

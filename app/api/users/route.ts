@@ -104,7 +104,7 @@ export async function PUT(request: NextRequest) {
     let user = await User.findOne({ email: authResult.userEmail });
 
     if (!user) {
-      // Create user profile if it doesn't exist
+      // Create user profile if it doesn't exist (requireAuth normally already did)
       user = await User.create({
         firstName: authResult.session.user.name?.split(" ")[0] || "User",
         lastName:

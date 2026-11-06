@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    # A throwaway plain mongod, the same shape as production (no replica set).
+    # It exists only for this job and is not the project's database.
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'quit(db.adminCommand({ping:1}).ok ? 0 : 1)'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      # The integration runner uses the service container instead of downloading mongod.
+      MONGOMS_DISABLE_POSTINSTALL: "1"
+      INTEGRATION_MONGODB_URI: mongodb://127.0.0.1:27017/studentsync_integration_ci
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Unit and contract tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+        env:
+          # Placeholder only; the build never connects.
+          MONGODB_URI: mongodb://placeholder:27017/studentsync
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+
+      - name: Integration tests (plain mongod)
+        run: npm run test:integration

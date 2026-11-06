@@ -31,7 +31,7 @@ export const additionalPaths: Record<string, Record<string, unknown>> = {
   "/api/events/{id}/attendance": { get: operation("Attendance totals and attendee rows; event staff or admin") },
   "/api/events/{id}/ics": { get: operation("Download calendar entry using actual event end time", false, { responses: { "200": { description: "Calendar file", content: { "text/calendar": { schema: string } } }, "404": { description: "Event not found" } } }) },
   "/api/events/{id}/reviews": {
-    get: operation("List event reviews", false),
+    get: operation("List event reviews", false, { responses: { "200": { description: "Reviews" }, "404": { description: "Event is being deleted" } } }),
     post: operation("Registered student reviews a completed event", true, { requestBody: body(object({ rating: { type: "integer", minimum: 1, maximum: 5 }, comment: { type: "string", maxLength: 500 } }, ["rating"])), responses: { "201": { description: "Review created" }, "400": { description: "Invalid review or unfinished event" }, "403": { description: "Registration required" }, "409": { description: "Already reviewed" } } }),
   },
   "/api/reviews/{reviewId}": { delete: operation("Delete a review and recalculate ratings; author or admin") },
@@ -44,7 +44,6 @@ export const additionalPaths: Record<string, Record<string, unknown>> = {
     put: operation("Save reminder and nonessential email preferences", true, { requestBody: body(object({ reminders: boolean, email: boolean })) }),
   },
   "/api/docs": { get: operation("Read this OpenAPI specification", false) },
-  "/api/test-email": { get: operation("Send a diagnostic email; admin only") },
 };
 for (const [path, methods] of Object.entries(additionalPaths)) {
   const parameters = [...path.matchAll(/\{([^}]+)\}/g)].map((match) => ({ name: match[1], in: "path", required: true, schema: string }));

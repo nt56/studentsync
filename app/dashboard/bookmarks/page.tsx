@@ -17,7 +17,7 @@ export default function BookmarksPage() {
   const { items, pagination, isLoading, initialized, revision, error } = useAppSelector((s) => s.bookmarks);
 
   useEffect(() => {
-    dispatch(fetchBookmarks({ page: String(page), limit: "12" })).unwrap().then((result) => {
+    dispatch(fetchBookmarks({ page: String(page), limit: "10" })).unwrap().then((result) => {
       if (result.pagination && page > Math.max(1, result.pagination.totalPages)) setPage(Math.max(1, result.pagination.totalPages));
     }).catch(() => {});
   }, [dispatch, page, revision]);

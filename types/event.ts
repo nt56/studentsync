@@ -1,5 +1,6 @@
 import { Types } from "mongoose";
 import { eventEnd } from "@/lib/event-time";
+import type { EventResponse as ContractEventResponse } from "@/lib/contracts";
 
 export type EventStatus = "upcoming" | "closed" | "completed";
 
@@ -38,33 +39,8 @@ export interface IEvent {
   updatedAt: Date;
 }
 
-export interface EventResponse {
-  id: string;
-  title: string;
-  description: string;
-  date: string;
-  endDate?: string;
-  timeZone?: string;
-  permissions?: string[];
-  venue: string;
-  organizerId: string;
-  collegeId: string;
-  registrationDeadline: string;
-  capacity: number;
-  status: EventStatus;
-  category: EventCategory;
-  image?: string;
-  latitude?: number | null;
-  longitude?: number | null;
-  averageRating?: number;
-  reviewCount?: number;
-  isInterCollege?: boolean;
-  partnerCollegeIds?: string[];
-  registrationCount?: number;
-  isRegistered?: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
+/** Derived from the shared contract in lib/contracts so web, tests and mobile agree. */
+export type EventResponse = ContractEventResponse;
 
 export function computeEventStatus(event: Pick<IEvent, "date" | "registrationDeadline" | "endDate">): EventStatus {
   const now = new Date();

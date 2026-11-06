@@ -42,10 +42,6 @@ const swaggerSpec = {
       description: "File upload (Cloudinary)",
     },
     {
-      name: "Health",
-      description: "Health check endpoints",
-    },
-    {
       name: "Chat",
       description:
         "Event-scoped real-time chat rooms. Each event has one chat room. Reading, posting, and joining rooms require a registered participant, event staff, or an admin. Socket connections require a valid session.\n\n**WebSocket events** (Socket.IO path: `/api/socket`):\n\n| Event | Direction | Payload | Notes |\n|---|---|---|---|\n| `join-room` | Client → Server | `{ eventId }` | Subscribe to room `event:{id}` |\n| `leave-room` | Client → Server | `{ eventId }` | Unsubscribe from room |\n| `user-typing` | Client → Server | `{ eventId }` | Authenticated name relayed to other room members |\n| `new-message` | Server → Client | `{ message }` | Broadcast after POST send |\n| `message-deleted` | Server → Client | `{ messageId }` | Broadcast after DELETE |\n| `user-typing` | Server → Client | `{ eventId, user }` | Typing relay |\n\n**Infrastructure:** Socket.IO server in `server.ts` with Upstash Redis adapter (`@socket.io/redis-adapter`) for horizontal scaling.",
@@ -2933,36 +2929,6 @@ const swaggerSpec = {
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/ErrorResponse" },
-              },
-            },
-          },
-        },
-      },
-    },
-
-    // ═══════════════════════════════════════════════════════
-    //  HEALTH
-    // ═══════════════════════════════════════════════════════
-    "/api/test-db": {
-      get: {
-        tags: ["Health"],
-        summary: "Test DB connection",
-        description:
-          "Simple health-check that connects to MongoDB and returns success.",
-        responses: {
-          "200": {
-            description: "DB connected",
-            content: {
-              "application/json": {
-                schema: {
-                  type: "object",
-                  properties: {
-                    message: {
-                      type: "string",
-                      example: "DB connected successfully",
-                    },
-                  },
-                },
               },
             },
           },

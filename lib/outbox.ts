@@ -8,10 +8,21 @@ export interface EmailJob {
   subject: string;
   htmlContent: string;
   essential?: boolean;
+  /** Deterministic key for this logical email. A repeat is a no-op ("already queued"). */
+  dedupeKey?: string;
 }
 export async function enqueueEmail(job: EmailJob) {
   await connectDB();
-  await Outbox.create(job);
+  if (!job.dedupeKey) {
+    await Outbox.create(job);
+    return;
+  }
+  try {
+    await Outbox.updateOne({ dedupeKey: job.dedupeKey }, { $setOnInsert: job }, { upsert: true });
+  } catch (error) {
+    // A concurrent writer inserted the same key first, which is exactly "already queued".
+    if (!(error && typeof error === "object" && "code" in error && error.code === 11000)) throw error;
+  }
 }
 
 export async function deliverEmail(job: EmailJob) {

@@ -9,6 +9,11 @@ import { authService } from "@/services/authService";
 import { uploadService } from "@/services/uploadService";
 import { ProfileSkeleton } from "@/components/common/Skeletons";
 import { RoleBadge } from "@/components/common/Badges";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Select,
   SelectContent,
@@ -279,7 +284,7 @@ export default function ProfilePage() {
                 <Camera className="h-6 w-6 text-white" />
               )}
             </button>
-            <input
+            <Input
               ref={fileInputRef}
               type="file"
               accept="image/jpeg,image/png,image/webp,image/gif"
@@ -321,42 +326,40 @@ export default function ProfilePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* First Name */}
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground">
+              <Label className="font-semibold">
                 First Name <span className="text-red-500">*</span>
-              </label>
-              <input
+              </Label>
+              <Input
                 type="text"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                className="w-full rounded-lg border border-input bg-transparent py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
               />
             </div>
 
             {/* Last Name */}
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground">
+              <Label className="font-semibold">
                 Last Name <span className="text-red-500">*</span>
-              </label>
-              <input
+              </Label>
+              <Input
                 type="text"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                className="w-full rounded-lg border border-input bg-transparent py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
               />
             </div>
 
             {/* Email (Read Only) */}
             <div className="space-y-2 group relative">
-              <label className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+              <Label className="font-semibold gap-1.5">
                 <Mail className="h-3.5 w-3.5" />
                 Email Address
                 <Lock className="h-3 w-3 text-muted-foreground" />
-              </label>
-              <input
+              </Label>
+              <Input
                 type="email"
                 readOnly
                 value={user?.email || ""}
-                className="w-full rounded-lg border border-input bg-muted py-2.5 px-3 text-sm text-muted-foreground cursor-not-allowed"
+                className="bg-muted text-muted-foreground cursor-not-allowed"
               />
               <p className="text-[11px] text-muted-foreground">
                 Email cannot be changed. Contact support if needed.
@@ -365,24 +368,23 @@ export default function ProfilePage() {
 
             {/* Phone */}
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+              <Label className="font-semibold gap-1.5">
                 <Phone className="h-3.5 w-3.5" />
                 Phone Number
-              </label>
-              <input
+              </Label>
+              <Input
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+1 (555) 000-0000"
-                className="w-full rounded-lg border border-input bg-transparent py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
               />
             </div>
 
             {/* Gender */}
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground">
+              <Label className="font-semibold">
                 Gender
-              </label>
+              </Label>
               <Select
                 value={gender || EMPTY_GENDER_VALUE}
                 onValueChange={(value) =>
@@ -408,29 +410,29 @@ export default function ProfilePage() {
 
             {/* Date of Birth */}
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+              <Label className="font-semibold gap-1.5">
                 <Calendar className="h-3.5 w-3.5" />
                 Date of Birth
-              </label>
-              <input
-                type="date"
+              </Label>
+              <DatePicker
                 value={dateOfBirth}
-                onChange={(e) => setDateOfBirth(e.target.value)}
+                onChange={setDateOfBirth}
+                captionLayout="dropdown"
                 max={
                   new Date(Date.now() - 16 * 365.25 * 24 * 60 * 60 * 1000)
                     .toISOString()
                     .split("T")[0]
                 }
-                className="w-full rounded-lg border border-input bg-card py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                placeholder="Select date of birth"
               />
             </div>
 
             {/* College Affiliation */}
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+              <Label className="font-semibold gap-1.5">
                 <School className="h-3.5 w-3.5" />
                 College Affiliation
-              </label>
+              </Label>
               <Select
                 value={collegeId || EMPTY_COLLEGE_VALUE}
                 onValueChange={(value) =>
@@ -463,12 +465,12 @@ export default function ProfilePage() {
 
             {/* Role (display only) */}
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+              <Label className="font-semibold gap-1.5">
                 <Shield className="h-3.5 w-3.5" />
                 Account Role
                 <Lock className="h-3 w-3 text-muted-foreground" />
-              </label>
-              <input
+              </Label>
+              <Input
                 type="text"
                 readOnly
                 value={
@@ -476,21 +478,21 @@ export default function ProfilePage() {
                     ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
                     : "Student"
                 }
-                className="w-full rounded-lg border border-input bg-muted py-2.5 px-3 text-sm text-muted-foreground cursor-not-allowed"
+                className="bg-muted text-muted-foreground cursor-not-allowed"
               />
             </div>
 
             {/* Bio */}
             <div className="md:col-span-2 space-y-2">
-              <label className="text-sm font-semibold text-foreground">
+              <Label className="font-semibold">
                 Biography
-              </label>
-              <textarea
+              </Label>
+              <Textarea
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
                 rows={4}
                 placeholder="Tell us about your interests, what you're studying..."
-                className="w-full rounded-lg border border-input bg-card py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none resize-none transition-all"
+                className="resize-none"
               />
               <p className="text-[11px] text-muted-foreground">
                 A brief bio helps you connect at events.
@@ -501,17 +503,10 @@ export default function ProfilePage() {
 
         {/* Save / Discard */}
         <div className="p-6 bg-muted/30 flex justify-end gap-3 rounded-b-xl border-t border-border">
-          <button
-            onClick={handleDiscard}
-            className="px-6 py-2.5 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
-          >
+          <Button variant="ghost" onClick={handleDiscard}>
             Discard
-          </button>
-          <button
-            onClick={handleProfileSave}
-            disabled={saving}
-            className="px-6 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
-          >
+          </Button>
+          <Button onClick={handleProfileSave} disabled={saving}>
             {saving ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -520,7 +515,7 @@ export default function ProfilePage() {
             ) : (
               "Save Changes"
             )}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -539,39 +534,36 @@ export default function ProfilePage() {
         <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground">
+              <Label className="font-semibold">
                 Current Password
-              </label>
-              <input
+              </Label>
+              <Input
                 type="password"
                 placeholder="••••••••"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
-                className="w-full rounded-lg border border-input bg-transparent py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground">
+              <Label className="font-semibold">
                 New Password
-              </label>
-              <input
+              </Label>
+              <Input
                 type="password"
                 placeholder="••••••••"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full rounded-lg border border-input bg-transparent py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground">
+              <Label className="font-semibold">
                 Confirm New Password
-              </label>
-              <input
+              </Label>
+              <Input
                 type="password"
                 placeholder="••••••••"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full rounded-lg border border-input bg-transparent py-2.5 px-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
               />
             </div>
           </div>
@@ -587,12 +579,11 @@ export default function ProfilePage() {
         </div>
 
         <div className="p-6 bg-muted/30 flex justify-end rounded-b-xl border-t border-border">
-          <button
+          <Button
             onClick={handlePasswordChange}
             disabled={
               changingPw || !currentPassword || !newPassword || !confirmPassword
             }
-            className="px-6 py-2.5 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2"
           >
             {changingPw ? (
               <>
@@ -602,7 +593,7 @@ export default function ProfilePage() {
             ) : (
               "Update Password"
             )}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -617,14 +608,15 @@ export default function ProfilePage() {
             history will be removed.
           </p>
         </div>
-        <button
-          className="px-5 py-2.5 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 rounded-lg text-sm font-semibold hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors whitespace-nowrap"
+        <Button
+          variant="outline"
+          className="border-red-200 text-red-600 hover:bg-red-100 hover:text-red-600 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/40"
           onClick={() =>
             toast.info("Account deactivation is not available yet.")
           }
         >
           Deactivate
-        </button>
+        </Button>
       </div>
     </div>
   );

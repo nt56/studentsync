@@ -1,5 +1,6 @@
 "use client";
 
+import { Textarea } from "@/components/ui/textarea";
 import { useState, useRef, type KeyboardEvent, type ChangeEvent } from "react";
 import { Send, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -48,7 +49,7 @@ export function ChatInput({
 
   return (
     <div className="flex items-end gap-2 p-3 border-t border-border bg-card">
-      <textarea
+      <Textarea
         ref={textareaRef}
         value={value}
         onChange={handleChange}
@@ -60,11 +61,8 @@ export function ChatInput({
         rows={1}
         maxLength={1000}
         className={cn(
-          "flex-1 resize-none rounded-xl border border-input",
-          "bg-secondary px-3.5 py-2.5 text-sm",
-          "text-foreground placeholder:text-muted-foreground",
-          "focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary",
-          "min-h-[40px] max-h-[120px] transition-all",
+          "flex-1 resize-none bg-secondary px-3.5 py-2.5 text-sm shadow-none",
+          "min-h-[40px] max-h-[120px]",
           disabled && "opacity-50 cursor-not-allowed",
         )}
       />

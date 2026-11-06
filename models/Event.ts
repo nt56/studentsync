@@ -2,7 +2,15 @@ import { Schema, models, model } from "mongoose";
 
 const EventSchema = new Schema(
   {
-    mutationVersion: { type: Number, default: 0 },
+    // Seats taken. Only changed by the atomic helpers in lib/seats.ts.
+    registeredCount: { type: Number, default: 0, min: 0 },
+    // Last seat change; the reconciler only repairs counts that have been quiet.
+    seatsTouchedAt: { type: Date },
+    // Set before deletion starts; every user-facing query hides the event.
+    deleting: { type: Boolean },
+    deletingAt: { type: Date },
+    // Set atomically with an edit until attendees' update emails are queued.
+    updateNotice: { _id: false, type: { key: String, at: Date } },
     endDate: { type: Date },
     timeZone: { type: String, default: "UTC" },
     staff: [{
@@ -123,6 +131,11 @@ EventSchema.index({ date: 1, status: 1 });
 EventSchema.index({ collegeId: 1, status: 1 });
 EventSchema.index({ organizerId: 1 });
 EventSchema.index({ title: "text", description: "text" });
+EventSchema.index({ deleting: 1 }, { sparse: true });
+EventSchema.index({ "updateNotice.at": 1 }, { sparse: true });
 
 const Event = models.Event || model("Event", EventSchema);
 export default Event;
+
+/** Spread into any user-facing Event filter so events being deleted stay hidden. */
+export const liveEvent = { deleting: { $ne: true } } as const;

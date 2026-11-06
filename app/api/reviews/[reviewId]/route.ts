@@ -1,7 +1,6 @@
-import { transactional, rethrowTransient } from "@/lib/transaction";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import Event from "@/models/Event";
+import { refreshReviewStats } from "@/lib/review-stats";
 import Review from "@/models/Review";
 import { requireAuth } from "@/lib/auth-guard";
 import { successResponse, ApiErrors } from "@/lib/api-response";
@@ -15,7 +14,7 @@ interface RouteParams {
  * DELETE /api/reviews/:reviewId
  * Delete a review — owner (student) or admin only
  */
-async function mutationHandler(_req: NextRequest, { params }: RouteParams) {
+export async function DELETE(_req: NextRequest, { params }: RouteParams) {
   try {
     const { reviewId } = await params;
 
@@ -41,27 +40,14 @@ async function mutationHandler(_req: NextRequest, { params }: RouteParams) {
     }
 
     const eventId = review.eventId.toString();
-    await Event.updateOne({ _id: eventId }, { $inc: { mutationVersion: 1 } });
     await review.deleteOne();
 
-    // Recalculate denormalized stats on the event
-    const agg = await Review.aggregate([
-      { $match: { eventId: new mongoose.Types.ObjectId(eventId) } },
-      { $group: { _id: null, avg: { $avg: "$rating" }, count: { $sum: 1 } } },
-    ]);
-
-    const { avg = 0, count = 0 } = agg[0] ?? {};
-    await Event.findByIdAndUpdate(eventId, {
-      averageRating: count > 0 ? Math.round(avg * 10) / 10 : 0,
-      reviewCount: count,
-    });
+    // Denormalized totals; the worker repairs them if this step is interrupted.
+    await refreshReviewStats(eventId);
 
     return successResponse(null, "Review deleted successfully");
   } catch (error) {
-    rethrowTransient(error);
     console.error("DELETE /api/reviews/:reviewId error:", error);
     return ApiErrors.internalError();
   }
 }
-
-export const DELETE = transactional(mutationHandler);

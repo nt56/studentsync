@@ -1,191 +1,133 @@
-# StudentSync: next phase and learning roadmap
+# StudentSync: roadmap
 
-Reviewed: October 3, 2026. This roadmap combines implemented foundations and future proposals. The code includes transactional mutations, isolated database tests, pagination/totals, persistent reminders and preferences, an email outbox, staff permissions, and event end/timezone fields. Read [OPERATIONS.md](OPERATIONS.md) for runtime requirements and [API_CONTRACT.md](API_CONTRACT.md) for API behavior. CI and the additional product features below remain proposals.
+Updated November 5, 2026. This is a personal learning project, so the plan stays small. Each feature must solve a concrete problem for a **student**, **organizer**, or **admin**, and every phase ships one working user journey before the next starts. [OPERATIONS.md](OPERATIONS.md) describes how to run the app. [API_CONTRACT.md](API_CONTRACT.md) describes API behavior.
 
-## Readiness review — October 3, 2026
+## Project constraints
 
-**Verdict: ready to begin a small next feature, with a database compatibility condition; not yet verified for release.** Start with attendee CSV export or event duplication. Waitlists should follow fresh verification of capacity and transaction behavior.
-
-- **Database scope:** one application database; no backup database, restored copy, or secondary MongoDB members requested. The existing Compose configuration uses one MongoDB instance in single-member replica-set mode. This has no second data copy. If even that mode is excluded, standalone support is a prerequisite backend redesign: current mutation routes depend on multi-document transactions.
-- **Checked in this review:** all 12 regression/contract tests passed; ESLint, TypeScript, and the production build passed. The build used a separate output folder and an unreachable placeholder MongoDB URI, so it did not require the existing database. OpenAPI coverage checks route/method presence, not every response payload.
-- **Runtime verification:** the integration suite was not run because it starts an additional temporary database with synthetic data. The existing database topology and live user journeys were not checked. Historical implementation claims below are not fresh runtime verification.
-- **Automation gap:** no `.github/workflows` directory exists. CI remains unfinished; begin with lint, types, unit/contract tests, and build. The existing integration runner requires a temporary test database, so it cannot be included under a strict no-additional-database constraint.
-- **Older references:** `DOCKER.md` is marked historical; `.agent/` still contains older model counts and API descriptions. Use the current code, API contract, and operations guide when those references disagree.
-- **Documentation decision:** keep both `API_CONTRACT.md` (API inputs, outputs, permissions) and `OPERATIONS.md` (runtime, worker, optional maintenance). Removed backup/restore prerequisites and references to missing project documents. Existing deletions of `CODEBASE_REVIEW.md` and `documents/README.md` were preserved.
-
-Before releasing the next feature, verify its authorization and full user journey, resolve the database compatibility condition, and rerun the checks after implementation. No database was created, copied, migrated, or repaired during this review.
+- **One standalone MongoDB (plain `mongod`), no replica set, no transactions.** No backup database, secondary member, or second copy of the data. Phase 0 removed all transaction code. **Do not add code that needs `startSession` or transactions.**
+- **Web first, mobile follows.** The Expo app in `student-synch-mobile` consumes this API. Every feature ships its API and web UI first. A "Mobile follows" line marks the student-facing parts to add afterwards. The mobile repo has its own plan in its `docs/NEXT_PHASE.md`. Its waitlist row says "transactional backend queue", which Phase 2 below replaces.
+- **Organizer mobile comes after the student mobile release. Admin stays web-only.**
 
 ## Where the project stands
 
-StudentSync already goes well beyond its original MVP. The code includes:
-
 | Area | Existing functionality |
 | --- | --- |
-| Accounts | Email/password, Google/GitHub sign-in, verification, password reset, profiles, student/organizer/admin permissions |
-| Discovery | Text search, category/status/college filters, inter-college events, event details, maps |
+| Accounts | Email/password, Google/GitHub sign-in, verification, password reset, profiles, student/organizer/admin roles |
+| Discovery | Text search, category/status/college filters, inter-college events, maps |
 | Participation | Registration/cancellation, saved events, QR tickets, organizer check-in, attendance lists |
-| Community | Event chat with typing indicators, reviews/ratings, collaboration invitations |
-| Organizer/admin | Event creation and editing, role-based dashboards, user roles, college verification, analytics |
-| Communication | Transactional email, polled in-app notifications, persistent reminders, sharing links, Google Calendar links and ICS downloads |
-| Infrastructure | Next.js custom Node server, MongoDB, optional Redis, Cloudinary uploads, Docker, contract-tested OpenAPI route coverage |
+| Community | Event chat, reviews/ratings, collaboration invitations, event staff (editor / volunteer) |
+| Organizer/admin | Event create/edit, dashboards, user roles, college verification, analytics |
+| Communication | Email outbox with retries, polled in-app notifications, persistent 48-hour reminders, preferences, ICS/Google Calendar links |
+| Quality | 15 unit/contract tests (including OpenAPI route coverage), an HTTP integration suite with seat races and fault injection on a plain `mongod`, shared Zod response contracts, and a CI workflow |
+| Mobile (separate repo) | Auth, events, bookmarks, tickets, chat, reviews, local reminders |
 
-This document is the current feature plan, with learning outcomes, dependencies, and completion criteria. A separate mobile app is not present in this repository.
+**Not done yet:** contracts for the remaining responses (users, colleges, notifications, analytics), wiring the shared contracts into the mobile repo, and everything in Phases 1–5.
 
-## Recommended order
+**Last verified:** November 5, 2026. `npm test` (15/15), `npm run test:integration` (22 sections, plain `mongod`, both in-memory and through `INTEGRATION_MONGODB_URI`), `npm run lint`, `npx tsc --noEmit`, and `npm run build` pass locally. The upgrade from `rs0` data files, `db:backfill-seats`, `worker --once`, and `db:audit` were run on a real `mongod` 7.0.14. Not exercised: the GitHub Actions workflow on GitHub (the file parses), the Compose stacks (`docker compose config` passes; the Docker daemon was off), and a real production database.
 
-1. **Automate the completed reliability foundation:** run the existing lint, type, regression, integration, and build checks in CI.
-2. **Small feature with visible value:** attendee CSV exports and event duplication.
-3. **First substantial feature:** waitlists, built on reliable capacity handling.
-4. **Extend background processing:** separate reminder schedules, organizer announcements, and a delivery-log UI.
-5. **Organizer flexibility:** custom registration questions, drafts, and team registration.
-6. **Discovery and mobile:** recommendations, accessible saved searches, and PWA/offline tickets.
+## Phase 0 — Standalone-safe foundation (prerequisite)
 
-This sequence teaches increasingly difficult concepts while reusing what you already built. Choose one milestone at a time; each should ship with a working user journey.
+**Status:** implemented November 5, 2026. See the verification note above for what has not been exercised yet. [OPERATIONS.md](OPERATIONS.md) describes the result.
 
-## Phase A — Make existing flows dependable
+**Why:** 14 mutation routes ran inside MongoDB transactions through `lib/transaction.ts`, and a standalone server rejects those. Seat capacity is the critical case. The same atomicity must come from single-document operations, which MongoDB guarantees on a standalone server.
 
-### A1. Prevent overbooking and make related writes consistent (implemented)
+| Step | Change | Standalone-safe technique |
+| --- | --- | --- |
+| 0.1 Seats | Add `registeredCount` to `Event` (and `heldCount` later for waitlist offers). Backfill it with a one-off script. | Reserve with `updateOne({ _id, registeredCount: { $lt: capacity } }, { $inc: { registeredCount: 1 } })`. Zero matches means full. Then insert the registration (unique `{eventId, studentId}` index). If the insert fails, `$inc` back by 1. Cancel only decrements when `deleteOne` actually removed a row. Lowering capacity uses `{ registeredCount: { $lte: newCapacity } }` as the condition. |
+| 0.2 Side effects | Notifications and email jobs get a deterministic `dedupeKey` with a unique index. | Write them after the main write. A duplicate-key error on retry means "already queued". The worker re-creates missing keys for recent registrations, so a crash between the two writes loses nothing. |
+| 0.3 Multi-step writes | Event deletion, role/account changes, collaboration accept. | Event deletion marks the event `deleting` (hidden from every query), then the worker removes children and finally the event, idempotently. Collaboration accept claims `pending→accepted` with a conditional update, then `$addToSet` to staff. Role changes write Better Auth and the app profile in a fixed order and are safe to retry. `db:audit` detects mismatches. |
+| 0.4 Cleanup | Delete `lib/transaction.ts`, `mutationVersion`, and the `transactionAsyncLocalStorage` setting. Run socket broadcasts right after the write. Revert Compose to a plain `mongo:7` (no `rs0`, no keyfile). Update `scripts/audit-data.mts`, which currently repairs inside a transaction. | — |
+| 0.5 Tests | Run the integration runner on plain `mongod`. Keep the 8-parallel last-seat test. Add 50 requests for 5 seats, a cancel/register race, and a capacity-lowering race. Add a fault-injection test that fails between the `$inc` and the insert and expects the reconciler to repair the count. | — |
+| 0.6 CI | A GitHub Actions workflow running lint, `tsc`, `npm test`, build, and the integration suite. | CI uses a throwaway `mongo:7` service container. It is not your database. |
+| 0.7 Contracts | Move response shapes into shared Zod schemas used by tests and by mobile types. Cover pagination, event permissions, and schedule fields. | — |
 
-**Original problem (now addressed):** registration counted attendees and then inserted a registration, so concurrent requests could see the same last seat. Related deletion writes also lacked a transaction.
+**Learn:** atomic single-document operations, compare-and-set state transitions, idempotency keys, compensation, reconciliation jobs, and fault-injection tests.
 
-**Implemented:** competing writes on the same event serialize inside a transaction; count/check/create share that transaction. Event updates, cancellation, and deletion follow the same rules. Future waitlist promotion must preserve them. A transaction that only reads the event and inserts different registrations is insufficient to prevent write skew.
+**Done when:** the app runs, passes the full test suite, and survives the concurrency tests on a plain `mongod`. No `transactional()` or session code remains. A forced crash between steps heals through the reconciler.
 
-**Learn:** race conditions, transactions, write conflicts, retries, idempotency, and integration testing.
+## Phase 1 — Organizer paperwork
 
-**Start in:** `app/api/registrations/route.ts`, `app/api/events/[id]/route.ts`, `models/Event.ts`, `models/Registration.ts`, Docker configuration.
+**Problem:** organizers copy data by hand and rebuild events from scratch.
 
-**Prerequisite:** transaction support in the existing database. Each Docker stack configures one MongoDB instance in single-member replica-set mode, with no secondary database copy. See [OPERATIONS.md](OPERATIONS.md) for the current configuration and the consequence of requiring plain standalone MongoDB. MongoDB documents that standalone deployments do not support transactions: [transaction deployment requirements](https://www.mongodb.com/docs/manual/core/transactions-production-consideration/).
-
-**Existing integration assertions (not rerun October 3):** eight parallel requests for the final seat must produce exactly one registration and one confirmation job. Injected enqueue failure must roll back event deletion. Larger load tests, such as fifty requests for five seats, can extend this coverage.
-
-### A2. Automated integration tests and CI
-
-**Implemented:** real API tests against an isolated MongoDB replica set, session fixtures, and browser fixture checks. **Next:** run lint, TypeScript, tests, and build in CI; extend browser tests to full student, organizer, and admin journeys against the test database.
-
-**Learn:** fixtures, test isolation, mocking external email/uploads, session cookies, authorization matrices, and CI secrets.
-
-**Done when:** an unrelated organizer cannot read chat, edit an event, or check in its attendees; a deleted account cannot return through an old session; the last-seat concurrency test runs on every relevant change. No tests use production credentials or send actual emails.
-
-### A3. Data contracts and complete pagination (implemented foundation)
-
-**Implemented:** pagination for dashboard lists, management tables, and bookmarks; aggregate dashboard totals; saved flags independent of the displayed page; API documentation with route/method coverage tests. **Next:** extend shared response schemas and validate full payload contracts.
-
-**Learn:** API design, normalization, cursor versus page pagination, discriminated unions, and contract tests.
-
-**Learning context:** the original counts and saved flags came from one fetched page. Fixing those and the collaboration response mismatch illustrates why full-dataset totals and contract tests matter.
-
-**Done when:** accounts with more than 100 records can reach every record, totals remain accurate, switching accounts never displays cached private data, and API documentation matches the tested routes.
-
-## Phase B — Organizer tools with quick learning wins
-
-| Feature | Small first version | What you learn | Completion criteria |
+| Feature | Scope | Learn | Done when |
 | --- | --- | --- | --- |
-| Attendee export | Owner/admin downloads CSV with names, registration time, and check-in status | Streaming responses, authorization, escaping, spreadsheet formula injection | Export covers all pages, Unicode names work, dangerous cell prefixes are escaped, other organizers receive 403 |
-| Duplicate event | Copy an owned event into an editable unsaved form; clear dates | Form reuse, safe defaults, mutation boundaries | No attendees, reviews, chats, or collaborations are copied; user must choose new dates before publishing |
-| Draft/publish workflow | Save drafts, preview, publish explicitly | State machines, ownership filters, validation by lifecycle stage | Drafts never appear in public search or public detail/metadata routes |
-| Attendance certificates | Generate a downloadable certificate after verified attendance | Document generation, access control, signed verification identifiers | Unchecked attendees cannot receive certificates; verification page exposes minimal personal data |
+| Attendee CSV export | Owner, editor, and admin download name, email, registration time, and check-in status. Volunteers cannot. Stream it in pages. | Streaming, authorization, CSV escaping, formula injection | All pages exported, Unicode works, cells starting with `= + - @` are neutralized, other organizers get 403 |
+| Duplicate event | Prefill the create form from an owned event. Clear the dates. The server copies nothing. | Form reuse, safe defaults | Attendees, reviews, chat, and collaborations are never copied, and new dates are required before saving |
+| Draft / publish | Add `draft` to the status lifecycle with explicit publish. | State machine, ownership filters | A draft never appears in public lists, details, metadata, ICS, or search |
+| Announcements | Organizer sends a message to all registrants through the in-app notification and the email outbox. | Fan-out, per-recipient dedupe keys, rate limiting | One message per registrant even on retry, preferences respected, a per-event daily cap |
+| Attendance certificate (optional) | PDF generated on demand for verified check-ins, with a signed verification ID (same pattern as `lib/qr.ts`). | Document generation, signed identifiers | Unchecked attendees get nothing, and the verification page shows minimal personal data |
 
-**Suggested first feature after Phase A:** CSV export. It has a narrow scope, helps organizers immediately, and is easy to demonstrate in a portfolio.
+**Mobile follows:** students receive announcements through the existing notification polling. Certificate download goes on the ticket screen.
 
-## Phase C — Waitlists
+## Phase 2 — Never miss a seat or a reminder
 
-**Student journey:** event full → join waitlist → see position → receive a time-limited seat offer → accept or decline.
+**Problem:** students lose full events and forget the ones they joined.
 
-**Organizer journey:** see registrations and waitlist separately; adjust capacity; inspect promotion history.
+| Feature | Scope | Done when |
+| --- | --- | --- |
+| Waitlist | `WaitlistEntry(eventId, studentId, joinedAt, status, offeredAt, expiresAt)` with unique `{eventId, studentId}`. Statuses: `waiting`, `offered`, `accepted`, `declined`, `expired`. FIFO by `joinedAt`. An offer holds a seat through `heldCount`, so the available count is `capacity − registeredCount − heldCount`. | Two workers cannot offer one seat. A student holds at most one offer per event. Cancellation promotes the next student once. An expired offer releases its hold and promotes the next student. Refresh and retry keep the right position. |
+| Separate 24-hour and 1-hour reminders | Extend the persistent reminder key to user + event + type + start time. | Rescheduling or cancelling invalidates old reminders. A worker restart loses none. |
+| Calendar subscription | Private, revocable ICS feed per user. Store only a hash of the token. | Registering or cancelling changes the feed. Revoking the token ends access. |
+| Schedule conflict hint | Warn at registration when an event overlaps another one the student joined. It uses the existing `endDate`. | Adjacent events do not warn. Time zones are handled. |
 
-**Suggested model:** `WaitlistEntry(eventId, studentId, joinedAt, status, offeredAt, expiresAt)`, with a unique event/student constraint. Treat an offered seat as reserved until accepted or expired. Decide explicitly whether offers follow FIFO and how duplicate retries behave.
+**Standalone-safe waitlist rule:** every state change is a conditional update that claims one transition (`waiting→offered`, `offered→accepted`, and so on). Each counter change happens only after winning its claim, so each transition runs exactly once. The worker also runs a reconciliation pass over `registeredCount` and `heldCount`.
 
-**Dependencies:** A1 capacity correctness and a durable worker for expiring offers. Start with one event and one seat type.
+**Learn:** queues, fair ordering, compare-and-set claims, scheduled work, and retry-safe notifications.
 
-**Learn:** queues, fair ordering, optimistic concurrency, scheduled work, and retry-safe notifications.
+**Mobile follows:** join waitlist, accept or decline an offer, and a calendar feed link. Until Phase 5 push exists, offers reach students through polling and email.
 
-**Done when:** two workers cannot offer the same seat; a student cannot hold multiple offers for one event; cancellation promotes the next person once; an expired offer releases capacity; refresh and retry preserve the correct position.
+## Phase 3 — Find the right events
 
-## Phase D — Reminders and notification preferences
+**Problem:** students cannot find events that fit them.
 
-**Build:** persistent 24-hour and 1-hour reminders, email/in-app preferences, organizer announcements, and a delivery log. Start with one reminder type before adding web push.
+| Feature | Scope | Done when |
+| --- | --- | --- |
+| Shareable search | Every filter and the page live in URL parameters. | Back/forward and copied links reproduce the same results. |
+| Interests and recommendations | Students pick interest categories. Rank by interests, college, and past attendance with simple scoring. | Each recommendation shows why it appears. Full and past events are excluded. A new user with no history still sees sensible results. |
+| Saved searches and alerts | Save named filters and opt in to new-event alerts. The worker matches published events. | One alert per event per saved search, through a dedupe key. Drafts never trigger alerts. |
 
-**Implemented foundation:** persistent reminders within 48 hours, saved read/dismiss state, user preferences, and durable email delivery with retries. Separate 24-hour/1-hour schedules, organizer announcements, and a delivery-log UI remain future work.
+**Mobile follows:** the same URL-style parameters as deep links, an interests picker, and saved searches.
 
-**Suggested models:** `NotificationPreference`, `NotificationDelivery`, and a durable job/outbox record. Use a unique delivery key such as user + event + reminder type + scheduled event version. Rescheduling an event must invalidate the old reminder.
+## Phase 4 — Admin oversight
 
-**Learn:** background jobs, outbox patterns, time zones, retries with backoff, deduplication, and delivery monitoring.
+**Problem:** admins cannot see what happened or fix delivery problems without editing the database.
 
-**Done when:** restarting the worker loses no pending reminders; retrying sends one logical notification; rescheduled/cancelled events do not send stale reminders; read/dismiss actions persist across reloads; preferences are respected.
+| Feature | Scope | Done when |
+| --- | --- | --- |
+| Audit log | Append-only `AuditLog(actorId, action, target, reason, at)` for role changes, deletions, college verification, and moderation. For role and account actions the audit record is written first. | Every listed action has an entry. No API edits or deletes entries. |
+| Content reports | Users report a chat message, review, or event. Admins work a queue and resolve with a reason. | Reports are deduplicated per user and target. Resolving notifies the reporter and is logged. |
+| College verification workflow | Approve or reject with a reason that notifies the submitter. | Every decision shows a reason and an audit entry. |
+| Delivery health page | Show failed and pending email jobs and `lastError`, with a retry button. | Replaces the manual database edits described in the operations guide. |
 
-## Phase E — Flexible event registration
+**Mobile:** none. Admin stays on the web.
 
-### Custom questions
+## Phase 5 — Mobile-facing backend and organizer mobile
 
-- Start with text, single choice, and checkbox questions, with required/optional flags.
-- Store an immutable form version with each registration so later edits do not change the meaning of old answers.
-- Validate answers on the server and restrict organizer exports to their events.
-- Learn dynamic forms, schema validation, data versioning, and handling personal information.
-- Done when changing a question preserves historical answers and malicious clients cannot bypass required fields.
+| Feature | Scope | Done when |
+| --- | --- | --- |
+| Device tokens and remote push | Register and revoke tokens per user and device. Add a push channel to the existing outbox with receipts. | Stale or cancelled events send no push. A signed-out device gets none. A failed token is pruned. |
+| Offline tickets | Backend decides token expiry and revocation. | Cancelling a registration revokes the offline ticket the next time it syncs. |
+| Organizer mobile | QR check-in, attendee search, and attendance counts using the existing check-in route and per-event staff permissions. | A volunteer can check in people without editing the event. |
+| Store-readiness | Self-service account deletion, privacy and support links, and native Google sign-in. | Deleting an account removes or anonymizes personal data. Event owners are handled explicitly. |
 
-### Team registration
+## Parking lot — only if a real need appears
 
-- Add teams, invitations, captains, size limits, and member confirmation for hackathons or competitions.
-- Decide whether capacity counts teams or people before implementing it.
-- Learn relational modeling, invitations, membership authorization, and multi-step workflows.
-- Done when the same person cannot join conflicting teams and accepting the last team slot is safe under concurrency.
+Custom registration questions, team registration, paid tickets, recurring events, AI-assisted drafts, translations, and machine-learned recommendations. A separate PWA is dropped because the native mobile app covers installability and offline tickets.
 
-### Event staff permissions (implemented foundation)
+## Dependencies
 
-- Collaboration acceptance now grants editor membership; owners/admins can assign editors and check-in volunteers.
-- Shared permission checks govern REST handlers, socket access, and UI controls. Future exports must use those checks too.
-- Learn resource-scoped authorization rather than relying only on global roles.
-- Done when a volunteer can check people in without editing events or reading unnecessary profile details.
+```text
+Phase 0 ─┬─ Phase 1 (needs dedupe keys for announcements)
+         ├─ Phase 2 (needs the atomic seat counter and the worker)
+         │     └─ Phase 5 push (waitlist offers are time-sensitive)
+         ├─ Phase 3 (needs drafts from Phase 1 so alerts skip drafts)
+         └─ Phase 4 (audit log is independent; delivery health needs Phase 0 dedupe keys)
+```
 
-## Phase F — Better discovery and retention
+## Working method
 
-| Feature | First implementation | Learning outcome | Acceptance criteria |
-| --- | --- | --- | --- |
-| Shareable search | Persist all filters and pagination in URL parameters | URL as state, navigation, debouncing, request cancellation | Back/forward and copied URLs reproduce the same result set |
-| Saved searches | Save named filters; opt into new-event alerts | Query serialization and matching background jobs | An event triggers at most one alert per matching saved search |
-| Recommendations | Rank using explicit interests, college, and previous categories | Explainable ranking, evaluation, cold-start behavior | Each recommendation explains why it appears and respects availability |
-| Calendar subscription | Private revocable ICS feed of registered events | Tokenized feeds, cache headers, event UIDs and time zones | Updating a registration updates the subscribed feed; revocation works |
-| Schedule conflict hints | Warn when a registration overlaps another | Interval overlap, time zones, event duration modeling | Events require an end time/duration; adjacent non-overlapping events do not warn |
+For each feature: write the user story and acceptance criteria, draw the data model, list who may perform each action, define request, response, errors and retry behavior, build one complete UI → API → database path, test unauthorized access, duplicates, empty states and failures, then record the decision in a short note. Keep `lib/swagger.ts` and `API_CONTRACT.md` in step with each API change.
 
-Use simple scoring before adding machine learning. The project already has text search, ICS downloads, and a Google Calendar link; those should not be counted as new features.
+## UI direction
 
-## Phase G — PWA and mobile
-
-**Build first:** installable web app, cached public pages, an explicit offline state, and privately cached ticket access with logout cleanup. Keep check-in verification online initially.
-
-**Learn:** service workers, cache invalidation, offline UX, privacy on shared devices, and reconnect behavior.
-
-**Done when:** the app opens without connectivity, explains which actions need the network, never silently loses registrations, and removes private cached data on logout. Do not cache auth API responses indiscriminately.
-
-Plan a separate React Native app after the API contracts and tests are stable. Avoid building two clients while the backend contract is still changing.
-
-## Later, after the foundation
-
-- **Paid tickets:** webhook verification, idempotent payment handling, temporary seat reservations, refunds, and reconciliation. Start in a payment provider’s test environment.
-- **Recurring series:** recurrence rules, exceptions, per-occurrence capacity, and time-zone handling.
-- **Moderation and admin audit history:** reporting, moderation queues, reasons for actions, and append-only audit records.
-- **Observability:** structured request logs, error reporting, health endpoints, and queue metrics with private data removed.
-- **Internationalization:** translation keys, locale-sensitive dates, and layout testing with longer text.
-- **AI assistance:** optional event-description drafts and natural-language filters. Validate generated filters, require organizer review before publication, and measure usefulness before adding more complexity.
-
-## UI direction for the next features
-
-- Keep the existing blue identity, semantic theme colors, flat cards, and readable display headings.
-- Show a clear primary action on each screen. Make loading, failure, empty, success, and disabled states deliberate.
-- Use brief entrance fades, hover feedback, and progress indicators. Avoid animating entire forms or continuously moving backgrounds.
-- Respect operating-system reduced motion. The app now uses [Motion’s reduced-motion configuration](https://motion.dev/docs/react-motion-config) and CSS overrides.
-- Include mobile layouts, keyboard focus, accessible names, dialog titles, dark mode, and sufficiently large touch targets in each feature’s completion checklist.
-- Keep charts accompanied by text summaries; avoid communicating status only through color.
-
-## Your learning workflow
-
-For each selected feature:
-
-1. Write a short user story and acceptance criteria.
-2. Draw the data model and list who may perform each action.
-3. Describe the API request, response, errors, and retry behavior.
-4. Build one complete UI → API → database path.
-5. Test unauthorized access, duplicates, empty states, and failures.
-6. Record the design decisions and tradeoffs in a short Markdown note.
-
-**Suggested selection:** CI for the completed foundation, then CSV exports, then waitlists. This gives you practical experience with testing, API design, concurrency, background jobs, and usable interfaces in one coherent project.
+Flat surface cards, semantic theme colors, 12px radius, and one clear primary action per screen. Make loading, empty, failure, and disabled states deliberate. Respect reduced motion. Each feature checks mobile layout, keyboard focus, accessible names, and dark mode. Charts need a text summary.

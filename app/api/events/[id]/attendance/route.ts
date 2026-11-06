@@ -2,7 +2,7 @@ import { canManageEvent } from "@/lib/event-access";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import Registration from "@/models/Registration";
-import Event from "@/models/Event";
+import Event, { liveEvent } from "@/models/Event";
 import { requireAuth } from "@/lib/auth-guard";
 import { successResponse, ApiErrors } from "@/lib/api-response";
 import mongoose from "mongoose";
@@ -29,7 +29,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
 
     await connectDB();
 
-    const event = await Event.findById(id).lean();
+    const event = await Event.findOne({ _id: id, ...liveEvent }).lean();
     if (!event) return ApiErrors.notFound("Event");
 
     if (!canManageEvent(event, authResult.mongoUserId, authResult.userRole, "attendees")) return ApiErrors.forbidden();

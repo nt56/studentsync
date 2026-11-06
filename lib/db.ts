@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-mongoose.set("transactionAsyncLocalStorage", true);
 
 const MONGODB_URI = process.env.MONGODB_URI as string;
 

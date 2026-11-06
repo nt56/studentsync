@@ -1,5 +1,5 @@
 import { connectDB } from "@/lib/db";
-import Event from "@/models/Event";
+import Event, { liveEvent } from "@/models/Event";
 import type { Metadata } from "next";
 
 export async function generateMetadata({
@@ -11,7 +11,7 @@ export async function generateMetadata({
 
   try {
     await connectDB();
-    const event = await Event.findById(id)
+    const event = await Event.findOne({ _id: id, ...liveEvent })
       .select("title description image venue date")
       .lean<{ title: string; description: string; image?: string; venue?: string; date?: Date }>();
 

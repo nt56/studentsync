@@ -24,11 +24,11 @@ Responses include `endDate` and `timeZone`. Status is `completed` at the end, `c
 | Chat | Yes | Yes | Yes | Yes |
 | Moderate chat | Yes | Yes | No | No |
 
-`GET /api/events/{id}/staff` returns `{ role, userId: { _id, firstName, lastName, email } }[]` for the owner/admin. `PUT` accepts `{ email, role: "editor" | "volunteer" | "remove" }`; the account must exist. Global student/organizer roles do not replace event permissions. A collaboration accepted through `PATCH /api/collaborations/{id}` adds the partner college and editor membership in the same transaction. Only the invitation target can accept/reject.
+`GET /api/events/{id}/staff` returns `{ role, userId: { _id, firstName, lastName, email } }[]` for the owner/admin. `PUT` accepts `{ email, role: "editor" | "volunteer" | "remove" }`; the account must exist. Global student/organizer roles do not replace event permissions. A collaboration accepted through `PATCH /api/collaborations/{id}` adds the partner college and editor membership. The response is claimed once; repeating the same response is allowed and finishes any step a crash skipped, while a different response returns 400. Only the invitation target can accept/reject.
 
 ## Registration and attendance
 
-`POST /api/registrations` accepts `{ eventId }`. Only students register. Capacity, duplicate membership, and dates are checked inside the event transaction. `DELETE /api/registrations?eventId=...` cancels the caller's registration. Authorized event editors/owners/admins can provide `studentId` to remove another attendee.
+`POST /api/registrations` accepts `{ eventId }`. Only students register. A seat is reserved atomically (a full event returns 400 "Event has reached maximum capacity"), then the registration is inserted; duplicates return 400. Dates are checked first. `DELETE /api/registrations?eventId=...` cancels the caller's registration. Authorized event editors/owners/admins can provide `studentId` to remove another attendee. Cancelling twice returns 404 the second time and releases the seat once. If follow-up queueing fails, cancellation still returns 200 and the worker removes the row within about a minute, so a reload can briefly still show the registration. `PUT /api/events/{id}` returns 400 if `capacity` is below the seats already taken.
 
 `POST /api/registrations/check-in` accepts `{ token }`. It returns 200 for the first valid scan, 409 for a repeat, 400 for an invalid/expired ticket, and 403 for an unauthorized scanner. `GET /api/registrations/{id}/qr` requires the ticket owner or admin. `GET /api/events/{id}/attendance` returns `{ total, checkedIn, attendees }` to authorized staff.
 
@@ -46,6 +46,10 @@ Bookmark responses also include `bookmarkedEventIds`, independent of the display
 
 `GET /api/users/preferences` returns `{ reminders: boolean, email: boolean }`; `PUT` accepts both booleans and persists them. The email flag applies to nonessential email jobs. Authentication messages remain enabled.
 
-## Transaction failures
+## Failures and retries
 
-A failed database write rolls back the entire mutation, including its notifications and email jobs. Retriable write conflicts retry automatically. Socket broadcasts and membership changes happen after commit. A lost HTTP response after a successful commit still requires the client to reload state before retrying; there is no general idempotency-key API in this phase.
+There are no database transactions. Each mutation is a sequence of atomic single-document writes in a fixed order (see [OPERATIONS.md](OPERATIONS.md)). A request that fails part-way returns a 5xx and leaves a state the worker repairs: seat counters and review totals are reconciled, and the worker finishes interrupted registration effects, cancellations, role notices, event-update emails, and event deletions (a deleting event is already hidden, and its reviews return 404). Notifications and email jobs are deduplicated by key, so retrying never sends one twice. `DELETE /api/events/{id}` returns 200 once the event is hidden, even if the cleanup is still pending. `PUT /api/events/{id}` and `PATCH /api/users/{id}` likewise return 200 once the change is saved, even if their emails are still pending. A lost HTTP response still requires the client to reload state before retrying; there is no general idempotency-key API in this phase.
+
+## Shared response contracts
+
+The shapes of event, registration, pagination, and event-permission responses are defined once as Zod schemas in `lib/contracts/index.ts`. The web types derive from them, `npm test` and the integration suite parse real responses with them, and the mobile app can copy that file (it depends only on `zod`) or `z.infer` its own types from it. Change the schema first when a response changes.

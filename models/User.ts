@@ -4,7 +4,8 @@ export type UserRole = "student" | "organizer" | "admin";
 
 const UserSchema = new Schema(
   {
-    mutationVersion: { type: Number, default: 0 },
+    // Set atomically with a role change until its notification/email are queued.
+    pendingRoleNotice: { _id: false, type: { key: String, role: String, at: Date } },
     notificationPreferences: {
       reminders: { type: Boolean, default: true },
       email: { type: Boolean, default: true },
@@ -90,6 +91,7 @@ const UserSchema = new Schema(
 // Index for efficient querying
 UserSchema.index({ role: 1 });
 UserSchema.index({ collegeId: 1 });
+UserSchema.index({ "pendingRoleNotice.at": 1 }, { sparse: true });
 
 const User = models.User || model("User", UserSchema);
 export default User;
