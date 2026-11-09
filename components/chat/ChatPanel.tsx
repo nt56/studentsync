@@ -5,7 +5,6 @@ import {
   MessageSquare,
   ChevronDown,
   ChevronUp,
-  Wifi,
   WifiOff,
 } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -44,10 +43,11 @@ export function ChatPanel({
   const [isOpen, setIsOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const canSend =
-    isRegistered || isOwner || userRole === "admin";
+  const canSend = isRegistered || isOwner || userRole === "admin";
   const canDelete = isOwner || userRole === "admin";
-  const { isConnected, connectionError, emitTyping } = useEventChat(isOpen && canSend ? eventId : null);
+  const { isConnected, connectionError, emitTyping } = useEventChat(
+    isOpen && canSend ? eventId : null,
+  );
 
   const userName = authUser
     ? `${authUser.firstName} ${authUser.lastName}`
@@ -95,82 +95,114 @@ export function ChatPanel({
   }, [emitTyping, userName]);
 
   return (
-    <div className="surface-card rounded-xl overflow-hidden">
-      {/* Toggle header */}
+    <div className="rounded-2xl border border-border/80 bg-card/90 shadow-xs backdrop-blur-xl overflow-hidden">
+      {/* Toggle Header */}
       <button
         type="button"
         aria-expanded={isOpen}
         onClick={() => setIsOpen((p) => !p)}
-        className="w-full flex items-center justify-between px-5 py-4 hover:bg-muted transition-colors"
+        className="w-full flex items-center justify-between px-5 py-4 transition-colors hover:bg-muted/40 cursor-pointer"
       >
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-primary/10 rounded-lg">
-            <MessageSquare className="h-4 w-4 text-primary" />
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20">
+            <MessageSquare className="h-5 w-5" />
           </div>
           <div className="text-left">
-            <h3 className="text-sm font-bold text-foreground">
-              Event Chat
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-display text-sm font-bold text-foreground">
+                Live Event Chat
+              </h3>
+              {!isOpen && messages.length > 0 && (
+                <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-primary-foreground">
+                  {messages.length}
+                </span>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
-              {canSend ? "Chat with attendees" : "Register to participate"}
+              {canSend
+                ? "Real-time communication with attendees & organizers"
+                : "Register for this event to join attendee discussions"}
             </p>
           </div>
-          {!isOpen && messages.length > 0 && (
-            <span className="px-2 py-0.5 rounded-full bg-primary text-white text-[10px] font-bold">
-              {messages.length}
-            </span>
-          )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {isOpen && (
             <span
               className={cn(
-                "flex items-center gap-1 text-[10px] font-medium",
-                isConnected ? "text-green-500" : "text-muted-foreground",
+                "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold",
+                isConnected
+                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                  : "bg-muted text-muted-foreground",
               )}
             >
               {isConnected ? (
-                <Wifi className="h-3 w-3" />
+                <>
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                  </span>
+                  <span>Live</span>
+                </>
               ) : (
-                <WifiOff className="h-3 w-3" />
+                <>
+                  <WifiOff className="h-3 w-3" />
+                  <span>
+                    {connectionError
+                      ? "Offline"
+                      : canSend
+                        ? "Connecting…"
+                        : "Pass Required"}
+                  </span>
+                </>
               )}
-              {isConnected ? "Live" : connectionError ? "Offline" : canSend ? "Connecting…" : "Registration required"}
             </span>
           )}
-          {isOpen ? (
-            <ChevronUp className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          )}
+
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/70 bg-secondary/50 text-muted-foreground">
+            {isOpen ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </div>
         </div>
       </button>
 
-      {/* Chat body */}
+      {/* Chat Body */}
       {isOpen && (
-        <>
+        <div className="border-t border-border/80">
           {/* Messages list */}
-          <div className="h-[380px] overflow-y-auto px-4 py-4 space-y-4 bg-muted/30">
+          <div className="h-[400px] overflow-y-auto px-5 py-4 space-y-2 bg-background/40 backdrop-blur-xs">
             {isLoading ? (
-              <div className="flex flex-col items-center gap-2 py-12">
-                <div className="w-7 h-7 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-                <p className="text-xs text-muted-foreground">Loading messages…</p>
+              <div className="flex flex-col items-center justify-center gap-2.5 py-16">
+                <div className="h-8 w-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+                <p className="text-xs text-muted-foreground font-medium">
+                  Loading chat history…
+                </p>
               </div>
             ) : error || connectionError ? (
-              <p className="py-12 text-center text-sm text-muted-foreground" role="alert">{error || connectionError}</p>
+              <div
+                role="alert"
+                className="my-8 rounded-xl border border-destructive/20 bg-destructive/10 p-4 text-center text-xs text-destructive"
+              >
+                {error || connectionError}
+              </div>
             ) : messages.length === 0 ? (
-              <div className="flex flex-col items-center gap-3 py-12">
-                <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
-                  <MessageSquare className="h-6 w-6 text-muted-foreground" />
+              <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/60 text-muted-foreground">
+                  <MessageSquare className="h-6 w-6" />
                 </div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  No messages yet
-                </p>
-                <p className="text-xs text-muted-foreground text-center max-w-[220px]">
-                  {canSend
-                    ? "Be the first to say something!"
-                    : "Register for this event to join the chat."}
-                </p>
+                <div>
+                  <p className="font-display text-sm font-bold text-foreground">
+                    No messages yet
+                  </p>
+                  <p className="mt-1 max-w-[260px] text-xs text-muted-foreground">
+                    {canSend
+                      ? "Say hello or ask questions to fellow attendees!"
+                      : "Register for this event to join the live room."}
+                  </p>
+                </div>
               </div>
             ) : (
               messages.map((msg) => (
@@ -186,17 +218,19 @@ export function ChatPanel({
 
             {/* Typing indicator */}
             {typingUsers.length > 0 && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground pl-9">
-                <div className="flex gap-0.5">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground pl-3 py-1">
+                <div className="flex gap-1">
                   {[0, 1, 2].map((i) => (
                     <span
                       key={i}
-                      className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce"
+                      className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce"
                       style={{ animationDelay: `${i * 0.15}s` }}
                     />
                   ))}
                 </div>
-                <span>{typingUsers[0]} is typing…</span>
+                <span className="text-[11px] font-medium">
+                  {typingUsers[0]} is typing…
+                </span>
               </div>
             )}
 
@@ -210,7 +244,7 @@ export function ChatPanel({
             isSending={isSending}
             disabled={!canSend}
           />
-        </>
+        </div>
       )}
     </div>
   );

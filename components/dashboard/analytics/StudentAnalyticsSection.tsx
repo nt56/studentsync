@@ -20,20 +20,22 @@ import { TrendingUp, Tag, BarChart2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const CHART_COLORS = [
-  "#2563eb",
-  "#0f766e",
-  "#d97706",
-  "#0891b2",
-  "#be185d",
-  "#7c3aed",
-  "#ea580c",
+  "#4f46e5",
+  "#06b6d4",
+  "#10b981",
+  "#f59e0b",
+  "#ec4899",
+  "#8b5cf6",
+  "#f97316",
 ];
 
 const tooltipStyle = {
+  backgroundColor: "var(--card)",
+  borderColor: "var(--border)",
   borderRadius: "12px",
-  border: "none",
-  boxShadow: "0 4px 24px rgba(0,0,0,0.12)",
+  boxShadow: "0 10px 30px -10px rgba(0,0,0,0.25)",
   fontSize: "12px",
+  color: "var(--foreground)",
 };
 
 function ChartCard({
@@ -46,10 +48,12 @@ function ChartCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="surface-card rounded-xl p-5">
-      <div className="mb-4 flex items-center gap-2">
-        <Icon className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+    <div className="rounded-2xl border border-border/80 bg-card/80 p-5.5 shadow-xs backdrop-blur-xl">
+      <div className="mb-4 flex items-center gap-2.5">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Icon className="h-4 w-4" />
+        </div>
+        <h3 className="font-display text-sm font-bold text-foreground">{title}</h3>
       </div>
       {children}
     </div>
@@ -67,10 +71,10 @@ export default function StudentAnalyticsSection() {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <Skeleton className="h-8 w-40 rounded-xl" />
+        <Skeleton className="h-8 w-44 rounded-xl" />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Skeleton className="h-64 rounded-xl" />
-          <Skeleton className="h-64 rounded-xl" />
+          <Skeleton className="h-64 rounded-2xl" />
+          <Skeleton className="h-64 rounded-2xl" />
         </div>
       </div>
     );
@@ -90,49 +94,56 @@ export default function StudentAnalyticsSection() {
   const { categoryDistribution, registrationTimeline } = data;
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-4 pt-2">
       <div className="flex items-center gap-2">
-        <BarChart2 className="h-5 w-5 text-primary" />
-        <h2 className="text-lg font-bold text-foreground">Your Activity</h2>
+        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <BarChart2 className="h-4 w-4" />
+        </div>
+        <h2 className="font-display text-lg font-bold text-foreground">
+          Your Campus Engagement Activity
+        </h2>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {/* Registration Timeline */}
-        <ChartCard title="My Registrations — Last 30 Days" icon={TrendingUp}>
-          <ResponsiveContainer width="100%" height={200}>
+        <ChartCard title="My Registrations (Last 30 Days)" icon={TrendingUp}>
+          <ResponsiveContainer width="100%" height={220}>
             <AreaChart
               data={registrationTimeline}
-              margin={{ top: 5, right: 8, left: -28, bottom: 0 }}
+              margin={{ top: 5, right: 12, left: -24, bottom: 0 }}
             >
               <defs>
                 <linearGradient id="studentRegGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#2563eb" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.0} />
                 </linearGradient>
               </defs>
               <CartesianGrid
                 strokeDasharray="3 3"
-                stroke="rgba(148,163,184,0.18)"
+                stroke="rgba(148,163,184,0.15)"
               />
               <XAxis
                 dataKey="date"
-                tick={{ fontSize: 10, fill: "#94a3b8" }}
+                tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                 tickLine={false}
                 axisLine={false}
                 interval={6}
               />
               <YAxis
-                tick={{ fontSize: 10, fill: "#94a3b8" }}
+                tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                 tickLine={false}
                 axisLine={false}
                 allowDecimals={false}
               />
-              <Tooltip contentStyle={tooltipStyle} />
+              <Tooltip
+                contentStyle={tooltipStyle}
+                cursor={{ stroke: "rgba(99,102,241,0.2)", strokeWidth: 1.5 }}
+              />
               <Area
                 type="monotone"
                 dataKey="count"
-                stroke="#2563eb"
-                strokeWidth={2}
+                stroke="#6366f1"
+                strokeWidth={2.5}
                 fill="url(#studentRegGrad)"
                 name="Registrations"
               />
@@ -143,21 +154,21 @@ export default function StudentAnalyticsSection() {
         {/* Category Distribution */}
         <ChartCard title="Events by Category" icon={Tag}>
           {categoryDistribution.length === 0 ? (
-            <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
-              Register for events to see your interests
+            <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
+              Register for events to see your interest breakdown
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={200}>
+            <ResponsiveContainer width="100%" height={220}>
               <PieChart>
                 <Pie
                   data={categoryDistribution}
                   cx="50%"
                   cy="50%"
-                  innerRadius={52}
-                  outerRadius={80}
+                  innerRadius={54}
+                  outerRadius={82}
                   dataKey="count"
                   nameKey="category"
-                  paddingAngle={3}
+                  paddingAngle={4}
                 >
                   {categoryDistribution.map((_, index) => (
                     <Cell
@@ -169,7 +180,7 @@ export default function StudentAnalyticsSection() {
                 <Tooltip contentStyle={tooltipStyle} />
                 <Legend
                   iconSize={8}
-                  wrapperStyle={{ fontSize: "11px" }}
+                  wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }}
                   formatter={(value) =>
                     value.charAt(0).toUpperCase() + value.slice(1)
                   }

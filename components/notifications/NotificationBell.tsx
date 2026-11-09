@@ -42,64 +42,64 @@ interface TypeConfig {
 const typeConfig: Record<string, TypeConfig> = {
   registration_confirmed: {
     Icon: CheckCircle2,
-    bg: "bg-green-100 dark:bg-green-900/30",
-    text: "text-green-600 dark:text-green-400",
+    bg: "bg-emerald-500/10 dark:bg-emerald-500/15 ring-1 ring-emerald-500/25",
+    text: "text-emerald-600 dark:text-emerald-400",
   },
   event_reminder: {
     Icon: Clock,
-    bg: "bg-amber-100 dark:bg-amber-900/30",
+    bg: "bg-amber-500/10 dark:bg-amber-500/15 ring-1 ring-amber-500/25",
     text: "text-amber-600 dark:text-amber-400",
   },
   deadline_approaching: {
     Icon: AlertTriangle,
-    bg: "bg-orange-100 dark:bg-orange-900/30",
+    bg: "bg-orange-500/10 dark:bg-orange-500/15 ring-1 ring-orange-500/25",
     text: "text-orange-600 dark:text-orange-400",
   },
   event_updated: {
     Icon: RefreshCw,
-    bg: "bg-blue-100 dark:bg-blue-900/30",
+    bg: "bg-blue-500/10 dark:bg-blue-500/15 ring-1 ring-blue-500/25",
     text: "text-blue-600 dark:text-blue-400",
   },
   event_cancelled: {
     Icon: XCircle,
-    bg: "bg-red-100 dark:bg-red-900/30",
+    bg: "bg-red-500/10 dark:bg-red-500/15 ring-1 ring-red-500/25",
     text: "text-red-600 dark:text-red-400",
   },
   new_registration: {
     Icon: UserPlus,
-    bg: "bg-primary/10",
+    bg: "bg-primary/10 ring-1 ring-primary/25",
     text: "text-primary",
   },
   registration_cancelled: {
     Icon: UserMinus,
-    bg: "bg-red-100 dark:bg-red-900/30",
+    bg: "bg-red-500/10 dark:bg-red-500/15 ring-1 ring-red-500/25",
     text: "text-red-600 dark:text-red-400",
   },
   new_user: {
     Icon: UserCheck,
-    bg: "bg-green-100 dark:bg-green-900/30",
-    text: "text-green-600 dark:text-green-400",
+    bg: "bg-emerald-500/10 dark:bg-emerald-500/15 ring-1 ring-emerald-500/25",
+    text: "text-emerald-600 dark:text-emerald-400",
   },
   new_event: {
     Icon: CalendarPlus,
-    bg: "bg-purple-100 dark:bg-purple-900/30",
-    text: "text-purple-600 dark:text-purple-400",
+    bg: "bg-indigo-500/10 dark:bg-indigo-500/15 ring-1 ring-indigo-500/25",
+    text: "text-indigo-600 dark:text-indigo-400",
   },
   announcement: {
     Icon: Megaphone,
-    bg: "bg-primary/10",
+    bg: "bg-primary/10 ring-1 ring-primary/25",
     text: "text-primary",
   },
   role_changed: {
     Icon: Shield,
-    bg: "bg-purple-100 dark:bg-purple-900/30",
+    bg: "bg-purple-500/10 dark:bg-purple-500/15 ring-1 ring-purple-500/25",
     text: "text-purple-600 dark:text-purple-400",
   },
 };
 
 const defaultConfig: TypeConfig = {
   Icon: Bell,
-  bg: "bg-muted",
+  bg: "bg-secondary ring-1 ring-border",
   text: "text-muted-foreground",
 };
 
@@ -137,28 +137,26 @@ function NotificationRow({
   return (
     <div
       className={cn(
-        "group flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors",
+        "group flex items-start gap-3 px-4 py-3.5 cursor-pointer transition-colors border-b border-border/50 last:border-b-0",
         notification.isRead
-          ? "hover:bg-muted"
-          : "bg-primary/[0.03] hover:bg-primary/[0.06]",
+          ? "hover:bg-secondary/40"
+          : "bg-primary/[0.04] dark:bg-primary/[0.08] hover:bg-primary/[0.08] dark:hover:bg-primary/[0.12]",
       )}
     >
-      {/* Unread dot */}
+      {/* Unread indicator dot */}
       <div className="mt-1 flex-shrink-0">
         <div
           className={cn(
-            "w-1.5 h-1.5 rounded-full mt-1",
-            notification.isRead
-              ? "bg-transparent"
-              : "bg-primary",
+            "w-2 h-2 rounded-full mt-1.5 transition-all",
+            notification.isRead ? "bg-transparent scale-0" : "bg-primary scale-100 shadow-xs",
           )}
         />
       </div>
 
-      {/* Icon */}
+      {/* Icon pill */}
       <div
         className={cn(
-          "flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center",
+          "flex-shrink-0 w-8 h-8 rounded-xl flex items-center justify-center shadow-2xs",
           config.bg,
         )}
       >
@@ -166,26 +164,31 @@ function NotificationRow({
       </div>
 
       {/* Content */}
-      <button type="button" onClick={() => onRead(notification)} className="flex-1 min-w-0 text-left" aria-label={`${notification.isRead ? "" : "Unread: "}${notification.title}. ${notification.message}`}>
+      <button
+        type="button"
+        onClick={() => onRead(notification)}
+        className="flex-1 min-w-0 text-left"
+        aria-label={`${notification.isRead ? "" : "Unread: "}${notification.title}. ${notification.message}`}
+      >
         <p
           className={cn(
-            "text-sm leading-snug",
+            "text-xs leading-snug line-clamp-1",
             notification.isRead
-              ? "font-normal text-muted-foreground"
+              ? "font-medium text-foreground/85"
               : "font-semibold text-foreground",
           )}
         >
           {notification.title}
         </p>
-        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+        <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2 leading-relaxed">
           {notification.message}
         </p>
-        <span className="text-[10px] text-muted-foreground mt-1 block">
+        <span className="text-[10px] font-medium text-muted-foreground/80 mt-1 block">
           {relativeTime(notification.createdAt)}
         </span>
       </button>
 
-      {/* Delete button (hover) — only for stored notifications */}
+      {/* Delete button (hover) */}
       {!notification.isVirtual && (
         <button
           type="button"
@@ -193,10 +196,10 @@ function NotificationRow({
             e.stopPropagation();
             onDelete(notification.id);
           }}
-          className="flex-shrink-0 opacity-70 group-hover:opacity-100 focus-visible:opacity-100 p-1 rounded hover:bg-muted transition-all"
+          className="flex-shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 p-1 rounded-lg hover:bg-secondary text-muted-foreground hover:text-destructive transition-all"
           aria-label="Dismiss notification"
         >
-          <X className="h-3 w-3 text-muted-foreground" />
+          <X className="h-3.5 w-3.5" />
         </button>
       )}
     </div>
@@ -267,109 +270,113 @@ export function NotificationBell() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-      {/* Bell button */}
-      <button
-        type="button"
-        className={cn(
-          "relative flex items-center justify-center w-9 h-9 rounded-lg transition-colors",
-          open
-            ? "bg-primary/10 text-primary"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground",
-        )}
-        aria-label="Notifications"
-      >
-        <Bell className="h-5 w-5" />
-        {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none">
-            {unreadCount > 99 ? "99+" : unreadCount}
-          </span>
-        )}
-      </button>
+        <button
+          type="button"
+          className={cn(
+            "relative flex items-center justify-center w-9 h-9 rounded-xl border border-border/70 transition-all",
+            open
+              ? "bg-primary/10 text-primary border-primary/30 shadow-xs"
+              : "bg-card/70 text-muted-foreground hover:bg-secondary hover:text-foreground",
+          )}
+          aria-label="Notifications"
+        >
+          <Bell className="h-4.5 w-4.5" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold leading-none shadow-xs ring-2 ring-background">
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
+          )}
+        </button>
       </PopoverTrigger>
 
       {/* Dropdown */}
-        <PopoverContent align="end" aria-label="Notifications" className="w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-xl p-0">
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-bold text-foreground">
-                Notifications
-              </h3>
-              {unreadCount > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold">
-                  {unreadCount} new
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-1">
-              {unreadCount > 0 && (
-                <button
-                  type="button"
-                  onClick={handleMarkAllRead}
-                  className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors"
-                  title="Mark all as read"
-                >
-                  <Check className="h-3 w-3" />
-                  All read
-                </button>
-              )}
-              {items.filter((n) => !n.isVirtual).length > 0 && (
-                <button
-                  type="button"
-                  onClick={handleClearAll}
-                  className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                  title="Clear all"
-                >
-                  <Trash2 className="h-3 w-3" />
-                  Clear
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* List */}
-          <div className="max-h-[420px] overflow-y-auto">
-            {isLoading && items.length === 0 ? (
-              <div className="py-8 flex flex-col items-center gap-2">
-                <div className="w-8 h-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-                <p className="text-xs text-muted-foreground">Loading…</p>
-              </div>
-            ) : items.length === 0 ? (
-              <div className="py-12 flex flex-col items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
-                  <Bell className="h-6 w-6 text-muted-foreground" />
-                </div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  You&apos;re all caught up!
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  No new notifications right now.
-                </p>
-              </div>
-            ) : (
-              <div className="divide-y divide-border">
-                {items.map((n) => (
-                  <NotificationRow
-                    key={n.id}
-                    notification={n}
-                    onRead={handleRead}
-                    onDelete={handleDelete}
-                  />
-                ))}
-              </div>
+      <PopoverContent
+        align="end"
+        sideOffset={8}
+        aria-label="Notifications"
+        className="w-[min(380px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-border/80 bg-card/95 backdrop-blur-2xl shadow-2xl p-0"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border/80 bg-secondary/30">
+          <div className="flex items-center gap-2">
+            <h3 className="font-display text-xs font-bold text-foreground">
+              Notifications
+            </h3>
+            {unreadCount > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-bold">
+                {unreadCount} new
+              </span>
             )}
           </div>
+          <div className="flex items-center gap-1">
+            {unreadCount > 0 && (
+              <button
+                type="button"
+                onClick={handleMarkAllRead}
+                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                title="Mark all as read"
+              >
+                <Check className="h-3 w-3" />
+                <span>Mark all read</span>
+              </button>
+            )}
+            {items.filter((n) => !n.isVirtual).length > 0 && (
+              <button
+                type="button"
+                onClick={handleClearAll}
+                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                title="Clear all notifications"
+              >
+                <Trash2 className="h-3 w-3" />
+                <span>Clear</span>
+              </button>
+            )}
+          </div>
+        </div>
 
-          {/* Footer */}
-          {items.length > 0 && (
-            <div className="px-4 py-2.5 border-t border-border bg-muted/40">
-              <p className="text-[10px] text-muted-foreground text-center">
-                Showing last {items.length} notification
-                {items.length !== 1 ? "s" : ""}
+        {/* List */}
+        <div className="max-h-[380px] overflow-y-auto">
+          {isLoading && items.length === 0 ? (
+            <div className="py-10 flex flex-col items-center justify-center gap-2">
+              <div className="w-6 h-6 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+              <p className="text-xs text-muted-foreground">Loading notifications…</p>
+            </div>
+          ) : items.length === 0 ? (
+            <div className="py-12 px-4 flex flex-col items-center text-center gap-2.5">
+              <div className="w-12 h-12 rounded-2xl bg-secondary/70 flex items-center justify-center ring-1 ring-border/80 shadow-2xs">
+                <Bell className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <p className="font-display text-sm font-semibold text-foreground">
+                All caught up!
+              </p>
+              <p className="text-xs text-muted-foreground max-w-xs">
+                You don&apos;t have any pending alerts or event notifications right now.
               </p>
             </div>
+          ) : (
+            <div>
+              {items.map((n) => (
+                <NotificationRow
+                  key={n.id}
+                  notification={n}
+                  onRead={handleRead}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </div>
           )}
-        </PopoverContent>
+        </div>
+
+        {/* Footer */}
+        {items.length > 0 && (
+          <div className="px-4 py-2 border-t border-border/80 bg-secondary/30">
+            <p className="text-[10px] text-muted-foreground text-center">
+              Showing last {items.length} notification
+              {items.length !== 1 ? "s" : ""}
+            </p>
+          </div>
+        )}
+      </PopoverContent>
     </Popover>
   );
 }

@@ -29,34 +29,37 @@ import {
   GraduationCap,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 const CHART_COLORS = [
-  "#2563eb",
-  "#0f766e",
-  "#d97706",
-  "#0891b2",
-  "#be185d",
-  "#7c3aed",
-  "#ea580c",
+  "#4f46e5",
+  "#06b6d4",
+  "#10b981",
+  "#f59e0b",
+  "#ec4899",
+  "#8b5cf6",
+  "#f97316",
 ];
 
 const ROLE_COLORS: Record<string, string> = {
-  student: "#2563eb",
-  organizer: "#0f766e",
-  admin: "#be185d",
+  student: "#4f46e5",
+  organizer: "#8b5cf6",
+  admin: "#ec4899",
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  upcoming: "#2563eb",
-  closed: "#d97706",
-  completed: "#0f766e",
+  upcoming: "#4f46e5",
+  closed: "#f59e0b",
+  completed: "#10b981",
 };
 
 const tooltipStyle = {
+  backgroundColor: "var(--card)",
+  borderColor: "var(--border)",
   borderRadius: "12px",
-  border: "none",
-  boxShadow: "0 4px 24px rgba(0,0,0,0.12)",
+  boxShadow: "0 10px 30px -10px rgba(0,0,0,0.25)",
   fontSize: "12px",
+  color: "var(--foreground)",
 };
 
 function StatCard({
@@ -71,21 +74,27 @@ function StatCard({
   colorClass: string;
 }) {
   return (
-    <div className="surface-card rounded-xl p-5">
-      <div className="flex items-center gap-4">
+    <div className="group relative overflow-hidden rounded-2xl border border-border/80 bg-card/80 p-5 shadow-xs backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-md">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {label}
+        </span>
         <div
-          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${colorClass}`}
+          className={cn(
+            "flex h-11 w-11 items-center justify-center rounded-xl border bg-gradient-to-br shadow-xs transition-transform duration-300 group-hover:scale-110",
+            colorClass,
+          )}
         >
           <Icon className="h-5 w-5" />
         </div>
-        <div>
-          <p className="text-xs font-medium text-muted-foreground">
-            {label}
-          </p>
-          <p className="text-2xl font-bold text-foreground">
-            {value.toLocaleString()}
-          </p>
+      </div>
+      <div className="mt-4">
+        <div className="font-display text-3xl font-bold tracking-tight text-foreground">
+          {value.toLocaleString()}
         </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Platform-wide count
+        </p>
       </div>
     </div>
   );
@@ -103,10 +112,19 @@ function ChartCard({
   className?: string;
 }) {
   return (
-    <div className={`surface-card rounded-xl p-5 ${className ?? ""}`}>
-      <div className="mb-4 flex items-center gap-2">
-        <Icon className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+    <div
+      className={cn(
+        "rounded-2xl border border-border/80 bg-card/80 p-5.5 shadow-xs backdrop-blur-xl",
+        className,
+      )}
+    >
+      <div className="mb-4 flex items-center gap-2.5">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Icon className="h-4 w-4" />
+        </div>
+        <h3 className="font-display text-sm font-bold text-foreground">
+          {title}
+        </h3>
       </div>
       {children}
     </div>
@@ -124,15 +142,15 @@ export default function AdminAnalyticsSection() {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <Skeleton className="h-8 w-40 rounded-xl" />
+        <Skeleton className="h-8 w-44 rounded-xl" />
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-24 rounded-xl" />
+            <Skeleton key={i} className="h-28 rounded-2xl" />
           ))}
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-64 rounded-xl" />
+            <Skeleton key={i} className="h-64 rounded-2xl" />
           ))}
         </div>
       </div>
@@ -164,79 +182,84 @@ export default function AdminAnalyticsSection() {
   } = data;
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-6 pt-2">
       <div className="flex items-center gap-2">
-        <BarChart2 className="h-5 w-5 text-primary" />
-        <h2 className="text-lg font-bold text-foreground">
-          Platform Analytics
+        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+          <BarChart2 className="h-4 w-4" />
+        </div>
+        <h2 className="font-display text-lg font-bold text-foreground">
+          Platform Governance & Metrics
         </h2>
       </div>
 
       {/* Platform stat cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
-          label="Total Users"
+          label="Registered Users"
           value={totalUsers}
           icon={Users}
-          colorClass="bg-primary/10 text-primary"
+          colorClass="from-indigo-500/20 to-purple-500/20 text-indigo-600 dark:text-indigo-400 border-indigo-500/30"
         />
         <StatCard
           label="Total Events"
           value={totalEvents}
           icon={CalendarCheck2}
-          colorClass="bg-emerald-500/10 text-emerald-600"
+          colorClass="from-emerald-500/20 to-teal-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
         />
         <StatCard
           label="Registrations"
           value={totalRegistrations}
           icon={ClipboardList}
-          colorClass="bg-amber-500/10 text-amber-600"
+          colorClass="from-amber-500/20 to-orange-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30"
         />
         <StatCard
-          label="Colleges"
+          label="Partner Colleges"
           value={totalColleges}
           icon={Building2}
-          colorClass="bg-cyan-500/10 text-cyan-600"
+          colorClass="from-cyan-500/20 to-blue-500/20 text-cyan-600 dark:text-cyan-400 border-cyan-500/30"
         />
       </div>
 
       {/* Trend charts */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <ChartCard title="User Growth — Last 30 Days" icon={TrendingUp}>
-          <ResponsiveContainer width="100%" height={200}>
+        <ChartCard title="User Growth (Last 30 Days)" icon={TrendingUp}>
+          <ResponsiveContainer width="100%" height={220}>
             <AreaChart
               data={userGrowth}
-              margin={{ top: 5, right: 8, left: -28, bottom: 0 }}
+              margin={{ top: 5, right: 12, left: -24, bottom: 0 }}
             >
               <defs>
                 <linearGradient id="userGrowthGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#0f766e" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#0f766e" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
                 </linearGradient>
               </defs>
               <CartesianGrid
                 strokeDasharray="3 3"
-                stroke="rgba(148,163,184,0.18)"
+                stroke="rgba(148,163,184,0.15)"
               />
               <XAxis
                 dataKey="date"
-                tick={{ fontSize: 10, fill: "#94a3b8" }}
+                tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                 tickLine={false}
                 axisLine={false}
                 interval={6}
               />
               <YAxis
-                tick={{ fontSize: 10, fill: "#94a3b8" }}
+                tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                 tickLine={false}
                 axisLine={false}
                 allowDecimals={false}
               />
-              <Tooltip contentStyle={tooltipStyle} />
+              <Tooltip
+                contentStyle={tooltipStyle}
+                cursor={{ stroke: "rgba(16,185,129,0.2)", strokeWidth: 1.5 }}
+              />
               <Area
                 type="monotone"
                 dataKey="count"
-                stroke="#0f766e"
-                strokeWidth={2}
+                stroke="#10b981"
+                strokeWidth={2.5}
                 fill="url(#userGrowthGrad)"
                 name="New Users"
               />
@@ -244,41 +267,44 @@ export default function AdminAnalyticsSection() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Registrations — Last 30 Days" icon={TrendingUp}>
-          <ResponsiveContainer width="100%" height={200}>
+        <ChartCard title="Registrations (Last 30 Days)" icon={TrendingUp}>
+          <ResponsiveContainer width="100%" height={220}>
             <AreaChart
               data={registrationTrend}
-              margin={{ top: 5, right: 8, left: -28, bottom: 0 }}
+              margin={{ top: 5, right: 12, left: -24, bottom: 0 }}
             >
               <defs>
                 <linearGradient id="adminRegGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#2563eb" stopOpacity={0.25} />
-                  <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.0} />
                 </linearGradient>
               </defs>
               <CartesianGrid
                 strokeDasharray="3 3"
-                stroke="rgba(148,163,184,0.18)"
+                stroke="rgba(148,163,184,0.15)"
               />
               <XAxis
                 dataKey="date"
-                tick={{ fontSize: 10, fill: "#94a3b8" }}
+                tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                 tickLine={false}
                 axisLine={false}
                 interval={6}
               />
               <YAxis
-                tick={{ fontSize: 10, fill: "#94a3b8" }}
+                tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                 tickLine={false}
                 axisLine={false}
                 allowDecimals={false}
               />
-              <Tooltip contentStyle={tooltipStyle} />
+              <Tooltip
+                contentStyle={tooltipStyle}
+                cursor={{ stroke: "rgba(99,102,241,0.2)", strokeWidth: 1.5 }}
+              />
               <Area
                 type="monotone"
                 dataKey="count"
-                stroke="#2563eb"
-                strokeWidth={2}
+                stroke="#6366f1"
+                strokeWidth={2.5}
                 fill="url(#adminRegGrad)"
                 name="Registrations"
               />
@@ -290,23 +316,23 @@ export default function AdminAnalyticsSection() {
       {/* Distribution charts */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {/* Users by Role */}
-        <ChartCard title="Users by Role" icon={Users}>
+        <ChartCard title="User Demographics by Role" icon={Users}>
           {usersByRole.length === 0 ? (
-            <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
-              No data
+            <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
+              No users recorded
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={200}>
+            <ResponsiveContainer width="100%" height={220}>
               <PieChart>
                 <Pie
                   data={usersByRole}
                   cx="50%"
                   cy="50%"
-                  innerRadius={50}
-                  outerRadius={78}
+                  innerRadius={54}
+                  outerRadius={80}
                   dataKey="count"
                   nameKey="role"
-                  paddingAngle={3}
+                  paddingAngle={4}
                 >
                   {usersByRole.map((entry, index) => (
                     <Cell
@@ -321,7 +347,7 @@ export default function AdminAnalyticsSection() {
                 <Tooltip contentStyle={tooltipStyle} />
                 <Legend
                   iconSize={8}
-                  wrapperStyle={{ fontSize: "11px" }}
+                  wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }}
                   formatter={(value) =>
                     value.charAt(0).toUpperCase() + value.slice(1)
                   }
@@ -334,21 +360,21 @@ export default function AdminAnalyticsSection() {
         {/* Events by Status */}
         <ChartCard title="Events by Status" icon={CalendarCheck2}>
           {eventsByStatus.length === 0 ? (
-            <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
-              No events
+            <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
+              No events found
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={200}>
+            <ResponsiveContainer width="100%" height={220}>
               <PieChart>
                 <Pie
                   data={eventsByStatus}
                   cx="50%"
                   cy="50%"
-                  innerRadius={50}
-                  outerRadius={78}
+                  innerRadius={54}
+                  outerRadius={80}
                   dataKey="count"
                   nameKey="status"
-                  paddingAngle={3}
+                  paddingAngle={4}
                 >
                   {eventsByStatus.map((entry, index) => (
                     <Cell
@@ -363,7 +389,7 @@ export default function AdminAnalyticsSection() {
                 <Tooltip contentStyle={tooltipStyle} />
                 <Legend
                   iconSize={8}
-                  wrapperStyle={{ fontSize: "11px" }}
+                  wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }}
                   formatter={(value) =>
                     value.charAt(0).toUpperCase() + value.slice(1)
                   }
@@ -376,24 +402,24 @@ export default function AdminAnalyticsSection() {
         {/* Events by Category */}
         <ChartCard title="Events by Category" icon={Tag}>
           {eventsByCategory.length === 0 ? (
-            <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
-              No events
+            <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
+              No categorized events
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={200}>
+            <ResponsiveContainer width="100%" height={220}>
               <BarChart
                 data={eventsByCategory.slice(0, 6)}
                 layout="vertical"
-                margin={{ top: 0, right: 8, left: 8, bottom: 0 }}
+                margin={{ top: 0, right: 12, left: 12, bottom: 0 }}
               >
                 <CartesianGrid
                   strokeDasharray="3 3"
-                  stroke="rgba(148,163,184,0.18)"
+                  stroke="rgba(148,163,184,0.15)"
                   horizontal={false}
                 />
                 <XAxis
                   type="number"
-                  tick={{ fontSize: 10, fill: "#94a3b8" }}
+                  tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                   tickLine={false}
                   axisLine={false}
                   allowDecimals={false}
@@ -401,17 +427,17 @@ export default function AdminAnalyticsSection() {
                 <YAxis
                   type="category"
                   dataKey="category"
-                  tick={{ fontSize: 10, fill: "#94a3b8" }}
+                  tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                   tickLine={false}
                   axisLine={false}
-                  width={64}
+                  width={68}
                   tickFormatter={(v) => v.charAt(0).toUpperCase() + v.slice(1)}
                 />
                 <Tooltip contentStyle={tooltipStyle} />
                 <Bar
                   dataKey="count"
-                  radius={[0, 6, 6, 0]}
-                  maxBarSize={18}
+                  radius={[0, 8, 8, 0]}
+                  maxBarSize={20}
                   name="Events"
                 >
                   {eventsByCategory.slice(0, 6).map((_, index) => (
@@ -428,32 +454,32 @@ export default function AdminAnalyticsSection() {
       </div>
 
       {/* Top Colleges */}
-      <ChartCard title="Top Colleges by Event Count" icon={GraduationCap}>
+      <ChartCard title="Top Colleges by Hosted Events" icon={GraduationCap}>
         {topColleges.length === 0 ? (
-          <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
-            No data
+          <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
+            No college activity recorded
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={220}>
+          <ResponsiveContainer width="100%" height={240}>
             <BarChart
               data={topColleges}
-              margin={{ top: 5, right: 8, left: -12, bottom: 40 }}
+              margin={{ top: 5, right: 12, left: -16, bottom: 44 }}
             >
               <CartesianGrid
                 strokeDasharray="3 3"
-                stroke="rgba(148,163,184,0.18)"
+                stroke="rgba(148,163,184,0.15)"
               />
               <XAxis
                 dataKey="name"
-                tick={{ fontSize: 10, fill: "#94a3b8" }}
+                tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                 tickLine={false}
                 axisLine={false}
-                angle={-30}
+                angle={-25}
                 textAnchor="end"
                 interval={0}
               />
               <YAxis
-                tick={{ fontSize: 10, fill: "#94a3b8" }}
+                tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
                 tickLine={false}
                 axisLine={false}
                 allowDecimals={false}
@@ -461,8 +487,8 @@ export default function AdminAnalyticsSection() {
               <Tooltip contentStyle={tooltipStyle} />
               <Bar
                 dataKey="count"
-                fill="#2563eb"
-                radius={[6, 6, 0, 0]}
+                fill="#4f46e5"
+                radius={[8, 8, 0, 0]}
                 maxBarSize={48}
                 name="Events"
               />

@@ -1,6 +1,5 @@
 "use client";
 
-import { Input } from "@/components/ui/input";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -9,13 +8,16 @@ import { EventStatusBadge, CategoryBadge } from "@/components/common/Badges";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { TableRowSkeleton } from "@/components/common/Skeletons";
+import { ListPagination } from "@/components/common/ListPagination";
+import { Input } from "@/components/ui/input";
 import {
   Search,
   CalendarX,
   Eye,
   Trash2,
-  ChevronLeft,
-  ChevronRight,
+  GraduationCap,
+  Calendar,
+  MapPin,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -33,7 +35,11 @@ export default function AllEventsPage() {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    const params: Record<string, string> = { page: String(page), limit: "10", includeDrafts: "true" };
+    const params: Record<string, string> = {
+      page: String(page),
+      limit: "10",
+      includeDrafts: "true",
+    };
     if (search) params.search = search;
     dispatch(fetchEvents(params));
   }, [dispatch, page, search]);
@@ -43,7 +49,14 @@ export default function AllEventsPage() {
     setDeleting(true);
     try {
       await dispatch(deleteEvent(deleteTarget)).unwrap();
-      toast.success("Event deleted");
+      toast.success("Event permanently deleted");
+      const params: Record<string, string> = {
+        page: String(page),
+        limit: "10",
+        includeDrafts: "true",
+      };
+      if (search) params.search = search;
+      dispatch(fetchEvents(params));
     } catch {
       toast.error("Failed to delete event");
     } finally {
@@ -53,23 +66,36 @@ export default function AllEventsPage() {
   };
 
   return (
-    <div>
-      <header className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">All Events</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Review and manage all platform events.
+    <div className="space-y-8">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-gradient-to-br from-purple-500/10 via-card/90 to-card p-6 backdrop-blur-xl shadow-xs sm:p-8">
+        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-purple-500/15 blur-3xl" />
+
+        <div className="space-y-3">
+          <div className="inline-flex items-center gap-2 rounded-full border border-purple-500/20 bg-purple-500/10 px-3 py-1 text-xs font-semibold text-purple-600 dark:text-purple-400">
+            <GraduationCap className="h-3.5 w-3.5" />
+            <span>Campus Catalog Governance</span>
+            <span className="h-1 w-1 rounded-full bg-purple-500" />
+            <span className="text-muted-foreground font-normal">Moderation Console</span>
+          </div>
+
+          <h1 className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl lg:text-4xl">
+            Platform Events Directory
+          </h1>
+
+          <p className="max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+            Inspect all campus hackathons, workshops, and symposiums published platform-wide. Audit capacity limits and remove violations.
           </p>
         </div>
-      </header>
+      </div>
 
-      {/* Search */}
-      <div className="mb-5">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      {/* Search & Stats Strip */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative w-full max-w-md">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            className="h-10 rounded-lg pl-10 pr-4"
-            placeholder="Search events..."
+            className="h-11 rounded-xl border-border/80 bg-card/80 pl-10 pr-4 text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/20 backdrop-blur-xl"
+            placeholder="Search events by title or venue..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -77,14 +103,24 @@ export default function AllEventsPage() {
             }}
           />
         </div>
+
+        <div className="text-xs font-medium text-muted-foreground">
+          Showing {events.length} of {pagination?.total ?? events.length} total events
+        </div>
       </div>
 
-      <div className="surface-card rounded-xl overflow-hidden">
+      {/* Events Table */}
+      <div className="rounded-2xl border border-border/80 bg-card/85 shadow-xs backdrop-blur-xl overflow-hidden">
         {isLoading ? (
-          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Events table">
+          <div
+            className="overflow-x-auto"
+            tabIndex={0}
+            role="region"
+            aria-label="Events table"
+          >
             <table className="w-full text-left border-collapse">
-              <caption className="sr-only">Events on the current page</caption>
-              <tbody className="divide-y divide-border">
+              <caption className="sr-only">Events loading</caption>
+              <tbody className="divide-y divide-border/60">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <TableRowSkeleton key={i} cols={6} />
                 ))}
@@ -98,69 +134,105 @@ export default function AllEventsPage() {
               title="No events found"
               description={
                 search
-                  ? "Try a different search term."
-                  : "No events on the platform yet."
+                  ? "No campus events matched your search query."
+                  : "No events published on the platform yet."
               }
             />
           </div>
         ) : (
-          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Events table">
+          <div
+            className="overflow-x-auto"
+            tabIndex={0}
+            role="region"
+            aria-label="Events table"
+          >
             <table className="w-full text-left border-collapse">
               <caption className="sr-only">Events on the current page</caption>
               <thead>
-                <tr className="border-b border-border text-xs font-medium text-muted-foreground">
-                  <th scope="col" className="px-5 py-3">Event</th>
-                  <th scope="col" className="px-5 py-3">Category</th>
-                  <th scope="col" className="px-5 py-3">Date</th>
-                  <th scope="col" className="px-5 py-3">Status</th>
-                  <th scope="col" className="px-5 py-3">Registrations</th>
-                  <th scope="col" className="px-5 py-3 text-right">Actions</th>
+                <tr className="border-b border-border/70 bg-muted/30 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <th scope="col" className="px-6 py-3.5">
+                    Event Info
+                  </th>
+                  <th scope="col" className="px-6 py-3.5">
+                    Category
+                  </th>
+                  <th scope="col" className="px-6 py-3.5">
+                    Schedule Date
+                  </th>
+                  <th scope="col" className="px-6 py-3.5">
+                    Status
+                  </th>
+                  <th scope="col" className="px-6 py-3.5">
+                    Registrations
+                  </th>
+                  <th scope="col" className="px-6 py-3.5 text-right">
+                    Actions
+                  </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-border/60">
                 {events.map((event) => {
                   const eid = event.id || event._id;
                   return (
                     <tr
                       key={eid}
-                      className="hover:bg-muted/50 transition-colors"
+                      className="group transition-colors duration-150 hover:bg-muted/40"
                     >
-                      <td className="px-5 py-3.5">
-                        <div className="font-medium text-foreground">
-                          {event.title}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {event.venue}
-                        </div>
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <CategoryBadge category={event.category} />
-                      </td>
-                      <td className="px-5 py-3.5 text-sm text-muted-foreground">
-                        {event.date
-                          ? format(new Date(event.date), "MMM dd, yyyy")
-                          : "-"}
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <EventStatusBadge status={event.status} />
-                      </td>
-                      <td className="px-5 py-3.5 text-sm font-medium text-foreground">
-                        {event.registrationCount || 0}
-                        {event.capacity ? `/${event.capacity}` : ""}
-                      </td>
-                      <td className="px-5 py-3.5 text-right">
-                        <div className="flex justify-end items-center gap-1">
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
                           <Link
                             href={`/events/${eid}`}
-                            title="View event"
-                            className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
+                            className="font-display text-sm font-bold text-foreground transition-colors group-hover:text-primary line-clamp-1"
+                          >
+                            {event.title}
+                          </Link>
+                          <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
+                            <MapPin className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{event.venue || "Campus Venue"}</span>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <CategoryBadge category={event.category} />
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Calendar className="h-3.5 w-3.5 text-muted-foreground/70" />
+                          <span>
+                            {event.date
+                              ? format(new Date(event.date), "MMM dd, yyyy")
+                              : "—"}
+                          </span>
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <EventStatusBadge status={event.status} />
+                      </td>
+
+                      <td className="px-6 py-4 text-xs font-semibold text-foreground">
+                        {event.registrationCount || 0}
+                        <span className="text-muted-foreground font-normal">
+                          {event.capacity ? ` / ${event.capacity}` : " registered"}
+                        </span>
+                      </td>
+
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Link
+                            href={`/events/${eid}`}
+                            title="View public event"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/80 bg-secondary/50 text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:bg-primary/10 hover:text-primary"
                           >
                             <Eye className="h-4 w-4" />
                           </Link>
                           <button
                             type="button"
                             title="Delete event"
-                            className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-red-500"
+                            aria-label={`Delete ${event.title}`}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/80 bg-secondary/50 text-muted-foreground transition-all duration-200 hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
                             onClick={() => setDeleteTarget(eid!)}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -174,36 +246,26 @@ export default function AllEventsPage() {
             </table>
           </div>
         )}
+
+        {/* Pagination */}
+        {pagination && pagination.totalPages > 1 && (
+          <div className="border-t border-border/80 px-6 py-4">
+            <ListPagination
+              page={page}
+              pagination={pagination}
+              onPageChange={setPage}
+              disabled={isLoading}
+            />
+          </div>
+        )}
       </div>
 
-      {/* Pagination */}
-      {pagination && pagination.totalPages > 1 && (
-        <div className="mt-8 flex items-center justify-center gap-2">
-          <button
-            className="p-2 border rounded-lg disabled:opacity-30"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <span className="text-sm font-medium px-4">
-            Page {page} of {pagination.totalPages}
-          </span>
-          <button
-            className="p-2 border rounded-lg disabled:opacity-30"
-            disabled={!pagination.hasMore}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
-        </div>
-      )}
-
+      {/* Delete Confirmation */}
       <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title="Delete Event"
-        description="This will permanently delete the event and all its registrations."
+        title="Permanently Remove Event"
+        description="Are you sure you want to moderate and delete this event? All attendee registrations and tickets will be permanently revoked."
         confirmLabel="Delete Event"
         onConfirm={handleDelete}
         isLoading={deleting}

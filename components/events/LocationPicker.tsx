@@ -4,6 +4,7 @@ import { useEffect, useCallback } from "react";
 import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { MapPin, Navigation } from "lucide-react";
 
 // Fix default Leaflet marker icons broken by webpack
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)
@@ -57,11 +58,21 @@ export default function LocationPicker({
     latitude != null && longitude != null ? [latitude, longitude] : null;
 
   return (
-    <div className="space-y-2">
-      <p className="text-xs text-muted-foreground">
-        Click on the map to set the event location
-      </p>
-      <div className="w-full h-56 rounded-xl overflow-hidden border border-border">
+    <div className="space-y-2.5">
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span className="inline-flex items-center gap-1.5">
+          <MapPin className="h-3.5 w-3.5 text-primary" />
+          Click anywhere on the map to place the event pin
+        </span>
+        {markerPosition && (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
+            <Navigation className="h-3 w-3" />
+            {markerPosition[0].toFixed(4)}, {markerPosition[1].toFixed(4)}
+          </span>
+        )}
+      </div>
+
+      <div className="w-full h-64 rounded-2xl overflow-hidden border border-border/80 shadow-xs relative">
         <MapContainer
           center={markerPosition ?? defaultCenter}
           zoom={markerPosition ? 15 : 5}
@@ -76,11 +87,6 @@ export default function LocationPicker({
           {markerPosition && <Marker position={markerPosition} />}
         </MapContainer>
       </div>
-      {markerPosition && (
-        <p className="text-xs text-muted-foreground">
-          Selected: {markerPosition[0]}, {markerPosition[1]}
-        </p>
-      )}
     </div>
   );
 }

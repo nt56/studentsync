@@ -6,6 +6,7 @@ import EventForm from "@/components/events/EventForm";
 import { DashboardSkeleton } from "@/components/common/Skeletons";
 import { eventService } from "@/services/eventService";
 import type { EventItem } from "@/store/slices/eventsSlice";
+import { Plus, Copy } from "lucide-react";
 
 /**
  * Copies only what an organizer would retype. Dates are cleared on purpose and
@@ -31,37 +32,85 @@ function duplicateValues(source: EventItem): Partial<EventItem> {
 
 function CreateEventContent() {
   const fromId = useSearchParams().get("from");
-  const [source, setSource] = useState<{ id: string; values?: Partial<EventItem>; error?: string } | null>(null);
+  const [source, setSource] = useState<{
+    id: string;
+    values?: Partial<EventItem>;
+    error?: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!fromId) return;
     let ignore = false;
-    eventService.getEventById(fromId)
+    eventService
+      .getEventById(fromId)
       .then((response) => {
         if (ignore) return;
         const event = response.data as EventItem;
-        setSource(event.permissions?.includes("edit")
-          ? { id: fromId, values: duplicateValues(event) }
-          : { id: fromId, error: "You can only duplicate events you manage." });
+        setSource(
+          event.permissions?.includes("edit")
+            ? { id: fromId, values: duplicateValues(event) }
+            : {
+              id: fromId,
+              error: "You can only duplicate events you manage.",
+            },
+        );
       })
-      .catch(() => { if (!ignore) setSource({ id: fromId, error: "The event to copy could not be found." }); });
-    return () => { ignore = true; };
+      .catch(() => {
+        if (!ignore)
+          setSource({
+            id: fromId,
+            error: "The event to copy could not be found.",
+          });
+      });
+    return () => {
+      ignore = true;
+    };
   }, [fromId]);
 
   if (fromId && source?.id !== fromId) return <DashboardSkeleton />;
 
+  const isDuplicating = Boolean(fromId && source?.values);
+
   return (
-    <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold text-foreground">{fromId && source?.values ? "Duplicate event" : "Create a new event"}</h1>
-        {fromId && source?.values && (
-          <p className="text-sm text-muted-foreground">Details are copied from &ldquo;{source.values.title}&rdquo;. Pick new dates before saving.</p>
-        )}
-        {source?.error && <p role="alert" className="text-sm text-destructive">{source.error} Starting from a blank form.</p>}
-      </header>
-      <div className="surface-card rounded-xl p-6 md:p-8">
-        <EventForm key={fromId ?? "new"} defaultValues={source?.values} />
+    <div className="space-y-8">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-gradient-to-br from-primary/10 via-card/90 to-card p-6 backdrop-blur-xl shadow-xs sm:p-8">
+        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-primary/15 blur-3xl" />
+
+        <div className="space-y-3">
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+            {isDuplicating ? (
+              <Copy className="h-3.5 w-3.5" />
+            ) : (
+              <Plus className="h-3.5 w-3.5" />
+            )}
+            <span>
+              {isDuplicating ? "Duplicate & Launch" : "Event Creation Studio"}
+            </span>
+          </div>
+
+          <h1 className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl lg:text-4xl">
+            {isDuplicating ? "Duplicate Campus Event" : "Create a New Campus Event"}
+          </h1>
+
+          <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+            {isDuplicating
+              ? `Details are pre-filled from "${source?.values?.title}". Verify details, adjust schedule, and publish live.`
+              : "Design an extraordinary hackathon, workshop, or cultural symposium for your student community."}
+          </p>
+
+          {source?.error && (
+            <p
+              role="alert"
+              className="rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive"
+            >
+              {source.error} Starting from a clean blank form.
+            </p>
+          )}
+        </div>
       </div>
+
+      <EventForm key={fromId ?? "new"} defaultValues={source?.values} />
     </div>
   );
 }

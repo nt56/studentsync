@@ -1,7 +1,5 @@
 "use client";
 
-import { ListPagination } from "@/components/common/ListPagination";
-
 import { useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
@@ -13,6 +11,7 @@ import {
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { TableRowSkeleton } from "@/components/common/Skeletons";
+import { ListPagination } from "@/components/common/ListPagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -31,8 +30,10 @@ import {
   Pencil,
   Trash2,
   CheckCircle2,
-  XCircle,
+  Clock,
   Loader2,
+  MapPin,
+  Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -40,7 +41,9 @@ import { format } from "date-fns";
 export default function CollegeManagementPage() {
   const dispatch = useAppDispatch();
   const [page, setPage] = useState(1);
-  const { items: colleges, pagination, isLoading } = useAppSelector((s) => s.colleges);
+  const { items: colleges, pagination, isLoading } = useAppSelector(
+    (s) => s.colleges,
+  );
   const [search, setSearch] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -54,9 +57,17 @@ export default function CollegeManagementPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    dispatch(fetchColleges({ page: String(page), limit: "10", search })).unwrap().then((result) => {
-      if (result.pagination && page > Math.max(1, result.pagination.totalPages)) setPage(Math.max(1, result.pagination.totalPages));
-    }).catch(() => {});
+    dispatch(fetchColleges({ page: String(page), limit: "10", search }))
+      .unwrap()
+      .then((result) => {
+        if (
+          result.pagination &&
+          page > Math.max(1, result.pagination.totalPages)
+        ) {
+          setPage(Math.max(1, result.pagination.totalPages));
+        }
+      })
+      .catch(() => { });
   }, [dispatch, page, search]);
 
   const openCreate = () => {
@@ -95,10 +106,10 @@ export default function CollegeManagementPage() {
       };
       if (editingId) {
         await dispatch(updateCollege({ id: editingId, data })).unwrap();
-        toast.success("College updated");
+        toast.success("College updated successfully");
       } else {
         await dispatch(createCollege(data)).unwrap();
-        toast.success("College created");
+        toast.success("College registered successfully");
       }
       dispatch(fetchColleges({ page: String(page), limit: "10", search }));
       setFormOpen(false);
@@ -114,9 +125,16 @@ export default function CollegeManagementPage() {
     setDeleting(true);
     try {
       await dispatch(deleteCollege(deleteTarget)).unwrap();
-      toast.success("College deleted");
-      const result = await dispatch(fetchColleges({ page: String(page), limit: "10", search })).unwrap();
-      if (page > Math.max(1, result.pagination.totalPages)) setPage(Math.max(1, result.pagination.totalPages));
+      toast.success("College deleted successfully");
+      const result = await dispatch(
+        fetchColleges({ page: String(page), limit: "10", search }),
+      ).unwrap();
+      if (
+        result.pagination &&
+        page > Math.max(1, result.pagination.totalPages)
+      ) {
+        setPage(Math.max(1, result.pagination.totalPages));
+      }
     } catch {
       toast.error("Failed to delete college");
     } finally {
@@ -125,128 +143,194 @@ export default function CollegeManagementPage() {
     }
   };
 
-  const filteredColleges = colleges;
-
   return (
-    <div>
-      <header className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            College Management
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Manage colleges and institutions on the platform.
-          </p>
-        </div>
-        <Button className="flex items-center gap-2" onClick={openCreate}>
-          <Plus className="h-4 w-4" />
-          Add College
-        </Button>
-      </header>
+    <div className="space-y-8">
+      {/* Hero Header */}
+      <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-gradient-to-br from-cyan-500/10 via-card/90 to-card p-6 backdrop-blur-xl shadow-xs sm:p-8">
+        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-cyan-500/15 blur-3xl" />
 
-      {/* Search */}
-      <div className="mb-5">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            className="h-10 rounded-lg pl-10 pr-4"
-            aria-label="Search all colleges" placeholder="Search colleges..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          />
+        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-3">
+            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-600 dark:text-cyan-400">
+              <Building2 className="h-3.5 w-3.5" />
+              <span>Campus Directory</span>
+              <span className="h-1 w-1 rounded-full bg-cyan-500" />
+              <span className="text-muted-foreground font-normal">Accredited Nodes</span>
+            </div>
+
+            <h1 className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl lg:text-4xl">
+              Institutions & Colleges
+            </h1>
+
+            <p className="max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+              Add new academic partner campuses, verify institutional domains, and manage student affiliation tags.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={openCreate}
+              className="h-11 gap-2 rounded-xl bg-primary px-5 font-semibold text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add College</span>
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="surface-card rounded-xl overflow-hidden">
+      {/* Search & Counter Strip */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative w-full max-w-md">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="h-11 rounded-xl border-border/80 bg-card/80 pl-10 pr-4 text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/20 backdrop-blur-xl"
+            aria-label="Search all colleges"
+            placeholder="Search by college name or city..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+          />
+        </div>
+
+        <div className="text-xs font-medium text-muted-foreground">
+          Showing {colleges.length} of {pagination?.total ?? colleges.length} colleges
+        </div>
+      </div>
+
+      {/* Colleges Table */}
+      <div className="rounded-2xl border border-border/80 bg-card/85 shadow-xs backdrop-blur-xl overflow-hidden">
         {isLoading ? (
-          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Colleges table">
+          <div
+            className="overflow-x-auto"
+            tabIndex={0}
+            role="region"
+            aria-label="Colleges table"
+          >
             <table className="w-full text-left border-collapse">
-              <caption className="sr-only">Colleges on the current page</caption>
-              <tbody className="divide-y divide-border">
+              <caption className="sr-only">Colleges loading</caption>
+              <tbody className="divide-y divide-border/60">
                 <TableRowSkeleton cols={5} />
                 <TableRowSkeleton cols={5} />
               </tbody>
             </table>
           </div>
-        ) : filteredColleges.length === 0 ? (
+        ) : colleges.length === 0 ? (
           <div className="p-12">
             <EmptyState
               icon={Building2}
               title="No colleges found"
               description={
                 search
-                  ? "Try a different search term."
-                  : "Add the first college to get started."
+                  ? "No educational institutions match your search query."
+                  : "Add your first partner institution to start onboarding students."
               }
-              actionLabel={!search ? "Add College" : undefined}
+              actionLabel={!search ? "Register First College" : undefined}
               onAction={!search ? openCreate : undefined}
             />
           </div>
         ) : (
-          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Colleges table">
+          <div
+            className="overflow-x-auto"
+            tabIndex={0}
+            role="region"
+            aria-label="Colleges table"
+          >
             <table className="w-full text-left border-collapse">
-              <caption className="sr-only">Colleges on the current page</caption>
+              <caption className="sr-only">Colleges on current page</caption>
               <thead>
-                <tr className="border-b border-border text-xs font-medium text-muted-foreground">
-                  <th scope="col" className="px-5 py-3">Name</th>
-                  <th scope="col" className="px-5 py-3">Location</th>
-                  <th scope="col" className="px-5 py-3">Verified</th>
-                  <th scope="col" className="px-5 py-3">Created</th>
-                  <th scope="col" className="px-5 py-3 text-right">Actions</th>
+                <tr className="border-b border-border/70 bg-muted/30 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <th scope="col" className="px-6 py-3.5">
+                    Institution Name
+                  </th>
+                  <th scope="col" className="px-6 py-3.5">
+                    Campus Location
+                  </th>
+                  <th scope="col" className="px-6 py-3.5">
+                    Verification Status
+                  </th>
+                  <th scope="col" className="px-6 py-3.5">
+                    Registered On
+                  </th>
+                  <th scope="col" className="px-6 py-3.5 text-right">
+                    Actions
+                  </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
-                {filteredColleges.map((college) => {
+              <tbody className="divide-y divide-border/60">
+                {colleges.map((college) => {
                   const cid = college.id || college._id;
                   return (
                     <tr
                       key={cid}
-                      className="hover:bg-muted/50 transition-colors"
+                      className="group transition-colors duration-150 hover:bg-muted/40"
                     >
-                      <td className="px-5 py-3.5">
+                      <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">
                             <Building2 className="h-4 w-4" />
                           </div>
-                          <span className="font-medium text-foreground">
-                            {college.name}
-                          </span>
+                          <div>
+                            <p className="font-display text-sm font-bold text-foreground">
+                              {college.name}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground">
+                              ID: {cid?.slice(-6)}
+                            </p>
+                          </div>
                         </div>
                       </td>
-                      <td className="px-5 py-3.5 text-sm text-muted-foreground">
-                        {college.location || "-"}
+
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <MapPin className="h-3.5 w-3.5 text-muted-foreground/70" />
+                          <span>{college.location || "Campus Location TBA"}</span>
+                        </div>
                       </td>
-                      <td className="px-5 py-3.5">
+
+                      <td className="px-6 py-4">
                         {college.isVerified ? (
-                          <span className="inline-flex items-center gap-1 text-green-600 text-sm">
-                            <CheckCircle2 className="h-4 w-4" /> Verified
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            Verified Campus
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-muted-foreground text-sm">
-                            <XCircle className="h-4 w-4" /> Pending
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-300">
+                            <Clock className="h-3.5 w-3.5" />
+                            Pending Audit
                           </span>
                         )}
                       </td>
-                      <td className="px-5 py-3.5 text-sm text-muted-foreground">
-                        {college.createdAt
-                          ? format(new Date(college.createdAt), "MMM dd, yyyy")
-                          : "-"}
+
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Calendar className="h-3.5 w-3.5 text-muted-foreground/70" />
+                          <span>
+                            {college.createdAt
+                              ? format(new Date(college.createdAt), "MMM dd, yyyy")
+                              : "—"}
+                          </span>
+                        </div>
                       </td>
-                      <td className="px-5 py-3.5 text-right">
-                        <div className="flex justify-end gap-1">
+
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
                           <button
                             type="button"
-                            aria-label={`Edit ${college.name}`} title="Edit college"
-                            className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
+                            aria-label={`Edit ${college.name}`}
+                            title="Edit college"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/80 bg-secondary/50 text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:bg-primary/10 hover:text-primary"
                             onClick={() => openEdit(college)}
                           >
                             <Pencil className="h-4 w-4" />
                           </button>
                           <button
                             type="button"
-                            aria-label={`Delete ${college.name}`} title="Delete college"
-                            className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-red-500"
+                            aria-label={`Delete ${college.name}`}
+                            title="Delete college"
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/80 bg-secondary/50 text-muted-foreground transition-all duration-200 hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
                             onClick={() => setDeleteTarget(cid!)}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -260,61 +344,94 @@ export default function CollegeManagementPage() {
             </table>
           </div>
         )}
+
+        {/* Pagination */}
+        {pagination && pagination.totalPages > 1 && (
+          <div className="border-t border-border/80 px-6 py-4">
+            <ListPagination
+              page={page}
+              pagination={pagination}
+              onPageChange={setPage}
+              disabled={isLoading}
+            />
+          </div>
+        )}
       </div>
 
-      {/* Create/Edit Dialog */}
+      {/* Add / Edit Dialog */}
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent>
+        <DialogContent className="rounded-2xl border border-border/80 bg-card p-6 shadow-xl backdrop-blur-xl sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {editingId ? "Edit College" : "Add New College"}
+            <DialogTitle className="font-display text-lg font-bold text-foreground">
+              {editingId ? "Update College Details" : "Register Partner College"}
             </DialogTitle>
-            <DialogDescription>Enter the college name and location.</DialogDescription>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Configure the educational institution profile and accreditation status.
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <label htmlFor="college-name" className="text-sm font-medium mb-1.5 block">
-                College Name *
+
+          <div className="space-y-4 py-3">
+            <div className="space-y-1.5">
+              <label
+                htmlFor="college-name"
+                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+              >
+                College / University Name *
               </label>
               <Input
-                id="college-name" placeholder="e.g. MIT Engineering"
+                id="college-name"
+                placeholder="e.g. Stanford School of Engineering"
+                className="h-11 rounded-xl border-border/80 bg-background/60 text-foreground focus-visible:ring-primary/20"
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
               />
             </div>
-            <div>
-              <label htmlFor="college-location" className="text-sm font-medium mb-1.5 block">
-                Location
+
+            <div className="space-y-1.5">
+              <label
+                htmlFor="college-location"
+                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+              >
+                City / Region
               </label>
               <Input
-                id="college-location" placeholder="e.g. Cambridge, MA"
+                id="college-location"
+                placeholder="e.g. Stanford, California"
+                className="h-11 rounded-xl border-border/80 bg-background/60 text-foreground focus-visible:ring-primary/20"
                 value={formLocation}
                 onChange={(e) => setFormLocation(e.target.value)}
               />
             </div>
+
             {editingId && (
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between rounded-xl border border-border/80 bg-secondary/30 p-3.5">
                 <div>
-                  <label className="text-sm font-medium block">
-                    Verified Status
+                  <label className="font-display text-sm font-semibold text-foreground">
+                    Accreditation Verification
                   </label>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Toggle to verify or unverify this college
+                  <p className="text-xs text-muted-foreground">
+                    Mark institution as platform-verified
                   </p>
                 </div>
-                <Switch aria-label="Verified college"
+                <Switch
+                  aria-label="Verified college"
                   checked={formIsVerified}
                   onCheckedChange={setFormIsVerified}
                 />
               </div>
             )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setFormOpen(false)}>
+
+          <DialogFooter className="gap-2 sm:gap-0 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setFormOpen(false)}
+              className="rounded-xl border-border/80 hover:bg-muted"
+            >
               Cancel
             </Button>
             <Button
-              className="bg-primary text-white"
+              className="rounded-xl bg-primary px-5 font-semibold text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90"
               onClick={handleSubmit}
               disabled={submitting}
             >
@@ -324,22 +441,22 @@ export default function CollegeManagementPage() {
                   Saving...
                 </>
               ) : editingId ? (
-                "Update"
+                "Update Profile"
               ) : (
-                "Create"
+                "Register College"
               )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <ListPagination page={page} pagination={pagination} onPageChange={setPage} disabled={isLoading} />
+      {/* Delete Confirmation */}
       <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title="Delete College"
-        description="This will permanently delete the college. Events and users linked to it may be affected."
-        confirmLabel="Delete College"
+        title="Remove College Institution"
+        description="Are you sure you want to permanently delete this college record? Linked student profiles and past event affiliations may be impacted."
+        confirmLabel="Delete Institution"
         onConfirm={handleDelete}
         isLoading={deleting}
         variant="danger"

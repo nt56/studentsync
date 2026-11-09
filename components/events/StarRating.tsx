@@ -25,7 +25,7 @@ export default function StarRating({
   const iconClass = sizeMap[size];
 
   return (
-    <div className="flex gap-0.5">
+    <div className="flex items-center gap-1">
       {[1, 2, 3, 4, 5].map((star) => (
         <button
           key={star}
@@ -33,17 +33,20 @@ export default function StarRating({
           disabled={readonly}
           onClick={() => onChange?.(star)}
           className={cn(
-            "transition-colors",
-            readonly ? "cursor-default" : "cursor-pointer hover:scale-110",
+            "transition-transform duration-150 focus:outline-hidden",
+            readonly
+              ? "cursor-default"
+              : "cursor-pointer hover:scale-120 active:scale-95",
           )}
           aria-label={`Rate ${star} star${star !== 1 ? "s" : ""}`}
         >
           <Star
             className={cn(
               iconClass,
+              "transition-colors duration-150",
               star <= value
-                ? "fill-yellow-400 text-yellow-400"
-                : "text-muted-foreground",
+                ? "fill-amber-400 text-amber-400 drop-shadow-xs"
+                : "text-muted-foreground/30 hover:text-amber-300",
             )}
           />
         </button>

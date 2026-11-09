@@ -26,7 +26,7 @@ export function BookmarkButton({
   const [localLoading, setLocalLoading] = useState(false);
 
   const isBookmarked = bookmarkedEventIds.includes(eventId);
-  const iconClass = size === "sm" ? "h-4 w-4" : "h-5 w-5";
+  const iconClass = size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4";
 
   const handleToggle = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -62,18 +62,20 @@ export function BookmarkButton({
       disabled={localLoading}
       title={isBookmarked ? "Remove bookmark" : "Save event"}
       className={cn(
-        "flex items-center justify-center rounded-lg transition-colors disabled:opacity-50",
+        "flex items-center justify-center rounded-xl border transition-all disabled:opacity-50 active:scale-95",
         size === "sm"
-          ? "h-8 w-8 text-muted-foreground hover:text-primary"
-          : "p-2 text-muted-foreground hover:text-primary",
-        isBookmarked && "text-primary",
+          ? "h-8 w-8 text-xs"
+          : "h-9 w-9 text-sm",
+        isBookmarked
+          ? "bg-primary/15 text-primary border-primary/30 shadow-xs ring-1 ring-primary/20"
+          : "bg-card/80 text-muted-foreground border-border/80 hover:bg-secondary hover:text-foreground",
         className,
       )}
     >
       {localLoading ? (
         <Loader2 className={cn(iconClass, "animate-spin")} />
       ) : isBookmarked ? (
-        <BookmarkCheck className={iconClass} />
+        <BookmarkCheck className={cn(iconClass, "fill-primary/20 text-primary")} />
       ) : (
         <Bookmark className={iconClass} />
       )}

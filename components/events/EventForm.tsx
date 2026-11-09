@@ -103,7 +103,6 @@ interface EventFormProps {
   isEditing?: boolean;
 }
 
-/** Which button submitted the form. */
 type SubmitIntent = "draft" | "publish" | "save";
 
 const categories = [
@@ -152,7 +151,7 @@ export default function EventForm({
         return;
       }
       setImageUrl(url);
-      toast.success("Image uploaded");
+      toast.success("Image uploaded successfully");
     } catch {
       toast.error("Failed to upload image");
     } finally {
@@ -174,18 +173,31 @@ export default function EventForm({
       date: defaultValues?.date
         ? zonedInput(defaultValues.date, defaultValues.timeZone || "UTC")
         : "",
-      endDate: defaultValues?.date ? zonedInput(eventEnd({ date: defaultValues.date, endDate: defaultValues.endDate }), defaultValues.timeZone || "UTC") : "",
-      timeZone: defaultValues?.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+      endDate: defaultValues?.date
+        ? zonedInput(
+          eventEnd({
+            date: defaultValues.date,
+            endDate: defaultValues.endDate,
+          }),
+          defaultValues.timeZone || "UTC",
+        )
+        : "",
+      timeZone:
+        defaultValues?.timeZone ||
+        Intl.DateTimeFormat().resolvedOptions().timeZone,
       venue: defaultValues?.venue || "",
       registrationDeadline: defaultValues?.registrationDeadline
-        ? zonedInput(defaultValues.registrationDeadline, defaultValues.timeZone || "UTC")
+        ? zonedInput(
+          defaultValues.registrationDeadline,
+          defaultValues.timeZone || "UTC",
+        )
         : "",
       capacity: defaultValues?.capacity || 100,
       collegeId:
         typeof defaultValues?.collegeId === "string"
           ? defaultValues.collegeId
           : typeof defaultValues?.collegeId === "object" &&
-              defaultValues?.collegeId
+            defaultValues?.collegeId
             ? (defaultValues.collegeId as { _id: string })._id
             : "",
       category: defaultValues?.category || "other",
@@ -208,7 +220,10 @@ export default function EventForm({
         ...values,
         date: fromZonedInput(values.date, values.timeZone),
         endDate: fromZonedInput(values.endDate, values.timeZone),
-        registrationDeadline: fromZonedInput(values.registrationDeadline, values.timeZone),
+        registrationDeadline: fromZonedInput(
+          values.registrationDeadline,
+          values.timeZone,
+        ),
         ...(imageUrl ? { image: imageUrl } : {}),
         latitude: pickedCoords?.lat ?? null,
         longitude: pickedCoords?.lng ?? null,
@@ -223,11 +238,19 @@ export default function EventForm({
           await dispatch(publishEvent(eid!)).unwrap();
           toast.success("Event published");
         } else {
-          toast.success(editingDraft ? "Draft saved" : "Event updated successfully");
+          toast.success(
+            editingDraft ? "Draft saved" : "Event updated successfully",
+          );
         }
       } else {
-        await dispatch(createEvent({ ...payload, draft: intent === "draft" })).unwrap();
-        toast.success(intent === "draft" ? "Draft saved. Only you and your staff can see it." : "Event published");
+        await dispatch(
+          createEvent({ ...payload, draft: intent === "draft" }),
+        ).unwrap();
+        toast.success(
+          intent === "draft"
+            ? "Draft saved. Only you and your staff can see it."
+            : "Event published successfully!",
+        );
       }
       router.push("/dashboard/manage-events");
     } catch (err) {
@@ -240,80 +263,172 @@ export default function EventForm({
       setSubmitting(null);
     }
   };
-  const submitAs = (intent: SubmitIntent) => () => { intentRef.current = intent; };
+
+  const submitAs = (intent: SubmitIntent) => () => {
+    intentRef.current = intent;
+  };
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-4xl">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField control={form.control} name="timeZone" render={({ field }) => <FormItem><FormLabel>Event timezone</FormLabel><FormControl><TimeZoneSelect value={field.value} onChange={field.onChange} /></FormControl><p className="text-xs text-muted-foreground">All times below use this IANA timezone.</p><FormMessage /></FormItem>} />
-            <FormField control={form.control} name="endDate" render={({ field }) => <FormItem><FormLabel>Event end</FormLabel><FormControl><DateTimePicker value={field.value} onChange={field.onChange} placeholder="Pick end date & time" /></FormControl><FormMessage /></FormItem>} />
+          {/* Section 1: Overview */}
+          <div className="rounded-2xl border border-border/80 bg-card/85 p-6 backdrop-blur-xl shadow-xs sm:p-7 space-y-6">
+            <div className="flex items-center gap-2.5 pb-2 border-b border-border/70">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <FileText className="h-4 w-4" />
+              </div>
+              <div>
+                <h3 className="font-display text-base font-bold text-foreground">
+                  Event Essentials
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Provide primary details and category about your event.
+                </p>
+              </div>
+            </div>
+
+            {/* Title */}
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Event Title <span className="text-destructive">*</span>
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="e.g. Annual Campus Hackathon 2026"
+                      className="h-11 rounded-xl border-border/80 bg-background/60 font-medium text-foreground focus-visible:ring-primary/20"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Category & College */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      <Tag className="h-3.5 w-3.5 text-primary" />
+                      Category <span className="text-destructive">*</span>
+                    </FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="h-11 rounded-xl border-border/80 bg-background/60 text-foreground focus:ring-primary/20">
+                          <SelectValue placeholder="Select a category" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent position="popper" side="bottom">
+                        {categories.map((c) => (
+                          <SelectItem key={c.value} value={c.value}>
+                            {c.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="collegeId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      <Building2 className="h-3.5 w-3.5 text-primary" />
+                      Host Institution <span className="text-destructive">*</span>
+                    </FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="h-11 rounded-xl border-border/80 bg-background/60 text-foreground focus:ring-primary/20">
+                          <SelectValue placeholder="Select host college" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent position="popper" side="bottom">
+                        {colleges.map((c) => (
+                          <SelectItem
+                            key={c.id || c._id}
+                            value={c.id || c._id || ""}
+                          >
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Description */}
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Description & Agenda <span className="text-destructive">*</span>
+                  </FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Provide full event overview, rules, speaker lineup, and participant requirements..."
+                      rows={5}
+                      className="rounded-xl border-border/80 bg-background/60 text-foreground focus-visible:ring-primary/20 resize-y leading-relaxed"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
-          {/* Title */}
-          <FormField
-            control={form.control}
-            name="title"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-primary" />
-                  Event Title <span className="text-red-500">*</span>
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="e.g. Annual Tech Symposium 2026"
-                    className="bg-secondary border-none"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
 
-          {/* Description */}
-          <FormField
-            control={form.control}
-            name="description"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-primary" />
-                  Description <span className="text-red-500">*</span>
-                </FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Describe your event in detail..."
-                    rows={6}
-                    className="bg-secondary border-none resize-none"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {/* Section 2: Banner Media */}
+          <div className="rounded-2xl border border-border/80 bg-card/85 p-6 backdrop-blur-xl shadow-xs sm:p-7 space-y-4">
+            <div className="flex items-center gap-2.5 pb-2 border-b border-border/70">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <ImagePlus className="h-4 w-4" />
+              </div>
+              <div>
+                <h3 className="font-display text-base font-bold text-foreground">
+                  Banner Artwork
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Upload an engaging 16:9 banner to attract registrations.
+                </p>
+              </div>
+            </div>
 
-          {/* Event Image */}
-          <div>
-            <Label className="mb-2">
-              <ImagePlus className="h-4 w-4 text-primary" />
-              Event Image
-            </Label>
             {imageUrl ? (
-              <div className="relative w-full h-56 rounded-lg overflow-hidden border border-input">
+              <div className="relative w-full h-64 rounded-2xl overflow-hidden border border-border/80 shadow-md group">
                 <Image
                   src={imageUrl}
-                  alt="Event"
+                  alt="Event Banner"
                   fill
-                  sizes="(max-width: 768px) 100vw, 768px"
-                  className="object-cover object-center"
+                  sizes="(max-width: 768px) 100vw, 800px"
+                  className="object-cover object-center transition-transform duration-300 group-hover:scale-102"
                 />
                 <button
                   type="button"
                   onClick={() => setImageUrl(null)}
-                  className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white rounded-full p-1 transition-colors z-10"
+                  className="absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/70 text-white backdrop-blur-md transition-colors hover:bg-destructive z-10"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -323,21 +438,31 @@ export default function EventForm({
                 type="button"
                 onClick={() => imageInputRef.current?.click()}
                 disabled={uploadingImage}
-                className="w-full h-56 rounded-lg border-2 border-dashed border-border hover:border-primary dark:hover:border-primary flex flex-col items-center justify-center gap-2 text-muted-foreground transition-colors bg-secondary"
+                className="w-full h-56 rounded-2xl border-2 border-dashed border-border/80 bg-background/40 hover:border-primary/60 hover:bg-primary/5 flex flex-col items-center justify-center gap-3 text-muted-foreground transition-all duration-200"
               >
                 {uploadingImage ? (
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <div className="flex flex-col items-center gap-2">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <span className="text-xs font-medium">Uploading image...</span>
+                  </div>
                 ) : (
                   <>
-                    <ImagePlus className="h-8 w-8" />
-                    <span className="text-sm">Click to upload event image</span>
-                    <span className="text-xs text-muted-foreground">
-                      JPEG, PNG, WebP, GIF (max 5MB)
-                    </span>
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary/80 text-foreground shadow-xs">
+                      <ImagePlus className="h-6 w-6 text-primary" />
+                    </div>
+                    <div className="text-center">
+                      <span className="text-sm font-semibold text-foreground">
+                        Click to upload event banner
+                      </span>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Supports JPEG, PNG, WebP (16:9 recommended, max 5MB)
+                      </p>
+                    </div>
                   </>
                 )}
               </button>
             )}
+
             <Input
               ref={imageInputRef}
               type="file"
@@ -347,293 +472,343 @@ export default function EventForm({
             />
           </div>
 
-          {/* Date & Deadline row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FormField
-              control={form.control}
-              name="date"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-primary" />
-                    Event Date & Time <span className="text-red-500">*</span>
-                  </FormLabel>
-                  <FormControl>
-                    <DateTimePicker
-                      value={field.value}
-                      onChange={field.onChange}
-                      className="bg-secondary border-none"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="registrationDeadline"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-primary" />
-                    Registration Deadline{" "}
-                    <span className="text-red-500">*</span>
-                  </FormLabel>
-                  <FormControl>
-                    <DateTimePicker
-                      value={field.value}
-                      onChange={field.onChange}
-                      className="bg-secondary border-none"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+          {/* Section 3: Schedule & Timezone */}
+          <div className="rounded-2xl border border-border/80 bg-card/85 p-6 backdrop-blur-xl shadow-xs sm:p-7 space-y-6">
+            <div className="flex items-center gap-2.5 pb-2 border-b border-border/70">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Calendar className="h-4 w-4" />
+              </div>
+              <div>
+                <h3 className="font-display text-base font-bold text-foreground">
+                  Schedule & Timing
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Configure event start time, duration, and registration closing window.
+                </p>
+              </div>
+            </div>
 
-          {/* Venue & Capacity */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FormField
-              control={form.control}
-              name="venue"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-primary" />
-                    Venue <span className="text-red-500">*</span>
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="e.g. Main Auditorium, Building A"
-                      className="bg-secondary border-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="capacity"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-primary" />
-                    Capacity <span className="text-red-500">*</span>
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={10000}
-                      className="bg-secondary border-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          {/* Location Picker */}
-          <div>
-            <Label className="mb-3">
-              <MapPin className="h-4 w-4 text-primary" />
-              Event Location on Map
-              <span className="text-muted-foreground font-normal text-xs">
-                (optional)
-              </span>
-            </Label>
-            <LocationPicker
-              latitude={pickedCoords?.lat}
-              longitude={pickedCoords?.lng}
-              onCoordinates={(lat, lng) => setPickedCoords({ lat, lng })}
-            />
-            {pickedCoords && (
-              <button
-                type="button"
-                onClick={() => setPickedCoords(null)}
-                className="mt-2 text-xs text-red-400 hover:text-red-600 transition-colors"
-              >
-                Clear location
-              </button>
-            )}
-          </div>
-
-          {/* Category & College */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FormField
-              control={form.control}
-              name="category"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="flex items-center gap-2">
-                    <Tag className="h-4 w-4 text-primary" />
-                    Category <span className="text-red-500">*</span>
-                  </FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger className="bg-secondary border-none">
-                        <SelectValue placeholder="Select a category" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent position="popper" side="bottom">
-                      {categories.map((c) => (
-                        <SelectItem key={c.value} value={c.value}>
-                          {c.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="collegeId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-primary" />
-                    College <span className="text-red-500">*</span>
-                  </FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger className="bg-secondary border-none">
-                        <SelectValue placeholder="Select a college" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent position="popper" side="bottom">
-                      {colleges.map((c) => (
-                        <SelectItem
-                          key={c.id || c._id}
-                          value={c.id || c._id || ""}
-                        >
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          {/* Inter-College toggle */}
-          <FormField
-            control={form.control}
-            name="isInterCollege"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-center justify-between rounded-xl border border-input p-4 bg-secondary">
-                <div className="space-y-0.5">
-                  <FormLabel className="flex items-center gap-2 text-base">
-                    <Globe2 className="h-4 w-4 text-teal-500" />
-                    Inter-College Event
-                  </FormLabel>
-                  <p className="text-sm text-muted-foreground">
-                    Allow students from partner colleges to register
-                  </p>
-                </div>
-                <FormControl>
-                  <Switch
-                    checked={field.value ?? false}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-              </FormItem>
-            )}
-          />
-
-          {/* Partner colleges — only when isInterCollege is true */}
-          {form.watch("isInterCollege") && (
-            <FormField
-              control={form.control}
-              name="partnerCollegeIds"
-              render={({ field }) => {
-                const hostCollegeId = form.watch("collegeId");
-                const available = colleges.filter(
-                  (c) => (c.id || c._id) !== hostCollegeId,
-                );
-                const selected: string[] = field.value ?? [];
-                const toggle = (id: string) => {
-                  const next = selected.includes(id)
-                    ? selected.filter((x) => x !== id)
-                    : [...selected, id];
-                  field.onChange(next);
-                };
-                return (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="timeZone"
+                render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="flex items-center gap-2">
-                      <Building2 className="h-4 w-4 text-teal-500" />
-                      Partner Colleges
-                      <span className="text-muted-foreground font-normal text-xs">
-                        (optional)
-                      </span>
+                    <FormLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Event Timezone
                     </FormLabel>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-4 rounded-xl border border-input bg-secondary max-h-52 overflow-y-auto">
-                      {available.length === 0 && (
-                        <p className="text-sm text-muted-foreground col-span-2">
-                          No other colleges available
-                        </p>
-                      )}
-                      {available.map((c) => {
-                        const cid = c.id || c._id || "";
-                        return (
-                          <label
-                            key={cid}
-                            className="flex items-center gap-2 text-sm cursor-pointer select-none"
-                          >
-                            <Checkbox
-                              checked={selected.includes(cid)}
-                              onCheckedChange={() => toggle(cid)}
-                            />
-                            {c.name}
-                          </label>
-                        );
-                      })}
-                    </div>
+                    <FormControl>
+                      <TimeZoneSelect
+                        value={field.value}
+                        onChange={field.onChange}
+                      />
+                    </FormControl>
+                    <p className="text-[11px] text-muted-foreground">
+                      All event dates adapt to this timezone.
+                    </p>
                     <FormMessage />
                   </FormItem>
-                );
-              }}
-            />
-          )}
+                )}
+              />
 
-          {/* Submit: one primary action; drafts get a secondary "Save draft". */}
-          <div className="flex flex-wrap gap-3 pt-4">
-            {(!isEditing || editingDraft) && (
-              <Button type="submit" variant="outline" disabled={!!submitting} onClick={submitAs("draft")}>
-                {submitting === "draft" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save draft
-              </Button>
+              <FormField
+                control={form.control}
+                name="date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      <Calendar className="h-3.5 w-3.5 text-primary" />
+                      Start Date & Time <span className="text-destructive">*</span>
+                    </FormLabel>
+                    <FormControl>
+                      <DateTimePicker
+                        value={field.value}
+                        onChange={field.onChange}
+                        className="rounded-xl border-border/80 bg-background/60"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="endDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      <Clock className="h-3.5 w-3.5 text-primary" />
+                      Event End Time <span className="text-destructive">*</span>
+                    </FormLabel>
+                    <FormControl>
+                      <DateTimePicker
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Pick conclusion date & time"
+                        className="rounded-xl border-border/80 bg-background/60"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="registrationDeadline"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      <Clock className="h-3.5 w-3.5 text-amber-500" />
+                      Registration Deadline <span className="text-destructive">*</span>
+                    </FormLabel>
+                    <FormControl>
+                      <DateTimePicker
+                        value={field.value}
+                        onChange={field.onChange}
+                        className="rounded-xl border-border/80 bg-background/60"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
+
+          {/* Section 4: Venue, Capacity & Map */}
+          <div className="rounded-2xl border border-border/80 bg-card/85 p-6 backdrop-blur-xl shadow-xs sm:p-7 space-y-6">
+            <div className="flex items-center gap-2.5 pb-2 border-b border-border/70">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <MapPin className="h-4 w-4" />
+              </div>
+              <div>
+                <h3 className="font-display text-base font-bold text-foreground">
+                  Location & Capacity
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Where students should assemble and registration caps.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="venue"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Venue / Hall Name <span className="text-destructive">*</span>
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="e.g. Einstein Seminar Hall, Block C"
+                        className="h-11 rounded-xl border-border/80 bg-background/60 text-foreground focus-visible:ring-primary/20"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="capacity"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      <Users className="h-3.5 w-3.5 text-primary" />
+                      Maximum Attendees <span className="text-destructive">*</span>
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={10000}
+                        className="h-11 rounded-xl border-border/80 bg-background/60 text-foreground focus-visible:ring-primary/20"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Interactive Location Picker */}
+            <div className="pt-2">
+              <Label className="mb-2.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <MapPin className="h-3.5 w-3.5 text-primary" />
+                Pin Venue on Campus Map
+                <span className="text-muted-foreground font-normal lowercase">
+                  (optional)
+                </span>
+              </Label>
+              <div className="overflow-hidden rounded-2xl border border-border/80">
+                <LocationPicker
+                  latitude={pickedCoords?.lat}
+                  longitude={pickedCoords?.lng}
+                  onCoordinates={(lat, lng) => setPickedCoords({ lat, lng })}
+                />
+              </div>
+              {pickedCoords && (
+                <button
+                  type="button"
+                  onClick={() => setPickedCoords(null)}
+                  className="mt-2 text-xs font-medium text-destructive hover:underline"
+                >
+                  Clear pinned coordinates
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Section 5: Inter-College Collaboration */}
+          <div className="rounded-2xl border border-border/80 bg-card/85 p-6 backdrop-blur-xl shadow-xs sm:p-7 space-y-5">
+            <div className="flex items-center gap-2.5 pb-2 border-b border-border/70">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400">
+                <Globe2 className="h-4 w-4" />
+              </div>
+              <div>
+                <h3 className="font-display text-base font-bold text-foreground">
+                  Inter-College Partnership
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Open registrations to students from affiliated institutions.
+                </p>
+              </div>
+            </div>
+
+            {/* Switch container */}
+            <FormField
+              control={form.control}
+              name="isInterCollege"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-xl border border-border/80 bg-secondary/30 p-4 transition-colors">
+                  <div className="space-y-0.5">
+                    <FormLabel className="font-display text-sm font-bold text-foreground">
+                      Enable Multi-Campus Registration
+                    </FormLabel>
+                    <p className="text-xs text-muted-foreground">
+                      Allow students from outside your college to register for entry tickets.
+                    </p>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value ?? false}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            {/* Partner Colleges List */}
+            {form.watch("isInterCollege") && (
+              <FormField
+                control={form.control}
+                name="partnerCollegeIds"
+                render={({ field }) => {
+                  const hostCollegeId = form.watch("collegeId");
+                  const available = colleges.filter(
+                    (c) => (c.id || c._id) !== hostCollegeId,
+                  );
+                  const selected: string[] = field.value ?? [];
+                  const toggle = (id: string) => {
+                    const next = selected.includes(id)
+                      ? selected.filter((x) => x !== id)
+                      : [...selected, id];
+                    field.onChange(next);
+                  };
+                  return (
+                    <FormItem className="space-y-3">
+                      <FormLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Select Allowed Partner Institutions
+                      </FormLabel>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 p-4 rounded-xl border border-border/80 bg-background/50 max-h-56 overflow-y-auto">
+                        {available.length === 0 && (
+                          <p className="text-xs text-muted-foreground col-span-2">
+                            No other verified colleges registered on the platform.
+                          </p>
+                        )}
+                        {available.map((c) => {
+                          const cid = c.id || c._id || "";
+                          const isChecked = selected.includes(cid);
+                          return (
+                            <label
+                              key={cid}
+                              className={`flex items-center gap-2.5 rounded-lg border p-2.5 text-xs font-medium cursor-pointer transition-colors ${isChecked
+                                  ? "border-primary/40 bg-primary/10 text-primary"
+                                  : "border-border/60 hover:bg-muted/50 text-foreground"
+                                }`}
+                            >
+                              <Checkbox
+                                checked={isChecked}
+                                onCheckedChange={() => toggle(cid)}
+                              />
+                              <span className="truncate">{c.name}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
+              />
             )}
-            <Button
-              type="submit"
-              disabled={!!submitting}
-              onClick={submitAs(isEditing && !editingDraft ? "save" : "publish")}
-              className="px-8"
-            >
-              {submitting && submitting !== "draft" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isEditing && !editingDraft ? "Update Event" : editingDraft ? "Save & publish" : "Publish"}
-            </Button>
+          </div>
+
+          {/* Form Actions Footer */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
             <Button
               type="button"
               variant="outline"
               onClick={() => router.back()}
+              className="rounded-xl border-border/80 hover:bg-muted"
             >
               Cancel
             </Button>
+
+            <div className="flex items-center gap-3">
+              {(!isEditing || editingDraft) && (
+                <Button
+                  type="submit"
+                  variant="outline"
+                  disabled={!!submitting}
+                  onClick={submitAs("draft")}
+                  className="rounded-xl border-border/80 hover:bg-muted"
+                >
+                  {submitting === "draft" && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin text-primary" />
+                  )}
+                  Save as Draft
+                </Button>
+              )}
+
+              <Button
+                type="submit"
+                disabled={!!submitting}
+                onClick={submitAs(
+                  isEditing && !editingDraft ? "save" : "publish",
+                )}
+                className="h-11 rounded-xl bg-primary px-8 font-semibold text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90"
+              >
+                {submitting && submitting !== "draft" && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                {isEditing && !editingDraft
+                  ? "Update Event"
+                  : editingDraft
+                    ? "Publish Live"
+                    : "Publish Event"}
+              </Button>
+            </div>
           </div>
         </form>
       </Form>

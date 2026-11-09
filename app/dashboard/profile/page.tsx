@@ -32,6 +32,8 @@ import {
   Lock,
   Camera,
   Loader2,
+  AlertTriangle,
+  KeyRound,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -166,9 +168,8 @@ export default function ProfilePage() {
       }
 
       await authService.updateProfile({ profileImage: filePath });
-      // Immediately reflect in UI without triggering isLoading skeleton
       dispatch(patchUser({ profileImage: filePath }));
-      toast.success("Profile photo updated");
+      toast.success("Profile photo updated successfully");
     } catch {
       toast.error("Failed to upload photo");
     } finally {
@@ -213,8 +214,8 @@ export default function ProfilePage() {
       } else {
         toast.error(
           data?.message ||
-            err.message ||
-            "Failed to change password. Check your current password.",
+          err.message ||
+          "Failed to change password. Check your current password.",
         );
       }
     } finally {
@@ -243,40 +244,44 @@ export default function ProfilePage() {
   if (isLoading) return <ProfileSkeleton />;
 
   const initials =
-    `${user?.firstName?.[0] || ""}${user?.lastName?.[0] || ""}`.toUpperCase();
+    `${user?.firstName?.[0] || ""}${user?.lastName?.[0] || ""}`.toUpperCase() || "U";
   const selectedCollegeId = getSelectedCollegeId(user);
   const collegeName = colleges.find(
     (c) => (c.id || c._id) === selectedCollegeId,
   )?.name;
 
   return (
-    <div className="space-y-6">
-      {/* Profile Header Card */}
-      <div className="surface-card rounded-xl overflow-hidden">
-        <div className="flex flex-col md:flex-row md:items-end gap-6 p-6">
-          {/* Avatar with upload */}
-          <div className="relative group">
-            <div className="w-24 h-24 rounded-xl overflow-hidden bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
+    <div className="space-y-8 max-w-4xl">
+      {/* Profile Header Stage */}
+      <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-gradient-to-br from-primary/10 via-card/90 to-card p-6 backdrop-blur-xl shadow-xs sm:p-8">
+        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-primary/15 blur-3xl" />
+
+        <div className="relative flex flex-col sm:flex-row sm:items-center gap-6">
+          {/* Avatar with live upload hover */}
+          <div className="relative group shrink-0">
+            <div className="w-24 h-24 rounded-2xl overflow-hidden bg-gradient-to-br from-primary to-indigo-600 flex items-center justify-center shadow-lg shadow-primary/20 ring-4 ring-background">
               {user?.profileImage ? (
                 <Image
                   src={user.profileImage}
                   alt="Profile"
-                  width={112}
-                  height={112}
+                  width={96}
+                  height={96}
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <span className="text-3xl font-bold text-white">
+                <span className="font-display text-3xl font-bold text-white">
                   {initials}
                 </span>
               )}
             </div>
+
             {/* Camera overlay */}
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingAvatar}
-              className="absolute inset-0 rounded-xl bg-black/0 group-hover:bg-black/40 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
+              className="absolute inset-0 rounded-2xl bg-black/50 backdrop-blur-xs flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
+              title="Upload new profile photo"
             >
               {uploadingAvatar ? (
                 <Loader2 className="h-6 w-6 text-white animate-spin" />
@@ -293,83 +298,94 @@ export default function ProfilePage() {
             />
           </div>
 
-          {/* Info */}
-          <div className="flex-1 pb-1">
-            <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-2xl font-bold text-foreground">
+          {/* User Meta Information */}
+          <div className="space-y-1.5 flex-1">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
                 {user?.firstName} {user?.lastName}
               </h1>
               <RoleBadge role={user?.role || "student"} />
             </div>
-            <p className="text-muted-foreground flex items-center gap-2 text-sm">
-              <School className="h-4 w-4" />
-              {collegeName || "No college set"}{" "}
-              {user?.email && `• ${user.email}`}
+
+            <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-2 sm:text-sm">
+              <span className="flex items-center gap-1.5 text-foreground font-medium">
+                <School className="h-4 w-4 text-primary" />
+                {collegeName || "No college set"}
+              </span>
+              {user?.email && (
+                <>
+                  <span className="text-border">•</span>
+                  <span>{user.email}</span>
+                </>
+              )}
             </p>
           </div>
         </div>
       </div>
 
       {/* Personal Information Card */}
-      <div className="surface-card rounded-xl">
-        <div className="p-6 border-b border-border">
-          <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-            <User className="h-5 w-5 text-primary" />
-            Personal Information
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Update your personal details and academic affiliation.
-          </p>
+      <div className="rounded-2xl border border-border/80 bg-card/85 backdrop-blur-xl shadow-xs overflow-hidden">
+        <div className="p-6 border-b border-border/70 flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <User className="h-4 w-4" />
+          </div>
+          <div>
+            <h2 className="font-display text-base font-bold text-foreground">
+              Personal Information
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Update your contact credentials and institutional campus association.
+            </p>
+          </div>
         </div>
 
-        <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="p-6 sm:p-7 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* First Name */}
-            <div className="space-y-2">
-              <Label className="font-semibold">
-                First Name <span className="text-red-500">*</span>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                First Name <span className="text-destructive">*</span>
               </Label>
               <Input
                 type="text"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
+                className="h-11 rounded-xl border-border/80 bg-background/60 text-foreground focus-visible:ring-primary/20"
               />
             </div>
 
             {/* Last Name */}
-            <div className="space-y-2">
-              <Label className="font-semibold">
-                Last Name <span className="text-red-500">*</span>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Last Name <span className="text-destructive">*</span>
               </Label>
               <Input
                 type="text"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
+                className="h-11 rounded-xl border-border/80 bg-background/60 text-foreground focus-visible:ring-primary/20"
               />
             </div>
 
             {/* Email (Read Only) */}
-            <div className="space-y-2 group relative">
-              <Label className="font-semibold gap-1.5">
-                <Mail className="h-3.5 w-3.5" />
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <Mail className="h-3 w-3" />
                 Email Address
-                <Lock className="h-3 w-3 text-muted-foreground" />
+                <Lock className="h-2.5 w-2.5 text-muted-foreground" />
               </Label>
               <Input
                 type="email"
                 readOnly
                 value={user?.email || ""}
-                className="bg-muted text-muted-foreground cursor-not-allowed"
+                className="h-11 rounded-xl border-border/60 bg-muted/40 text-muted-foreground cursor-not-allowed"
               />
-              <p className="text-[11px] text-muted-foreground">
-                Email cannot be changed. Contact support if needed.
-              </p>
             </div>
 
             {/* Phone */}
-            <div className="space-y-2">
-              <Label className="font-semibold gap-1.5">
-                <Phone className="h-3.5 w-3.5" />
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <Phone className="h-3 w-3" />
                 Phone Number
               </Label>
               <Input
@@ -377,13 +393,14 @@ export default function ProfilePage() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+1 (555) 000-0000"
+                className="h-11 rounded-xl border-border/80 bg-background/60 text-foreground focus-visible:ring-primary/20"
               />
             </div>
 
             {/* Gender */}
-            <div className="space-y-2">
-              <Label className="font-semibold">
-                Gender
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Gender Identity
               </Label>
               <Select
                 value={gender || EMPTY_GENDER_VALUE}
@@ -391,7 +408,7 @@ export default function ProfilePage() {
                   setGender(value === EMPTY_GENDER_VALUE ? "" : value)
                 }
               >
-                <SelectTrigger className="h-11 w-full rounded-lg border-input bg-card px-3 shadow-none">
+                <SelectTrigger className="h-11 w-full rounded-xl border-border/80 bg-background/60 text-foreground focus:ring-primary/20">
                   <SelectValue placeholder="Select gender" />
                 </SelectTrigger>
                 <SelectContent>
@@ -409,9 +426,9 @@ export default function ProfilePage() {
             </div>
 
             {/* Date of Birth */}
-            <div className="space-y-2">
-              <Label className="font-semibold gap-1.5">
-                <Calendar className="h-3.5 w-3.5" />
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <Calendar className="h-3 w-3" />
                 Date of Birth
               </Label>
               <DatePicker
@@ -428,9 +445,9 @@ export default function ProfilePage() {
             </div>
 
             {/* College Affiliation */}
-            <div className="space-y-2">
-              <Label className="font-semibold gap-1.5">
-                <School className="h-3.5 w-3.5" />
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <School className="h-3 w-3" />
                 College Affiliation
               </Label>
               <Select
@@ -439,7 +456,7 @@ export default function ProfilePage() {
                   setCollegeId(value === EMPTY_COLLEGE_VALUE ? "" : value)
                 }
               >
-                <SelectTrigger className="h-11 w-full rounded-lg border-input bg-card px-3 shadow-none">
+                <SelectTrigger className="h-11 w-full rounded-xl border-border/80 bg-background/60 text-foreground focus:ring-primary/20">
                   <SelectValue placeholder="Select college" />
                 </SelectTrigger>
                 <SelectContent>
@@ -448,11 +465,7 @@ export default function ProfilePage() {
                   </SelectItem>
                   {colleges.map((college) => {
                     const collegeValue = college.id ?? college._id;
-
-                    if (!collegeValue) {
-                      return null;
-                    }
-
+                    if (!collegeValue) return null;
                     return (
                       <SelectItem key={collegeValue} value={collegeValue}>
                         {college.name}
@@ -463,12 +476,12 @@ export default function ProfilePage() {
               </Select>
             </div>
 
-            {/* Role (display only) */}
-            <div className="space-y-2">
-              <Label className="font-semibold gap-1.5">
-                <Shield className="h-3.5 w-3.5" />
-                Account Role
-                <Lock className="h-3 w-3 text-muted-foreground" />
+            {/* Role Display */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <Shield className="h-3 w-3" />
+                Account Authorization
+                <Lock className="h-2.5 w-2.5 text-muted-foreground" />
               </Label>
               <Input
                 type="text"
@@ -478,38 +491,43 @@ export default function ProfilePage() {
                     ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
                     : "Student"
                 }
-                className="bg-muted text-muted-foreground cursor-not-allowed"
+                className="h-11 rounded-xl border-border/60 bg-muted/40 text-muted-foreground cursor-not-allowed"
               />
             </div>
 
             {/* Bio */}
-            <div className="md:col-span-2 space-y-2">
-              <Label className="font-semibold">
-                Biography
+            <div className="md:col-span-2 space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Campus Bio & Interests
               </Label>
               <Textarea
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
-                rows={4}
-                placeholder="Tell us about your interests, what you're studying..."
-                className="resize-none"
+                rows={3}
+                placeholder="Tell other students and organizers about what you study and hackathon interests..."
+                className="rounded-xl border-border/80 bg-background/60 text-foreground focus-visible:ring-primary/20 resize-none leading-relaxed"
               />
-              <p className="text-[11px] text-muted-foreground">
-                A brief bio helps you connect at events.
-              </p>
             </div>
           </div>
         </div>
 
-        {/* Save / Discard */}
-        <div className="p-6 bg-muted/30 flex justify-end gap-3 rounded-b-xl border-t border-border">
-          <Button variant="ghost" onClick={handleDiscard}>
-            Discard
+        {/* Footer Actions */}
+        <div className="flex items-center justify-end gap-3 border-t border-border/70 bg-muted/20 px-6 py-4">
+          <Button
+            variant="ghost"
+            onClick={handleDiscard}
+            className="rounded-xl hover:bg-muted text-muted-foreground"
+          >
+            Discard Changes
           </Button>
-          <Button onClick={handleProfileSave} disabled={saving}>
+          <Button
+            onClick={handleProfileSave}
+            disabled={saving}
+            className="h-10 rounded-xl bg-primary px-6 font-semibold text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90"
+          >
             {saving ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Saving...
               </>
             ) : (
@@ -520,21 +538,25 @@ export default function ProfilePage() {
       </div>
 
       {/* Security & Password Card */}
-      <div className="surface-card rounded-xl">
-        <div className="p-6 border-b border-border">
-          <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-            <Shield className="h-5 w-5 text-primary" />
-            Security &amp; Password
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Secure your account by updating your credentials.
-          </p>
+      <div className="rounded-2xl border border-border/80 bg-card/85 backdrop-blur-xl shadow-xs overflow-hidden">
+        <div className="p-6 border-b border-border/70 flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <KeyRound className="h-4 w-4" />
+          </div>
+          <div>
+            <h2 className="font-display text-base font-bold text-foreground">
+              Security & Credentials
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Protect your account by setting a strong authentication password.
+            </p>
+          </div>
         </div>
 
-        <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="space-y-2">
-              <Label className="font-semibold">
+        <div className="p-6 sm:p-7 space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Current Password
               </Label>
               <Input
@@ -542,10 +564,12 @@ export default function ProfilePage() {
                 placeholder="••••••••"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
+                className="h-11 rounded-xl border-border/80 bg-background/60 text-foreground focus-visible:ring-primary/20"
               />
             </div>
-            <div className="space-y-2">
-              <Label className="font-semibold">
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 New Password
               </Label>
               <Input
@@ -553,10 +577,12 @@ export default function ProfilePage() {
                 placeholder="••••••••"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
+                className="h-11 rounded-xl border-border/80 bg-background/60 text-foreground focus-visible:ring-primary/20"
               />
             </div>
-            <div className="space-y-2">
-              <Label className="font-semibold">
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Confirm New Password
               </Label>
               <Input
@@ -564,30 +590,30 @@ export default function ProfilePage() {
                 placeholder="••••••••"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                className="h-11 rounded-xl border-border/80 bg-background/60 text-foreground focus-visible:ring-primary/20"
               />
             </div>
           </div>
 
-          {/* Hint */}
-          <div className="mt-6 flex items-start gap-3 p-4 bg-primary/5 rounded-lg border border-primary/10">
-            <Info className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Use at least 8 characters, including one uppercase letter and one
-              special character for a strong password.
+          <div className="flex items-start gap-2.5 rounded-xl border border-primary/20 bg-primary/5 p-3.5 text-xs text-muted-foreground">
+            <Info className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+            <p className="leading-relaxed">
+              Use at least 8 characters with a mix of uppercase letters, numbers, and symbols.
             </p>
           </div>
         </div>
 
-        <div className="p-6 bg-muted/30 flex justify-end rounded-b-xl border-t border-border">
+        <div className="flex items-center justify-end border-t border-border/70 bg-muted/20 px-6 py-4">
           <Button
             onClick={handlePasswordChange}
             disabled={
               changingPw || !currentPassword || !newPassword || !confirmPassword
             }
+            className="h-10 rounded-xl bg-primary px-6 font-semibold text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90"
           >
             {changingPw ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Updating...
               </>
             ) : (
@@ -597,25 +623,25 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Danger Zone */}
-      <div className="bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-100 dark:border-red-900/30 p-6 flex flex-col md:flex-row items-center justify-between gap-4">
-        <div>
-          <h3 className="font-bold text-red-700 dark:text-red-400">
-            Deactivate Account
+      {/* Danger Zone Card */}
+      <div className="rounded-2xl border border-destructive/20 bg-destructive/5 p-6 backdrop-blur-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="space-y-1">
+          <h3 className="font-display text-sm font-bold text-destructive flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" />
+            Deactivate Student Account
           </h3>
-          <p className="text-sm text-red-600/70 dark:text-red-400/60">
-            This action is permanent and cannot be undone. All your event
-            history will be removed.
+          <p className="text-xs text-muted-foreground max-w-md">
+            Permanently close your StudentSync profile and invalidate all registered event entry passes.
           </p>
         </div>
         <Button
           variant="outline"
-          className="border-red-200 text-red-600 hover:bg-red-100 hover:text-red-600 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/40"
+          className="rounded-xl border-destructive/30 text-destructive hover:bg-destructive/10"
           onClick={() =>
-            toast.info("Account deactivation is not available yet.")
+            toast.info("Account deactivation requires administrator verification.")
           }
         >
-          Deactivate
+          Deactivate Account
         </Button>
       </div>
     </div>

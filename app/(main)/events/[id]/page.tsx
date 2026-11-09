@@ -2,8 +2,6 @@
 
 import { EventStaff } from "@/components/events/EventStaff";
 import { EventAnnouncements } from "@/components/events/EventAnnouncements";
-import QRScanner from "@/components/events/QRScanner";
-import AttendanceList from "@/components/events/AttendanceList";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
@@ -17,7 +15,7 @@ import {
 } from "@/store/slices/registrationsSlice";
 import { fetchBookmarks } from "@/store/slices/bookmarksSlice";
 import { EventDetailSkeleton } from "@/components/common/Skeletons";
-import { EventStatusBadge, CategoryBadge } from "@/components/common/Badges";
+import { EventStatusBadge, CategoryBadge, InterCollegeBadge } from "@/components/common/Badges";
 import { Button } from "@/components/ui/button";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import AddToCalendar from "@/components/events/AddToCalendar";
@@ -39,13 +37,26 @@ import {
   Copy,
   Download,
   Pencil,
+  Sparkles,
+  Ticket,
+  Building,
+  ShieldCheck,
+  ChevronRight,
+  Info,
 } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
+import { motion } from "framer-motion";
+import AttendanceList from "@/components/events/AttendanceList";
+import { cn } from "@/lib/utils";
 
-// Leaflet requires browser APIs — SSR must be disabled
+// Leaflet and html5-qrcode require browser APIs — SSR must be disabled
 const EventLocationMap = dynamic(
   () => import("@/components/events/EventLocationMap"),
+  { ssr: false },
+);
+const QRScanner = dynamic(
+  () => import("@/components/events/QRScanner"),
   { ssr: false },
 );
 
@@ -63,9 +74,7 @@ export default function EventDetailPage() {
   const [registrationId, setRegistrationId] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
 
-  // Fetch the student's own registrationId so we can show the QR code.
-  // Reset on id change and guard against a stale response overwriting a newer
-  // event's registration (race when navigating between events).
+  // Fetch the student's own registrationId so we can show the QR code
   useEffect(() => {
     setRegistrationId(null);
     if (!isAuthenticated || !id || user?.role !== "student") return;
@@ -112,7 +121,7 @@ export default function EventDetailPage() {
     if (!id) return;
     try {
       await dispatch(registerForEvent(id)).unwrap();
-      toast.success("Successfully registered for the event!");
+      toast.success("Successfully registered! Your FastPass QR is ready.");
       dispatch(fetchEventById(id));
     } catch (err) {
       toast.error(typeof err === "string" ? err : "Failed to register");
@@ -124,6 +133,7 @@ export default function EventDetailPage() {
     try {
       await dispatch(cancelRegistration({ eventId: id })).unwrap();
       toast.success("Registration cancelled");
+      setRegistrationId(null);
       dispatch(fetchEventById(id));
     } catch (err) {
       toast.error(
@@ -137,7 +147,7 @@ export default function EventDetailPage() {
     setPublishing(true);
     try {
       await dispatch(publishEvent(id)).unwrap();
-      toast.success("Event published. Students can now find and register for it.");
+      toast.success("Event published! Students can now discover and register.");
     } catch (err) {
       toast.error(typeof err === "string" ? err : "Failed to publish event");
     } finally {
@@ -147,22 +157,23 @@ export default function EventDetailPage() {
 
   if (isLoading) return <EventDetailSkeleton />;
 
-  // Failed to load or no such event — show a recoverable error instead of an
-  // infinite skeleton.
   if (!event) {
     return (
       <div className="mx-auto flex max-w-md flex-col items-center gap-4 px-4 py-24 text-center">
-        <h1 className="text-2xl font-bold">Event not available</h1>
-        <p className="text-muted-foreground">
+        <div className="size-16 rounded-2xl bg-destructive/10 text-destructive flex items-center justify-center">
+          <Info className="size-8" />
+        </div>
+        <h1 className="font-display text-2xl font-bold">Event Not Found</h1>
+        <p className="text-sm text-muted-foreground leading-relaxed">
           {error ||
-            "This event could not be found. It may have been removed or the link is incorrect."}
+            "This event could not be found. It may have been unpublished, removed, or the link is incorrect."}
         </p>
-        <div className="flex gap-3">
-          <Button variant="outline" onClick={() => router.back()}>
+        <div className="flex gap-3 mt-2">
+          <Button variant="outline" className="rounded-xl" onClick={() => router.back()}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Go Back
           </Button>
-          <Button onClick={() => id && dispatch(fetchEventById(id))}>
+          <Button className="rounded-xl" onClick={() => id && dispatch(fetchEventById(id))}>
             Try Again
           </Button>
         </div>
@@ -176,384 +187,536 @@ export default function EventDetailPage() {
     : null;
   const deadlinePassed = deadline ? isPast(deadline) : false;
   const isDraft = event.status === "draft";
-  const fillPercent =
-    event.capacity && event.registrationCount != null
-      ? Math.round((event.registrationCount / event.capacity) * 100)
-      : 0;
-  const spotsLeft =
-    event.capacity && event.registrationCount != null
-      ? event.capacity - event.registrationCount
-      : null;
+  const capacity = event.capacity || 0;
+  const count = event.registrationCount ?? 0;
+  const spotsLeft = capacity > 0 ? Math.max(0, capacity - count) : null;
+  const fillPercent = capacity > 0 ? Math.min(100, Math.round((count / capacity) * 100)) : 0;
+  const isNearlyFull = spotsLeft !== null && spotsLeft > 0 && spotsLeft <= 10;
 
-  const organizerName =
-    typeof event.organizerId === "object" && event.organizerId
-      ? `${(event.organizerId as unknown as { firstName: string; lastName: string }).firstName} ${(event.organizerId as unknown as { firstName: string; lastName: string }).lastName}`
-      : "Event Organizer";
+  const organizerObj = typeof event.organizerId === "object" && event.organizerId !== null
+    ? (event.organizerId as { firstName?: string; lastName?: string; email?: string })
+    : null;
+  const organizerName = organizerObj
+    ? `${organizerObj.firstName || ""} ${organizerObj.lastName || ""}`.trim() || organizerObj.email || "Campus Organizer"
+    : "Campus Organizer";
+
+  const collegeObj = typeof event.collegeId === "object" && event.collegeId !== null
+    ? (event.collegeId as { name?: string })
+    : null;
+  const collegeName = collegeObj?.name || null;
+  const canManageStaff =
+    !!event.permissions?.includes("edit") ||
+    user?.role === "organizer" ||
+    user?.role === "admin";
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Back button */}
-      <button
-        onClick={() => router.back()}
-        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary mb-6 transition-colors"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to Events
-      </button>
+    <div className="relative min-h-[calc(100vh-140px)] overflow-hidden px-4 pb-24 pt-6 sm:px-6 lg:px-8">
+      {/* Ambient background lighting */}
+      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 h-[450px] w-[900px] rounded-full bg-gradient-to-tr from-indigo-500/10 via-violet-500/10 to-cyan-500/10 blur-[120px] dark:from-indigo-600/15 dark:via-purple-600/15 dark:to-cyan-500/10" />
+        <div className="absolute inset-0 bg-grid-pattern opacity-50" />
+      </div>
 
-      <div className="mb-6 space-y-4">
-        {isDraft && (
-          <div role="status" className="surface-card flex flex-col gap-3 rounded-xl p-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-foreground">
-              <span className="font-semibold">Draft.</span> Only the owner, event staff and admins can see this event. Students can&apos;t find or register for it yet.
-            </p>
-            {event.permissions?.includes("edit") && (
-              <Button onClick={handlePublish} disabled={publishing} className="shrink-0">
-                {publishing && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
-                Publish event
-              </Button>
+      <div className="mx-auto max-w-7xl">
+        {/* TOP BAR / BREADCRUMB NAVIGATION */}
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <button
+              onClick={() => router.back()}
+              className="group inline-flex items-center gap-1.5 rounded-xl border border-border/80 bg-card/80 backdrop-blur-md px-3 py-1.5 font-medium text-foreground hover:bg-secondary transition-all shadow-2xs"
+            >
+              <ArrowLeft className="size-3.5 transition-transform group-hover:-translate-x-0.5 text-primary" />
+              <span>Events</span>
+            </button>
+            <ChevronRight className="size-3 text-muted-foreground/60" />
+            <span className="capitalize text-muted-foreground">{event.category}</span>
+            <ChevronRight className="size-3 text-muted-foreground/60 hidden sm:inline" />
+            <span className="font-semibold text-foreground truncate max-w-xs hidden sm:inline">
+              {event.title}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {event.date && !isDraft && (
+              <AddToCalendar
+                eventId={id}
+                title={event.title}
+                description={event.description}
+                location={event.venue}
+                startDate={event.date}
+                endDate={event.endDate}
+              />
+            )}
+            {!isDraft && (
+              <BookmarkButton
+                eventId={id}
+                className="size-9 rounded-xl border border-border/80 bg-card/80 backdrop-blur-md shadow-2xs hover:bg-secondary text-muted-foreground hover:text-primary"
+              />
+            )}
+            {!isDraft && (
+              <ShareButton
+                url={`${typeof window !== "undefined" ? window.location.origin : ""}/events/${id}`}
+                title={event.title}
+                description={event.description}
+                className="size-9 rounded-xl border border-border/80 bg-card/80 backdrop-blur-md shadow-2xs hover:bg-secondary text-muted-foreground hover:text-primary"
+              />
             )}
           </div>
-        )}
-        {(event.permissions?.includes("edit") || event.permissions?.includes("export")) && (
-          <div className="flex flex-wrap gap-2">
-            {event.permissions?.includes("edit") && <Button asChild variant="outline"><Link href={`/dashboard/edit-event/${id}`}><Pencil className="mr-2 h-4 w-4" aria-hidden="true" />Edit event</Link></Button>}
-            {event.permissions?.includes("edit") && <Button asChild variant="outline"><Link href={`/dashboard/create-event?from=${id}`}><Copy className="mr-2 h-4 w-4" aria-hidden="true" />Duplicate</Link></Button>}
-            {event.permissions?.includes("export") && !isDraft && <Button asChild variant="outline"><a href={eventService.attendeeExportUrl(id)} download><Download className="mr-2 h-4 w-4" aria-hidden="true" />Export attendees (CSV)</a></Button>}
-          </div>
-        )}
-        {event.permissions?.includes("announce") && !isDraft && <EventAnnouncements eventId={id} registrationCount={event.registrationCount ?? 0} />}
-        {event.permissions?.includes("staff") && <EventStaff eventId={id} />}
-        {event.permissions?.includes("checkIn") && <QRScanner />}
-        {event.permissions?.includes("attendees") && <AttendanceList eventId={id} />}
-      </div>
-      {/* Hero Image */}
-      <header className="mb-8">
-        <div className="relative w-full h-[400px] md:h-[450px] overflow-hidden rounded-xl bg-secondary/30 border border-border group">
-          {event.image ? (
-            <>
-              {/* Blurred Background Layer */}
-              <div 
-                className="absolute inset-0 bg-cover bg-center blur-3xl opacity-40 scale-110" 
-                style={{ backgroundImage: `url(${event.image})` }} 
-              />
-              {/* Main Contained Image */}
-              <Image
-                src={event.image}
-                alt={event.title}
-                fill
-                sizes="(max-width: 1280px) 100vw, 1280px"
-                className="object-contain drop-shadow-2xl z-0"
-                priority
-              />
-            </>
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Calendar className="h-20 w-20 text-muted-foreground/30" />
+        </div>
+
+        {/* ORGANIZER COMMAND TOOLBAR / DRAFT BANNER */}
+        <div className="mb-6 space-y-4">
+          {isDraft && (
+            <div role="status" className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 sm:p-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between backdrop-blur-md">
+              <div className="flex items-center gap-2.5">
+                <span className="size-2 rounded-full bg-amber-500 animate-ping" />
+                <p className="text-xs sm:text-sm text-foreground">
+                  <span className="font-bold text-amber-600 dark:text-amber-400">Draft Status:</span> This event is unlisted. Students cannot discover or register for it yet.
+                </p>
+              </div>
+              {event.permissions?.includes("edit") && (
+                <Button onClick={handlePublish} disabled={publishing} size="sm" className="rounded-xl shrink-0 font-semibold shadow-xs">
+                  {publishing && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
+                  Publish Event Live
+                </Button>
+              )}
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent z-10 pointer-events-none" />
-          <div className="absolute bottom-0 left-0 p-6 md:p-10 text-white z-20 w-full">
-            <div className="flex flex-wrap gap-2 mb-4">
-              {event.category && <CategoryBadge category={event.category} />}
-              {event.status && <EventStatusBadge status={event.status} />}
+
+          {(event.permissions?.includes("edit") || event.permissions?.includes("export")) && (
+            <div className="flex flex-wrap items-center gap-2 p-3 rounded-2xl border border-border/80 bg-card/80 backdrop-blur-md shadow-2xs">
+              <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5 px-2">
+                <ShieldCheck className="size-4 text-primary" /> Organizer Tools:
+              </span>
+              {event.permissions?.includes("edit") && (
+                <Button asChild variant="outline" size="sm" className="rounded-xl text-xs h-8">
+                  <Link href={`/dashboard/edit-event/${id}`}>
+                    <Pencil className="mr-1.5 size-3.5 text-primary" /> Edit Event
+                  </Link>
+                </Button>
+              )}
+              {event.permissions?.includes("edit") && (
+                <Button asChild variant="outline" size="sm" className="rounded-xl text-xs h-8">
+                  <Link href={`/dashboard/create-event?from=${id}`}>
+                    <Copy className="mr-1.5 size-3.5 text-primary" /> Duplicate
+                  </Link>
+                </Button>
+              )}
+              {event.permissions?.includes("export") && !isDraft && (
+                <Button asChild variant="outline" size="sm" className="rounded-xl text-xs h-8">
+                  <a href={eventService.attendeeExportUrl(id)} download>
+                    <Download className="mr-1.5 size-3.5 text-primary" /> Export Attendees (CSV)
+                  </a>
+                </Button>
+              )}
             </div>
-            <h1 className="text-3xl md:text-5xl font-extrabold mb-3 leading-tight tracking-tight max-w-4xl">
-              {event.title}
-            </h1>
-            <p className="text-slate-300 text-sm md:text-base flex items-center gap-2 font-medium">
-              <Users className="h-4 w-4 md:h-5 md:w-5" /> Hosted by {organizerName}
-            </p>
-          </div>
+          )}
+
+          {event.permissions?.includes("announce") && !isDraft && <EventAnnouncements eventId={id} registrationCount={count} />}
+          {event.permissions?.includes("staff") && <EventStaff eventId={id} />}
+          {event.permissions?.includes("checkIn") && <QRScanner />}
+          {event.permissions?.includes("attendees") && <AttendanceList eventId={id} />}
         </div>
-      </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left Column */}
-        <div className="lg:col-span-8 space-y-8">
-          {/* Info Quick Grid */}
-          <section className="surface-card grid grid-cols-1 md:grid-cols-3 gap-6 p-6 rounded-xl">
-            <div className="flex items-start gap-3">
-              <div className="p-2.5 bg-primary/10 rounded-lg">
-                <Calendar className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Date &amp; Time</p>
-                <p className="font-medium text-foreground">
-                  {eventDate ? new Intl.DateTimeFormat("en", { dateStyle: "medium", timeZone: event.timeZone || "UTC" }).format(eventDate) : "TBA"}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {eventDate ? new Intl.DateTimeFormat("en", { timeStyle: "short", timeZone: event.timeZone || "UTC" }).format(eventDate) : ""} ({event.timeZone || "UTC"})
-                  {event.endDate && <span className="block text-xs">Ends {new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short", timeZone: event.timeZone || "UTC" }).format(new Date(event.endDate))}</span>}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3 md:border-l md:border-border md:pl-6">
-              <div className="p-2.5 bg-primary/10 rounded-lg">
-                <MapPin className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Venue</p>
-                <p className="font-medium text-foreground">
-                  {event.venue || "TBA"}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3 md:border-l md:border-border md:pl-6">
-              <div
-                className={`p-2.5 rounded-lg ${deadlinePassed ? "bg-red-500/10" : "bg-primary/10"}`}
-              >
-                <Clock
-                  className={`h-5 w-5 ${deadlinePassed ? "text-red-500" : "text-primary"}`}
+        {/* HERO CINEMATIC MEDIA STAGE */}
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="relative mb-8 w-full overflow-hidden rounded-3xl border border-border/80 bg-card shadow-lg"
+        >
+          <div className="relative aspect-[21/9] sm:aspect-[16/7] md:h-[420px] w-full overflow-hidden bg-secondary/50">
+            {event.image ? (
+              <>
+                {/* Ambient Blur Backdrop */}
+                <div 
+                  className="absolute inset-0 bg-cover bg-center blur-2xl opacity-40 scale-110 pointer-events-none" 
+                  style={{ backgroundImage: `url(${event.image})` }} 
                 />
+                <Image
+                  src={event.image}
+                  alt={event.title}
+                  fill
+                  sizes="(max-width: 1280px) 100vw, 1280px"
+                  className="object-contain drop-shadow-2xl z-0"
+                  priority
+                />
+              </>
+            ) : (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-secondary to-accent">
+                <Calendar className="size-16 text-primary/30 mb-2" />
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+                  Campus Event Showcase
+                </span>
               </div>
-              <div>
-                <p
-                  className={`text-xs ${deadlinePassed ? "text-red-500" : "text-muted-foreground"}`}
-                >
-                  Deadline
-                </p>
-                <p className="font-medium text-foreground">
-                  {deadline ? new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short", timeZone: event.timeZone || "UTC" }).format(deadline) : "TBA"}
-                </p>
-                {deadlinePassed && (
-                  <p className="text-sm text-red-400 font-medium">
-                    Registration closed
-                  </p>
+            )}
+
+            {/* Contrast protection gradient */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent z-10 pointer-events-none" />
+
+            {/* Overlaid Title & Tags */}
+            <div className="absolute bottom-0 left-0 p-5 sm:p-8 md:p-10 text-white z-20 w-full">
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                {event.category && <CategoryBadge category={event.category} />}
+                {event.status && <EventStatusBadge status={event.status} />}
+                {event.isInterCollege && <InterCollegeBadge />}
+              </div>
+
+              <h1 className="font-display text-2xl sm:text-4xl md:text-5xl font-extrabold leading-tight tracking-tight text-white max-w-4xl drop-shadow-md">
+                {event.title}
+              </h1>
+
+              <div className="mt-3 flex flex-wrap items-center gap-4 text-xs sm:text-sm text-white/90">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <Users className="size-4 text-primary" /> Hosted by {organizerName}
+                </span>
+                {collegeName && (
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <Building className="size-4 text-primary" /> {collegeName}
+                  </span>
+                )}
+                {event.venue && (
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <MapPin className="size-4 text-primary" /> {event.venue}
+                  </span>
                 )}
               </div>
             </div>
-          </section>
+          </div>
+        </motion.div>
 
-          {/* Description */}
-          <section>
-            <h2 className="text-xl font-bold mb-3 text-foreground">
-              About the Event
-            </h2>
-            <div className="text-muted-foreground leading-relaxed whitespace-pre-line">
-              {event.description}
+        {/* DETAILS BENTO MATRIX (INFO GRID) */}
+        <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Card 1: Date & Time */}
+          <div className="rounded-2xl border border-border/80 bg-card/90 backdrop-blur-md p-4 sm:p-5 shadow-xs flex items-start gap-3.5">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Calendar className="size-5" />
             </div>
-          </section>
-
-          {/* Chat */}
-          {isAuthenticated && (
-            <ChatPanel
-              eventId={id}
-              isRegistered={!!event.isRegistered || !!event.permissions?.includes("chat")}
-              userMongoId={user?.id}
-              userRole={user?.role ?? "student"}
-              isOwner={!!event.permissions?.includes("moderate")}
-            />
-          )}
-
-          {/* Location Map */}
-          {event.latitude != null && event.longitude != null && (
-            <section>
-              <h2 className="text-xl font-bold mb-3 text-foreground">
-                Event Location
-              </h2>
-              <EventLocationMap
-                latitude={event.latitude}
-                longitude={event.longitude}
-                venue={event.venue}
-                title={event.title}
-              />
-              <p className="text-sm text-muted-foreground mt-2 flex items-center gap-1">
-                <MapPin className="h-4 w-4" />
-                {event.venue}
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Date & Time</p>
+              <p className="font-display font-bold text-foreground text-sm mt-0.5 truncate">
+                {eventDate ? new Intl.DateTimeFormat("en", { dateStyle: "medium", timeZone: event.timeZone || "UTC" }).format(eventDate) : "TBA"}
               </p>
-            </section>
-          )}
-
-          {/* Reviews & Ratings */}
-          <section>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-foreground">
-                Reviews &amp; Ratings
-              </h2>
-              {(event.reviewCount ?? 0) > 0 && (
-                <div className="flex items-center gap-2">
-                  <StarRating
-                    value={Math.round(event.averageRating ?? 0)}
-                    readonly
-                    size="sm"
-                  />
-                  <span className="text-sm font-semibold">
-                    {(event.averageRating ?? 0).toFixed(1)}
-                  </span>
-                  <span className="text-sm text-muted-foreground">
-                    ({event.reviewCount} review
-                    {event.reviewCount !== 1 ? "s" : ""})
-                  </span>
-                </div>
-              )}
+              <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                {eventDate ? new Intl.DateTimeFormat("en", { timeStyle: "short", timeZone: event.timeZone || "UTC" }).format(eventDate) : ""} ({event.timeZone || "UTC"})
+              </p>
             </div>
+          </div>
 
-            {isAuthenticated &&
-              user?.role === "student" &&
-              event.isRegistered &&
-              event.status === "completed" && (
-                <div className="surface-card mb-6 p-5 rounded-xl">
-                  <h3 className="text-sm font-semibold mb-3 text-foreground">
-                    Write a Review
-                  </h3>
-                  <ReviewForm
-                    eventId={id}
-                    onSubmitted={() => setReviewRefresh((n) => n + 1)}
-                  />
-                </div>
-              )}
+          {/* Card 2: Venue & Campus */}
+          <div className="rounded-2xl border border-border/80 bg-card/90 backdrop-blur-md p-4 sm:p-5 shadow-xs flex items-start gap-3.5">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <MapPin className="size-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Location / Venue</p>
+              <p className="font-display font-bold text-foreground text-sm mt-0.5 truncate">
+                {event.venue || "Campus Venue TBD"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                {collegeName || "Main Campus"}
+              </p>
+            </div>
+          </div>
 
-            <ReviewList eventId={id} refresh={reviewRefresh} />
-          </section>
+          {/* Card 3: Deadline */}
+          <div className="rounded-2xl border border-border/80 bg-card/90 backdrop-blur-md p-4 sm:p-5 shadow-xs flex items-start gap-3.5">
+            <div className={`flex size-11 shrink-0 items-center justify-center rounded-xl ${
+              deadlinePassed ? "bg-rose-500/10 text-rose-600 dark:text-rose-400" : "bg-primary/10 text-primary"
+            }`}>
+              <Clock className="size-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Registration Deadline</p>
+              <p className="font-display font-bold text-foreground text-sm mt-0.5 truncate">
+                {deadline ? new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short", timeZone: event.timeZone || "UTC" }).format(deadline) : "Open until event"}
+              </p>
+              <p className={`text-xs mt-0.5 font-medium ${deadlinePassed ? "text-rose-600 dark:text-rose-400" : "text-emerald-600 dark:text-emerald-400"}`}>
+                {deadlinePassed ? "Registration Closed" : "Open for Registration"}
+              </p>
+            </div>
+          </div>
+
+          {/* Card 4: Admission & Capacity */}
+          <div className="rounded-2xl border border-border/80 bg-card/90 backdrop-blur-md p-4 sm:p-5 shadow-xs flex items-start gap-3.5">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <Ticket className="size-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Admission & Access</p>
+              <p className="font-display font-bold text-emerald-600 dark:text-emerald-400 text-sm mt-0.5">
+                Free Student Pass
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {capacity > 0 ? `${count}/${capacity} spots filled` : "Open Capacity"}
+              </p>
+            </div>
+          </div>
         </div>
 
-        {/* Right Column: Sidebar */}
-        <div className="lg:col-span-4">
-          <aside className="sticky top-24 space-y-5">
-            {/* Main CTA Card */}
-            <div className="surface-card p-5 rounded-xl">
-              <div className="flex justify-between items-center mb-5">
-                <div>
-                  <span className="text-muted-foreground text-xs block">
-                    Entry Fee
-                  </span>
-                  <span className="text-2xl font-bold text-foreground">
-                    Free
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {event.date && !isDraft && (
-                    <AddToCalendar
-                      eventId={id}
-                      title={event.title}
-                      description={event.description}
-                      location={event.venue}
-                      startDate={event.date}
-                      endDate={event.endDate}
-                    />
-                  )}
-                  {!isDraft && <BookmarkButton eventId={id} />}
-                  {!isDraft && <ShareButton
-                    url={`${typeof window !== "undefined" ? window.location.origin : ""}/events/${id}`}
+        {/* TWO COLUMN CONTENT & SIDEBAR */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* LEFT COLUMN: Main Info & Interactive Panels */}
+          <div className="lg:col-span-8 space-y-8">
+            {/* About Section */}
+            <section className="rounded-3xl border border-border/80 bg-card p-6 sm:p-8 shadow-xs">
+              <h2 className="font-display text-xl sm:text-2xl font-bold text-foreground mb-4 flex items-center gap-2">
+                <Sparkles className="size-5 text-primary" /> About This Event
+              </h2>
+              <div className="text-sm sm:text-base text-muted-foreground leading-relaxed whitespace-pre-line">
+                {event.description}
+              </div>
+            </section>
+
+            {/* Announcements Broadcasts */}
+            {id && (canManageStaff || isAuthenticated) && (
+              <EventAnnouncements
+                eventId={id}
+                registrationCount={count}
+              />
+            )}
+
+            {/* Live Campus Event Chat */}
+            {isAuthenticated && id && (
+              <ChatPanel
+                eventId={id}
+                isRegistered={!!event.isRegistered || !!event.permissions?.includes("chat")}
+                userMongoId={user?.id}
+                userRole={user?.role ?? "student"}
+                isOwner={!!event.permissions?.includes("moderate")}
+              />
+            )}
+
+            {/* Event Staff Management (Organizer / Admin / Editor) */}
+            {canManageStaff && id && (
+              <EventStaff eventId={id} />
+            )}
+
+            {/* Location Map */}
+            {event.latitude != null && event.longitude != null && (
+              <section className="rounded-3xl border border-border/80 bg-card p-6 sm:p-8 shadow-xs">
+                <h2 className="font-display text-xl font-bold text-foreground mb-4 flex items-center gap-2">
+                  <MapPin className="size-5 text-primary" /> Event Location & Venue
+                </h2>
+                <div className="overflow-hidden rounded-2xl border border-border/80 shadow-xs">
+                  <EventLocationMap
+                    latitude={event.latitude}
+                    longitude={event.longitude}
+                    venue={event.venue}
                     title={event.title}
-                    description={event.description}
-                  />}
+                  />
                 </div>
-              </div>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-3 flex items-center gap-1.5">
+                  <MapPin className="size-4 text-primary shrink-0" />
+                  {event.venue} {collegeName ? `• ${collegeName}` : ""}
+                </p>
+              </section>
+            )}
 
-              {/* Capacity Indicator */}
-              {event.capacity && (
-                <div className="mb-5">
-                  <div className="flex justify-between items-end mb-2">
-                    <span className="text-sm text-muted-foreground">
-                      Capacity
+            {/* Reviews & Ratings */}
+            <section className="rounded-3xl border border-border/80 bg-card p-6 sm:p-8 shadow-xs">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-6 pb-4 border-b border-border/60">
+                <h2 className="font-display text-xl font-bold text-foreground">
+                  Attendee Reviews & Ratings
+                </h2>
+                {(event.reviewCount ?? 0) > 0 && (
+                  <div className="flex items-center gap-2 rounded-xl bg-secondary px-3 py-1.5 text-xs">
+                    <StarRating
+                      value={Math.round(event.averageRating ?? 0)}
+                      readonly
+                      size="sm"
+                    />
+                    <span className="font-bold text-foreground">
+                      {(event.averageRating ?? 0).toFixed(1)}
                     </span>
-                    <span className="text-sm font-medium text-foreground">
-                      {event.registrationCount || 0}/{event.capacity} joined
+                    <span className="text-muted-foreground">
+                      ({event.reviewCount} review{event.reviewCount !== 1 ? "s" : ""})
                     </span>
                   </div>
-                  <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-primary rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min(fillPercent, 100)}%` }}
+                )}
+              </div>
+
+              {isAuthenticated &&
+                user?.role === "student" &&
+                event.isRegistered &&
+                event.status === "completed" && (
+                  <div className="mb-8 p-5 rounded-2xl border border-primary/20 bg-primary/5">
+                    <h3 className="text-sm font-semibold mb-3 text-foreground">
+                      Share Your Experience
+                    </h3>
+                    <ReviewForm
+                      eventId={id}
+                      onSubmitted={() => setReviewRefresh((n) => n + 1)}
                     />
                   </div>
-                  {spotsLeft !== null && spotsLeft > 0 && (
-                    <p className="text-xs text-muted-foreground mt-2">
-                      {spotsLeft} spots remaining
-                    </p>
-                  )}
-                </div>
-              )}
+                )}
 
-              {event.isRegistered ? (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-center gap-2 text-green-600 font-semibold py-3">
-                    <CheckCircle2 className="h-5 w-5" />
-                    You&apos;re Registered
+              <ReviewList eventId={id} refresh={reviewRefresh} />
+            </section>
+          </div>
+
+          {/* RIGHT COLUMN: TICKET & REGISTRATION STATION */}
+          <div className="lg:col-span-4">
+            <aside className="sticky top-24 space-y-5">
+              {/* MAIN TICKET & REGISTRATION PASS */}
+              <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-card p-6 shadow-xl backdrop-blur-xl">
+                {/* Decorative aurora accent */}
+                <div className="absolute top-0 right-0 h-32 w-32 bg-primary/10 rounded-full blur-2xl pointer-events-none" />
+
+                {/* Ticket Header */}
+                <div className="flex items-start justify-between pb-4 border-b border-border/60 mb-5">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                      Student Access Pass
+                    </span>
+                    <div className="flex items-baseline gap-2 mt-1">
+                      <span className="font-display text-3xl font-black text-foreground">
+                        FREE
+                      </span>
+                      <span className="rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 text-[10px] font-bold">
+                        Zero Booking Fee
+                      </span>
+                    </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    className="w-full border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-900/20"
-                    onClick={handleCancelRegistration}
-                    disabled={regLoading}
-                  >
-                    {regLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Cancelling...
-                      </>
-                    ) : (
-                      "Cancel Registration"
-                    )}
-                  </Button>
-                </div>
-              ) : isDraft ? (
-                <Button className="w-full" disabled>
-                  Not published yet
-                </Button>
-              ) : (
-                <Button
-                  className="w-full"
-                  onClick={handleRegister}
-                  disabled={
-                    regLoading ||
-                    deadlinePassed ||
-                    (spotsLeft !== null && spotsLeft <= 0)
-                  }
-                >
-                  {regLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Registering...
-                    </>
-                  ) : deadlinePassed ? (
-                    "Registration Closed"
-                  ) : spotsLeft !== null && spotsLeft <= 0 ? (
-                    "Event Full"
-                  ) : (
-                    "Register Now"
-                  )}
-                </Button>
-              )}
-            </div>
 
-            {/* Organizer Card */}
-            <div className="surface-card p-5 rounded-xl">
-              <h4 className="text-xs text-muted-foreground mb-3">Organizer</h4>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <span className="text-primary font-semibold">
-                    {organizerName.charAt(0)}
+                  <span className="flex size-10 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-2xs">
+                    <Ticket className="size-5" />
                   </span>
                 </div>
-                <div>
-                  <h5 className="font-medium text-foreground">
-                    {organizerName}
-                  </h5>
-                  <p className="text-sm text-muted-foreground">
-                    Event Organizer
-                  </p>
+
+                {/* Capacity Progress Bar */}
+                {capacity > 0 && (
+                  <div className="mb-5">
+                    <div className="flex justify-between items-end mb-1.5 text-xs">
+                      <span className="text-muted-foreground font-medium">Spots Claimed</span>
+                      <span className="font-bold text-foreground">
+                        {count} / {capacity}
+                      </span>
+                    </div>
+                    <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all duration-500",
+                          spotsLeft === 0
+                            ? "bg-destructive"
+                            : isNearlyFull
+                            ? "bg-amber-500"
+                            : "bg-primary",
+                        )}
+                        style={{ width: `${fillPercent}%` }}
+                      />
+                    </div>
+                    {spotsLeft !== null && spotsLeft > 0 && (
+                      <p className={cn("text-[11px] mt-1.5 font-medium", isNearlyFull ? "text-amber-600 dark:text-amber-400 font-semibold" : "text-muted-foreground")}>
+                        {isNearlyFull ? `🔥 Hurry! Only ${spotsLeft} spots remaining` : `${spotsLeft} spots available`}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Registration Action Area */}
+                {event.isRegistered ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 py-3 text-emerald-700 dark:text-emerald-300 font-bold text-sm shadow-2xs">
+                      <CheckCircle2 className="size-5 text-emerald-500" />
+                      <span>Pass Confirmed &bull; You&apos;re In!</span>
+                    </div>
+
+                    {/* QR Code Embedded in Ticket */}
+                    {registrationId && (
+                      <div className="p-4 rounded-2xl border border-border/80 bg-secondary/30 text-center">
+                        <p className="text-xs font-bold text-foreground mb-3 flex items-center justify-center gap-1.5">
+                          <Ticket className="size-3.5 text-primary" /> FastPass Check-in Ticket
+                        </p>
+                        <QRCodeDisplay registrationId={registrationId} />
+                      </div>
+                    )}
+
+                    <Button
+                      variant="outline"
+                      className="w-full rounded-xl text-xs text-rose-600 border-rose-200 hover:bg-rose-50 dark:border-rose-900/40 dark:hover:bg-rose-950/30"
+                      onClick={handleCancelRegistration}
+                      disabled={regLoading}
+                    >
+                      {regLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Cancelling Pass...
+                        </>
+                      ) : (
+                        "Cancel Registration"
+                      )}
+                    </Button>
+                  </div>
+                ) : isDraft ? (
+                  <Button className="w-full rounded-xl" disabled>
+                    Draft Event (Not Published)
+                  </Button>
+                ) : (
+                  <div className="space-y-3">
+                    <Button
+                      size="lg"
+                      className="w-full rounded-xl h-12 text-sm font-bold shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all"
+                      onClick={handleRegister}
+                      disabled={
+                        regLoading ||
+                        deadlinePassed ||
+                        (spotsLeft !== null && spotsLeft <= 0)
+                      }
+                    >
+                      {regLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Claiming Pass...
+                        </>
+                      ) : deadlinePassed ? (
+                        "Registration Closed"
+                      ) : spotsLeft !== null && spotsLeft <= 0 ? (
+                        "Event Full (Waitlist Open)"
+                      ) : (
+                        "Claim Your Free Pass"
+                      )}
+                    </Button>
+
+                    <div className="space-y-1.5 pt-2 text-[11px] text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />
+                        <span>Instant digital QR FastPass</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />
+                        <span>Access to live event attendee chat</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />
+                        <span>1-click calendar export &amp; reminders</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* HOST & ORGANIZER PROFILE CARD */}
+              <div className="rounded-3xl border border-border/80 bg-card p-5 shadow-xs backdrop-blur-md">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-3">
+                  Hosted by
+                </span>
+                <div className="flex items-center gap-3">
+                  <div className="size-11 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-bold text-base shadow-2xs">
+                    {organizerName.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-display font-bold text-sm text-foreground truncate">
+                      {organizerName}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                      {collegeName || "Campus Organizer"}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-
-            {/* Student QR Check-in Card */}
-            {isAuthenticated &&
-              user?.role === "student" &&
-              event.isRegistered &&
-              registrationId && (
-                <div className="surface-card p-5 rounded-xl">
-                  <h4 className="text-xs text-muted-foreground mb-3">
-                    Your Check-in QR
-                  </h4>
-                  <QRCodeDisplay registrationId={registrationId} />
-                </div>
-              )}
-          </aside>
+            </aside>
+          </div>
         </div>
       </div>
     </div>

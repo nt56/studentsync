@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { format } from "date-fns";
-import { Trash2 } from "lucide-react";
+import { Trash2, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import StarRating from "./StarRating";
@@ -20,7 +20,7 @@ interface Review {
 
 interface ReviewListProps {
   eventId: string;
-  refresh?: number; // bump this number to trigger a reload
+  refresh?: number;
 }
 
 export default function ReviewList({ eventId, refresh }: ReviewListProps) {
@@ -47,7 +47,7 @@ export default function ReviewList({ eventId, refresh }: ReviewListProps) {
   async function handleDelete(reviewId: string) {
     try {
       await api.delete(`/reviews/${reviewId}`);
-      toast.success("Review deleted.");
+      toast.success("Review deleted successfully.");
       setReviews((prev) => prev.filter((r) => r.id !== reviewId));
     } catch {
       toast.error("Failed to delete review.");
@@ -56,9 +56,12 @@ export default function ReviewList({ eventId, refresh }: ReviewListProps) {
 
   if (loading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         {[1, 2].map((i) => (
-          <div key={i} className="h-20 rounded-lg bg-muted animate-pulse" />
+          <div
+            key={i}
+            className="h-24 rounded-2xl border border-border/60 bg-muted/20 animate-pulse"
+          />
         ))}
       </div>
     );
@@ -66,60 +69,69 @@ export default function ReviewList({ eventId, refresh }: ReviewListProps) {
 
   if (reviews.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
-        No reviews yet. Be the first to review!
-      </p>
+      <div className="rounded-2xl border border-dashed border-border/80 p-8 text-center bg-background/40">
+        <MessageSquare className="h-6 w-6 text-muted-foreground mx-auto mb-2 opacity-50" />
+        <p className="text-xs text-muted-foreground sm:text-sm">
+          No participant reviews have been submitted yet. Be the first to share your experience!
+        </p>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3.5">
       {reviews.map((review) => {
         const canDelete =
           currentUser?.role === "admin" ||
           (currentUser && review.student.id === currentUser.id);
 
+        const initials = review.student.name.charAt(0).toUpperCase() || "S";
+
         return (
-          <div key={review.id} className="flex gap-3">
-            <Avatar className="h-9 w-9 shrink-0">
-              <AvatarImage src={review.student.image ?? undefined} />
-              <AvatarFallback>
-                {review.student.name.charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+          <div
+            key={review.id}
+            className="rounded-2xl border border-border/80 bg-background/50 p-4 sm:p-5 shadow-xs transition-colors hover:border-primary/30 space-y-2.5"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Avatar className="h-9 w-9 shrink-0 ring-1 ring-border/80">
+                  <AvatarImage src={review.student.image ?? undefined} />
+                  <AvatarFallback className="bg-gradient-to-br from-primary/20 to-indigo-500/20 text-xs font-bold text-primary">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
 
-            <div className="flex-1 space-y-1">
-              <div className="flex items-center justify-between gap-2">
                 <div>
-                  <span className="text-sm font-medium">
+                  <p className="font-display text-sm font-bold text-foreground">
                     {review.student.name}
-                  </span>
-                  <span className="text-xs text-muted-foreground ml-2">
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
                     {format(new Date(review.createdAt), "MMM d, yyyy")}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <StarRating value={review.rating} readonly size="sm" />
-                  {canDelete && (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7 text-destructive"
-                      onClick={() => handleDelete(review.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
+                  </p>
                 </div>
               </div>
 
-              {review.comment && (
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {review.comment}
-                </p>
-              )}
+              <div className="flex items-center gap-2">
+                <StarRating value={review.rating} readonly size="sm" />
+                {canDelete && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => handleDelete(review.id)}
+                    title="Delete review"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
             </div>
+
+            {review.comment && (
+              <p className="text-xs sm:text-sm text-foreground/90 leading-relaxed pl-12">
+                {review.comment}
+              </p>
+            )}
           </div>
         );
       })}

@@ -18,17 +18,25 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4 text-center animate-fade-in">
-      <div className="mb-6 rounded-2xl border border-border bg-accent p-5"><Icon className="size-8 text-primary" aria-hidden="true" /></div>
-      <h3 className="text-xl font-bold text-foreground mb-2">
+      {/* Icon with glowing backdrop */}
+      <div className="relative mb-5 flex items-center justify-center">
+        <div className="absolute inset-0 rounded-3xl bg-primary/10 blur-xl pointer-events-none" />
+        <div className="relative rounded-2xl border border-border/80 bg-card/80 backdrop-blur-md p-4 ring-1 ring-border/50 shadow-xs">
+          <Icon className="h-8 w-8 text-primary" aria-hidden="true" />
+        </div>
+      </div>
+
+      <h3 className="font-display text-lg font-bold tracking-tight text-foreground mb-1.5">
         {title}
       </h3>
-      <p className="text-muted-foreground max-w-md mb-6">
+      <p className="text-sm leading-relaxed text-muted-foreground max-w-md mb-6">
         {description}
       </p>
+
       {actionLabel && onAction && (
         <Button
           onClick={onAction}
-          className="bg-primary hover:bg-primary/90 text-primary-foreground"
+          className="rounded-xl shadow-md shadow-primary/20 font-medium px-5"
         >
           {actionLabel}
         </Button>

@@ -32,7 +32,7 @@ export default function EventLocationMap({
   useEffect(() => {}, []);
 
   return (
-    <div className="w-full h-64 rounded-xl overflow-hidden border border-border shadow-sm">
+    <div className="w-full h-72 rounded-2xl overflow-hidden border border-border/80 shadow-xs relative">
       <MapContainer
         center={[latitude, longitude]}
         zoom={15}
@@ -45,9 +45,9 @@ export default function EventLocationMap({
         />
         <Marker position={[latitude, longitude]}>
           <Popup>
-            <div className="text-sm">
-              <p className="font-semibold">{title}</p>
-              <p className="text-muted-foreground mt-1">{venue}</p>
+            <div className="p-1 font-sans">
+              <p className="font-semibold text-sm text-slate-900">{title}</p>
+              <p className="text-xs text-slate-600 mt-1">{venue}</p>
             </div>
           </Popup>
         </Marker>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { format } from "date-fns";
-import { CheckCircle2, Clock } from "lucide-react";
+import { CheckCircle2, Clock, Users, UserCheck } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import api from "@/services/api";
@@ -59,7 +59,7 @@ export default function AttendanceList({
     return (
       <div className="space-y-3">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-14 rounded-lg bg-muted animate-pulse" />
+          <div key={i} className="h-14 rounded-2xl bg-secondary animate-pulse" />
         ))}
       </div>
     );
@@ -71,70 +71,91 @@ export default function AttendanceList({
     data.total > 0 ? Math.round((data.checkedIn / data.total) * 100) : 0;
 
   return (
-    <div className="space-y-4">
-      {/* Summary bar */}
+    <div className="space-y-5">
+      {/* Summary KPI Cards */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="text-center p-3 rounded-lg bg-muted/50 border">
-          <p className="text-2xl font-bold">{data.total}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Registered</p>
-        </div>
-        <div className="text-center p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
-          <p className="text-2xl font-bold text-green-600">{data.checkedIn}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Checked In</p>
-        </div>
-        <div className="text-center p-3 rounded-lg bg-muted/50 border">
-          <p className="text-2xl font-bold">{rate}%</p>
-          <p className="text-xs text-muted-foreground mt-0.5">Attendance</p>
-        </div>
-      </div>
-
-      {/* Progress bar */}
-      <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-        <div
-          className="h-full bg-green-500 rounded-full transition-all duration-500"
-          style={{ width: `${rate}%` }}
-        />
-      </div>
-
-      {/* Attendee list */}
-      <div className="divide-y divide-border">
-        {data.attendees.map((a) => (
-          <div key={a.registrationId} className="flex items-center gap-3 py-3">
-            <Avatar className="h-8 w-8 shrink-0">
-              <AvatarImage src={a.student?.image ?? undefined} />
-              <AvatarFallback>
-                {(a.student?.name ?? "?").charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">
-                {a.student?.name ?? "Unknown"}
-              </p>
-              <p className="text-xs text-muted-foreground truncate">
-                {a.student?.email ?? ""}
-              </p>
-            </div>
-
-            <div className="text-right shrink-0">
-              {a.checkedIn ? (
-                <div className="flex items-center gap-1 text-green-600">
-                  <CheckCircle2 className="h-4 w-4" />
-                  <span className="text-xs font-medium">
-                    {a.checkedInAt
-                      ? format(new Date(a.checkedInAt), "hh:mm a")
-                      : "In"}
-                  </span>
-                </div>
-              ) : (
-                <Badge variant="outline" className="text-xs gap-1">
-                  <Clock className="h-3 w-3" />
-                  Pending
-                </Badge>
-              )}
-            </div>
+        <div className="text-center p-3.5 rounded-2xl bg-card border border-border/80 shadow-2xs">
+          <div className="flex items-center justify-center gap-1.5 text-muted-foreground mb-1">
+            <Users className="h-3.5 w-3.5" />
+            <span className="text-[10px] font-bold uppercase tracking-wider">Total</span>
           </div>
-        ))}
+          <p className="font-display text-2xl font-extrabold text-foreground">{data.total}</p>
+        </div>
+
+        <div className="text-center p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 shadow-2xs">
+          <div className="flex items-center justify-center gap-1.5 text-emerald-600 dark:text-emerald-400 mb-1">
+            <UserCheck className="h-3.5 w-3.5" />
+            <span className="text-[10px] font-bold uppercase tracking-wider">Checked In</span>
+          </div>
+          <p className="font-display text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">{data.checkedIn}</p>
+        </div>
+
+        <div className="text-center p-3.5 rounded-2xl bg-primary/10 border border-primary/25 shadow-2xs">
+          <div className="flex items-center justify-center gap-1.5 text-primary mb-1">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            <span className="text-[10px] font-bold uppercase tracking-wider">Turnout</span>
+          </div>
+          <p className="font-display text-2xl font-extrabold text-primary">{rate}%</p>
+        </div>
+      </div>
+
+      {/* Turnout Progress Bar */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
+          <span>Overall Attendance</span>
+          <span className="font-semibold text-foreground">{data.checkedIn} of {data.total} checked in</span>
+        </div>
+        <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-primary to-emerald-500 rounded-full transition-all duration-500"
+            style={{ width: `${rate}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Attendee Roster */}
+      <div className="rounded-2xl border border-border/80 bg-card/60 backdrop-blur-md overflow-hidden">
+        {data.attendees.length === 0 ? (
+          <div className="p-8 text-center text-sm text-muted-foreground">
+            No attendees registered yet.
+          </div>
+        ) : (
+          <div className="divide-y divide-border/60 max-h-[360px] overflow-y-auto">
+            {data.attendees.map((a) => (
+              <div key={a.registrationId} className="flex items-center gap-3.5 p-3 hover:bg-secondary/40 transition-colors">
+                <Avatar className="h-9 w-9 shrink-0 ring-1 ring-border/80">
+                  <AvatarImage src={a.student?.image ?? undefined} />
+                  <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                    {(a.student?.name ?? "?").charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-foreground truncate">
+                    {a.student?.name ?? "Unknown Attendee"}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {a.student?.email ?? ""}
+                  </p>
+                </div>
+
+                <div className="text-right shrink-0">
+                  {a.checkedIn ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                      <CheckCircle2 className="h-3 w-3" />
+                      <span>{a.checkedInAt ? format(new Date(a.checkedInAt), "hh:mm a") : "In"}</span>
+                    </span>
+                  ) : (
+                    <Badge variant="outline" className="text-[11px] rounded-full gap-1 border-border/70 text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      <span>Pending</span>
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -5,7 +5,7 @@ import Image from "next/image";
 import { format } from "date-fns";
 import { CategoryBadge, EventStatusBadge } from "@/components/common/Badges";
 import { BookmarkButton } from "@/components/events/BookmarkButton";
-import { MapPin, Users, Calendar, ArrowUpRight } from "lucide-react";
+import { MapPin, Users, Calendar, ArrowUpRight, Globe2, Clock } from "lucide-react";
 import type { EventItem } from "@/store/slices/eventsSlice";
 
 export function EventCard({ event }: { event: EventItem }) {
@@ -15,30 +15,133 @@ export function EventCard({ event }: { event: EventItem }) {
   const capacity = event.capacity || 0;
   const count = event.registrationCount;
   const remaining = count == null ? null : Math.max(0, capacity - count);
+  const fillPercentage = capacity > 0 && count != null ? Math.min(100, Math.max(0, (count / capacity) * 100)) : 0;
+  const isNearlyFull = remaining != null && remaining > 0 && remaining <= 10;
 
   return (
-    <article className="surface-card group relative flex h-full flex-col overflow-hidden rounded-xl transition-[border-color,box-shadow] duration-200 hover:border-primary/40 hover:shadow-md focus-within:border-primary/50">
-      <div className="relative h-44 overflow-hidden bg-secondary">
+    <article className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-border/80 bg-card hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300">
+      {/* Card Header / Image Media */}
+      <div className="relative aspect-[16/10] w-full overflow-hidden bg-secondary/50">
         {event.image ? (
-          <Image src={event.image} alt="" fill sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw" className="object-cover transition-transform duration-500 motion-safe:group-hover:scale-105" />
+          <Image
+            src={event.image}
+            alt={event.title || "Event banner"}
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
+            className="object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+          />
         ) : (
-          <div className="flex h-full items-center justify-center bg-accent"><Calendar className="size-12 text-primary/30" /></div>
-        )}
-        {validDate && <div className="absolute left-3 top-3 rounded-lg border border-border bg-card px-3 py-2 text-center"><span className="block text-[10px] font-bold uppercase tracking-widest text-primary">{format(eventDate, "MMM")}</span><span className="font-display text-xl font-bold">{format(eventDate, "dd")}</span></div>}
-      </div>
-      <BookmarkButton eventId={eventId as string} className="absolute right-3 top-3 z-20 size-10 border border-border bg-card shadow-sm" />
-      <div className="flex flex-1 flex-col p-5">
-        <div className="mb-3 flex flex-wrap items-center gap-2"><CategoryBadge category={event.category} /><EventStatusBadge status={event.status} /></div>
-        <h3 className="text-lg font-semibold leading-snug">
-          <Link href={`/events/${eventId}`} className="transition-colors after:absolute after:inset-0 after:content-[''] group-hover:text-primary"><span className="line-clamp-2">{event.title}</span></Link>
-        </h3>
-        <p className="mt-3 flex items-center gap-2 text-xs text-muted-foreground"><MapPin className="size-3.5 shrink-0" /><span className="truncate">{event.venue || "Venue to be announced"}</span></p>
-        <div className="mt-auto pt-5">
-          <div className="flex items-center justify-between gap-2 border-t border-border pt-3 text-xs">
-            <span className="flex items-center gap-1.5 text-muted-foreground"><Users className="size-3.5" />{remaining == null ? "Explore event" : remaining === 0 ? "Fully booked" : `${remaining} spots left`}</span>
-            <ArrowUpRight className="size-4 text-primary" />
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 via-secondary to-accent">
+            <Calendar className="size-12 text-primary/30" />
           </div>
-          {capacity > 0 && count != null && <div className="mt-3 h-1 overflow-hidden rounded-full bg-secondary" aria-hidden="true"><div className="h-full rounded-full bg-primary/70" style={{ width: `${Math.min(100, Math.max(0, count / capacity * 100))}%` }} /></div>}
+        )}
+
+        {/* Ambient Dark/Light Overlay for Contrast */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none opacity-60 group-hover:opacity-80 transition-opacity" />
+
+        {/* Date Badge Top Left */}
+        {validDate && (
+          <div className="absolute left-3 top-3 rounded-xl border border-border/80 bg-card/90 backdrop-blur-md px-2.5 py-1.5 text-center shadow-md">
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-primary">
+              {format(eventDate, "MMM")}
+            </span>
+            <span className="font-display text-lg font-extrabold text-foreground leading-none">
+              {format(eventDate, "dd")}
+            </span>
+          </div>
+        )}
+
+        {/* Inter-College Pill Overlay */}
+        {event.isInterCollege && (
+          <div className="absolute left-16 top-3 rounded-full border border-teal-500/30 bg-teal-600/90 backdrop-blur-md px-2.5 py-1 text-[10px] font-bold text-white shadow-xs flex items-center gap-1">
+            <Globe2 className="size-3" />
+            <span>Inter-College</span>
+          </div>
+        )}
+
+        {/* Bookmark Button Top Right */}
+        <div className="absolute right-3 top-3 z-20">
+          <BookmarkButton
+            eventId={eventId as string}
+            className="size-8.5 rounded-xl border border-border/80 bg-card/90 backdrop-blur-md shadow-md hover:bg-card hover:scale-105 transition-all text-muted-foreground hover:text-primary"
+          />
+        </div>
+      </div>
+
+      {/* Card Content Body */}
+      <div className="flex flex-1 flex-col p-4 sm:p-5">
+        {/* Badges Row */}
+        <div className="mb-2.5 flex flex-wrap items-center gap-1.5">
+          {event.category && <CategoryBadge category={event.category} />}
+          {event.status && <EventStatusBadge status={event.status} />}
+        </div>
+
+        {/* Event Title */}
+        <h3 className="font-display text-base sm:text-lg font-bold text-foreground leading-snug group-hover:text-primary transition-colors">
+          <Link
+            href={`/events/${eventId}`}
+            className="transition-colors after:absolute after:inset-0 after:content-['']"
+          >
+            <span className="line-clamp-2">{event.title}</span>
+          </Link>
+        </h3>
+
+        {/* Venue / Campus */}
+        <p className="mt-2.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <MapPin className="size-3.5 shrink-0 text-primary" />
+          <span className="truncate">{event.venue || "Campus Venue TBD"}</span>
+        </p>
+
+        {/* Date / Time summary chip */}
+        {validDate && (
+          <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Clock className="size-3.5 shrink-0 text-muted-foreground" />
+            <span>{format(eventDate, "EEEE, h:mm a")}</span>
+          </p>
+        )}
+
+        {/* Card Footer: Progress & CTA */}
+        <div className="mt-auto pt-4">
+          {/* Capacity Progress Bar if applicable */}
+          {capacity > 0 && count != null && (
+            <div className="mb-3">
+              <div className="flex justify-between text-[11px] mb-1 font-medium text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Users className="size-3 text-primary" />
+                  {remaining === 0 ? (
+                    <span className="text-destructive font-semibold">Fully booked</span>
+                  ) : isNearlyFull ? (
+                    <span className="text-amber-600 dark:text-amber-400 font-semibold">Only {remaining} spots left!</span>
+                  ) : (
+                    <span>{remaining} spots available</span>
+                  )}
+                </span>
+                <span className="text-[10px] text-muted-foreground font-mono">{count}/{capacity}</span>
+              </div>
+              <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    remaining === 0
+                      ? "bg-destructive"
+                      : isNearlyFull
+                      ? "bg-amber-500"
+                      : "bg-primary"
+                  }`}
+                  style={{ width: `${fillPercentage}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Bottom Action Row */}
+          <div className="flex items-center justify-between border-t border-border/60 pt-3 text-xs">
+            <span className="font-semibold text-primary group-hover:underline inline-flex items-center gap-1">
+              View Event
+            </span>
+            <span className="flex size-7 items-center justify-center rounded-lg bg-secondary text-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-200">
+              <ArrowUpRight className="size-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+            </span>
+          </div>
         </div>
       </div>
     </article>
