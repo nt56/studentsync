@@ -127,7 +127,7 @@ export async function PUT(request: NextRequest) {
       }
 
       user = await User.findByIdAndUpdate(user._id, updateData, {
-        new: true,
+        returnDocument: "after",
         runValidators: true,
       });
     }

@@ -70,7 +70,11 @@ test("event responses satisfy the shared contract, including schedule fields", (
   assert.equal(legacy.timeZone, "UTC");
   assert.equal(legacy.endDate, "2027-03-24T12:00:00.000Z", "default duration is two hours");
   assert.equal(eventScheduleSchema.safeParse({ ...legacy, date: "2027-03-24 10:00" }).success, false, "times must be UTC ISO strings");
-  assert.equal(eventResponseSchema.safeParse({ ...response, status: "draft" }).success, false);
+  assert.equal(eventResponseSchema.safeParse({ ...response, status: "cancelled" }).success, false);
+  // Drafts carry their own status and no publish time; legacy events count as published at creation.
+  const draft = eventResponseSchema.parse(formatEventResponse(sampleEvent({ draft: true })));
+  assert.deepEqual([draft.status, draft.publishedAt], ["draft", null]);
+  assert.equal(response.publishedAt, response.createdAt);
 });
 
 test("paginated envelopes match the contract and compute page flags", () => {
@@ -90,7 +94,7 @@ test("event permissions in responses follow canManageEvent for every role", () =
   const granted = (userId: string | undefined, role: string) => EVENT_PERMISSIONS.filter((permission) => canManageEvent(event, userId, role, permission));
   assert.deepEqual(granted("owner", "organizer"), [...EVENT_PERMISSIONS]);
   assert.deepEqual(granted("someone", "admin"), [...EVENT_PERMISSIONS]);
-  assert.deepEqual(granted("editor", "student"), ["edit", "attendees", "checkIn", "chat", "moderate"]);
+  assert.deepEqual(granted("editor", "student"), ["edit", "attendees", "export", "announce", "checkIn", "chat", "moderate"]);
   assert.deepEqual(granted("volunteer", "student"), ["attendees", "checkIn", "chat"]);
   assert.deepEqual(granted("stranger", "organizer"), []);
   assert.deepEqual(granted(undefined, "student"), []);

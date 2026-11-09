@@ -118,7 +118,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
           ? { pendingRoleNotice: { key: randomUUID(), role: validatedData.role, at: new Date() } }
           : {}),
       },
-      { new: true, runValidators: true },
+      { returnDocument: "after", runValidators: true },
     ).lean<IUser>();
     if (!updatedUser) {
       return ApiErrors.notFound("User");

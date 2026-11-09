@@ -1,6 +1,7 @@
 "use client";
 
 import { EventStaff } from "@/components/events/EventStaff";
+import { EventAnnouncements } from "@/components/events/EventAnnouncements";
 import QRScanner from "@/components/events/QRScanner";
 import AttendanceList from "@/components/events/AttendanceList";
 import Link from "next/link";
@@ -8,7 +9,8 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { fetchEventById, clearCurrentEvent } from "@/store/slices/eventsSlice";
+import { fetchEventById, clearCurrentEvent, publishEvent } from "@/store/slices/eventsSlice";
+import { eventService } from "@/services/eventService";
 import {
   registerForEvent,
   cancelRegistration,
@@ -34,6 +36,9 @@ import {
   Users,
   CheckCircle2,
   Loader2,
+  Copy,
+  Download,
+  Pencil,
 } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
@@ -56,6 +61,7 @@ export default function EventDetailPage() {
   const { initialized: bookmarksInitialized } = useAppSelector((s) => s.bookmarks);
   const [reviewRefresh, setReviewRefresh] = useState(0);
   const [registrationId, setRegistrationId] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState(false);
 
   // Fetch the student's own registrationId so we can show the QR code.
   // Reset on id change and guard against a stale response overwriting a newer
@@ -126,6 +132,19 @@ export default function EventDetailPage() {
     }
   };
 
+  const handlePublish = async () => {
+    if (!id) return;
+    setPublishing(true);
+    try {
+      await dispatch(publishEvent(id)).unwrap();
+      toast.success("Event published. Students can now find and register for it.");
+    } catch (err) {
+      toast.error(typeof err === "string" ? err : "Failed to publish event");
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   if (isLoading) return <EventDetailSkeleton />;
 
   // Failed to load or no such event — show a recoverable error instead of an
@@ -156,6 +175,7 @@ export default function EventDetailPage() {
     ? new Date(event.registrationDeadline)
     : null;
   const deadlinePassed = deadline ? isPast(deadline) : false;
+  const isDraft = event.status === "draft";
   const fillPercent =
     event.capacity && event.registrationCount != null
       ? Math.round((event.registrationCount / event.capacity) * 100)
@@ -182,7 +202,27 @@ export default function EventDetailPage() {
       </button>
 
       <div className="mb-6 space-y-4">
-        {event.permissions?.includes("edit") && <Button asChild variant="outline"><Link href={`/dashboard/edit-event/${id}`}>Edit event</Link></Button>}
+        {isDraft && (
+          <div role="status" className="surface-card flex flex-col gap-3 rounded-xl p-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-foreground">
+              <span className="font-semibold">Draft.</span> Only the owner, event staff and admins can see this event. Students can&apos;t find or register for it yet.
+            </p>
+            {event.permissions?.includes("edit") && (
+              <Button onClick={handlePublish} disabled={publishing} className="shrink-0">
+                {publishing && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
+                Publish event
+              </Button>
+            )}
+          </div>
+        )}
+        {(event.permissions?.includes("edit") || event.permissions?.includes("export")) && (
+          <div className="flex flex-wrap gap-2">
+            {event.permissions?.includes("edit") && <Button asChild variant="outline"><Link href={`/dashboard/edit-event/${id}`}><Pencil className="mr-2 h-4 w-4" aria-hidden="true" />Edit event</Link></Button>}
+            {event.permissions?.includes("edit") && <Button asChild variant="outline"><Link href={`/dashboard/create-event?from=${id}`}><Copy className="mr-2 h-4 w-4" aria-hidden="true" />Duplicate</Link></Button>}
+            {event.permissions?.includes("export") && !isDraft && <Button asChild variant="outline"><a href={eventService.attendeeExportUrl(id)} download><Download className="mr-2 h-4 w-4" aria-hidden="true" />Export attendees (CSV)</a></Button>}
+          </div>
+        )}
+        {event.permissions?.includes("announce") && !isDraft && <EventAnnouncements eventId={id} registrationCount={event.registrationCount ?? 0} />}
         {event.permissions?.includes("staff") && <EventStaff eventId={id} />}
         {event.permissions?.includes("checkIn") && <QRScanner />}
         {event.permissions?.includes("attendees") && <AttendanceList eventId={id} />}
@@ -385,7 +425,7 @@ export default function EventDetailPage() {
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  {event.date && (
+                  {event.date && !isDraft && (
                     <AddToCalendar
                       eventId={id}
                       title={event.title}
@@ -395,12 +435,12 @@ export default function EventDetailPage() {
                       endDate={event.endDate}
                     />
                   )}
-                  <BookmarkButton eventId={id} />
-                  <ShareButton
+                  {!isDraft && <BookmarkButton eventId={id} />}
+                  {!isDraft && <ShareButton
                     url={`${typeof window !== "undefined" ? window.location.origin : ""}/events/${id}`}
                     title={event.title}
                     description={event.description}
-                  />
+                  />}
                 </div>
               </div>
 
@@ -451,6 +491,10 @@ export default function EventDetailPage() {
                     )}
                   </Button>
                 </div>
+              ) : isDraft ? (
+                <Button className="w-full" disabled>
+                  Not published yet
+                </Button>
               ) : (
                 <Button
                   className="w-full"

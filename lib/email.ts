@@ -311,6 +311,33 @@ export async function sendEventUpdatedEmail(
   });
 }
 
+// ─── Announcement (sent to each registered student) ──────────────────────────
+
+export async function sendAnnouncementEmail(
+  email: string,
+  name: string,
+  event: { id: string; title: string },
+  announcement: { title: string; message: string },
+  dedupeKey: string,
+): Promise<void> {
+  // Line breaks are kept; everything else is escaped user text.
+  const body = esc(announcement.message).split(/\r?\n/).join("<br>");
+  const content = `
+    <p style="margin:0 0 8px;font-size:13px;color:#64748b;">Announcement from <strong>${esc(event.title)}</strong></p>
+    <h1 style="margin:0 0 16px;font-size:22px;font-weight:700;color:#1e293b;">${esc(announcement.title)}</h1>
+    <p style="margin:0 0 24px;font-size:15px;color:#475569;line-height:1.6;">Hi <strong>${esc(name)}</strong>,</p>
+    <p style="margin:0 0 24px;font-size:15px;color:#334155;line-height:1.7;">${body}</p>
+    ${btn("View Event", `${appUrl()}/events/${event.id}`)}
+  `;
+
+  await sendEmail({
+    dedupeKey,
+    to: { email, name },
+    subject: `${announcement.title} — ${event.title}`,
+    htmlContent: buildEmail(content),
+  });
+}
+
 // ─── Event cancelled (sent to each registered student) ───────────────────────
 
 export async function sendEventCancelledEmail(

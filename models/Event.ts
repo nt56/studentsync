@@ -11,6 +11,12 @@ const EventSchema = new Schema(
     deletingAt: { type: Date },
     // Set atomically with an edit until attendees' update emails are queued.
     updateNotice: { _id: false, type: { key: String, at: Date } },
+    // Present (true) only while unpublished. Missing on published and legacy events,
+    // so `{ draft: { $ne: true } }` treats every older event as published.
+    draft: { type: Boolean },
+    publishedAt: { type: Date },
+    // Recent announcement timestamps (newest last); the daily cap is claimed against it.
+    announcementLog: { type: [Date], default: undefined },
     endDate: { type: Date },
     timeZone: { type: String, default: "UTC" },
     staff: [{
@@ -132,6 +138,7 @@ EventSchema.index({ collegeId: 1, status: 1 });
 EventSchema.index({ organizerId: 1 });
 EventSchema.index({ title: "text", description: "text" });
 EventSchema.index({ deleting: 1 }, { sparse: true });
+EventSchema.index({ draft: 1 }, { sparse: true });
 EventSchema.index({ "updateNotice.at": 1 }, { sparse: true });
 
 const Event = models.Event || model("Event", EventSchema);
@@ -139,3 +146,6 @@ export default Event;
 
 /** Spread into any user-facing Event filter so events being deleted stay hidden. */
 export const liveEvent = { deleting: { $ne: true } } as const;
+
+/** Spread into public Event filters (lists, search, ICS, metadata) so drafts stay hidden. */
+export const publishedEvent = { ...liveEvent, draft: { $ne: true } } as const;

@@ -66,6 +66,14 @@ export const createEventSchema = z.object({
 });
 
 /**
+ * POST /api/events body: the event plus `draft`. Omitted means publish now,
+ * which keeps older clients working. Updates cannot set it (no unpublish).
+ */
+export const createEventRequestSchema = createEventSchema.extend({
+  draft: z.boolean().optional().default(false),
+});
+
+/**
  * Schema for updating an event
  */
 export const updateEventSchema = createEventSchema
@@ -86,7 +94,9 @@ export const updateEventSchema = createEventSchema
 export const eventQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(10),
-  status: z.enum(["upcoming", "closed", "completed"]).optional(),
+  status: z.enum(["draft", "upcoming", "closed", "completed"]).optional(),
+  // Only honoured for signed-in callers: adds the drafts they may see.
+  includeDrafts: z.enum(["true", "false"]).transform((value) => value === "true").optional(),
   collegeId: objectId.optional(),
   organizerId: objectId.optional(),
   category: z
@@ -104,6 +114,13 @@ export const eventQuerySchema = z.object({
   sortBy: z.enum(["date", "createdAt", "title"]).default("date"),
   sortOrder: z.enum(["asc", "desc"]).default("asc"),
   isInterCollege: z.enum(["true", "false"]).transform((value) => value === "true").optional(),
+});
+
+/** POST /api/events/{id}/announcements */
+export const createAnnouncementSchema = z.object({
+  requestId: z.uuid("requestId must be a UUID"),
+  title: z.string().trim().min(3, "Title must be at least 3 characters").max(120, "Title must be at most 120 characters"),
+  message: z.string().trim().min(10, "Message must be at least 10 characters").max(2000, "Message must be at most 2000 characters"),
 });
 
 export type CreateEventInput = z.infer<typeof createEventSchema>;

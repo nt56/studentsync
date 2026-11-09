@@ -2,6 +2,10 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 const statusMap: Record<string, { label: string; className: string }> = {
+  draft: {
+    label: "Draft",
+    className: "bg-muted text-foreground border-dashed border-border",
+  },
   upcoming: {
     label: "Upcoming",
     className:

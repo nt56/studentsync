@@ -2,7 +2,7 @@ import { Types } from "mongoose";
 import { eventEnd } from "@/lib/event-time";
 import type { EventResponse as ContractEventResponse } from "@/lib/contracts";
 
-export type EventStatus = "upcoming" | "closed" | "completed";
+export type EventStatus = "draft" | "upcoming" | "closed" | "completed";
 
 export type EventCategory =
   | "workshop"
@@ -21,6 +21,8 @@ export interface IEvent {
   endDate?: Date;
   timeZone?: string;
   staff?: { userId: Types.ObjectId; role: "editor" | "volunteer" }[];
+  draft?: boolean;
+  publishedAt?: Date;
   venue: string;
   organizerId: Types.ObjectId;
   collegeId: Types.ObjectId;
@@ -42,7 +44,8 @@ export interface IEvent {
 /** Derived from the shared contract in lib/contracts so web, tests and mobile agree. */
 export type EventResponse = ContractEventResponse;
 
-export function computeEventStatus(event: Pick<IEvent, "date" | "registrationDeadline" | "endDate">): EventStatus {
+export function computeEventStatus(event: Pick<IEvent, "date" | "registrationDeadline" | "endDate"> & { draft?: boolean }): EventStatus {
+  if (event.draft) return "draft";
   const now = new Date();
   if (now >= eventEnd(event)) return "completed";
   if (now >= new Date(event.date)) return "closed";
@@ -80,6 +83,7 @@ export function formatEventResponse(
     ),
     registrationCount,
     isRegistered,
+    publishedAt: event.draft ? null : (event.publishedAt ?? event.createdAt).toISOString(),
     createdAt: event.createdAt.toISOString(),
     updatedAt: event.updatedAt.toISOString(),
   };

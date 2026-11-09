@@ -49,6 +49,7 @@ try {
   const { default: Collaboration } = await import("../models/Collaboration");
   const { default: Review } = await import("../models/Review");
   const { default: Message } = await import("../models/Message");
+  const { default: Announcement } = await import("../models/Announcement");
   const { reserveSeat, reconcileSeats } = await import("../lib/seats");
   const { recoverRegistrationEffects, queueRegistrationEffects, recoverCancellations } = await import("../lib/registration-effects");
   const { recoverNotices } = await import("../lib/recovery-notices");
@@ -412,6 +413,124 @@ try {
   assert.equal(await User.exists({ _id: winner.user._id }), null);
   assert.equal((await request("/registrations", winner.cookie)).status, 401);
   console.log("PASS account deletion releases seats and removes the login identity");
+
+  // --- Phase 1: draft / publish ---------------------------------------------
+  const editor = await fixture("organizer");
+  const volunteer = await fixture("student");
+  const outsider = await fixture("student");
+  const hoursAhead = (hours: number) => new Date(Date.now() + hours * 3600_000).toISOString();
+  const draftBody = { title: "Secret draft zebra", description: "A draft nobody outside the team should see", venue: "Draft Hall", date: hoursAhead(48), endDate: hoursAhead(50), registrationDeadline: hoursAhead(40), capacity: 5, collegeId: college._id.toString(), timeZone: "UTC" };
+  const createdDraft = await request("/events", owner.cookie, "POST", { ...draftBody, draft: true });
+  assert.equal(createdDraft.status, 201, JSON.stringify(createdDraft));
+  assert.deepEqual([createdDraft.data.status, createdDraft.data.publishedAt], ["draft", null]);
+  const draftId = createdDraft.data.id as string;
+  await Event.updateOne({ _id: draftId }, { $push: { staff: { $each: [{ userId: editor.user._id, role: "editor" }, { userId: volunteer.user._id, role: "volunteer" }] } } });
+  assert.equal(await Notification.countDocuments({ dedupeKey: new RegExp(`^event:${draftId}:created`) }), 0, "admins are not told about drafts");
+  for (const cookie of ["", stranger.cookie, outsider.cookie]) {
+    assert.equal((await request(`/events/${draftId}`, cookie)).status, 404, "a draft looks missing to outsiders");
+  }
+  for (const viewer of [owner, editor, volunteer, admin]) {
+    assert.equal((await request(`/events/${draftId}`, viewer.cookie)).data.status, "draft");
+  }
+  const listCount = async (query: string, cookie = "") => (await request(`/events?${query}`, cookie)).data.items.length as number;
+  assert.equal(await listCount("search=zebra"), 0);
+  assert.equal(await listCount("search=zebra&includeDrafts=true"), 0, "anonymous callers never get drafts");
+  assert.equal(await listCount("search=zebra&includeDrafts=true", stranger.cookie), 0);
+  assert.equal(await listCount("search=zebra&status=upcoming", owner.cookie), 0, "a draft is not upcoming");
+  assert.equal(await listCount(`organizerId=${owner.user._id}&includeDrafts=true&search=zebra`, owner.cookie), 1);
+  assert.equal(await listCount("staff=me&includeDrafts=true&search=zebra", volunteer.cookie), 1);
+  assert.equal(await listCount("includeDrafts=true&search=zebra", admin.cookie), 1);
+  assert.equal(await listCount("status=draft&search=zebra", stranger.cookie), 0);
+  assert.equal((await request("/events?status=draft")).status, 401);
+  assert.equal((await fetch(`${base}/api/events/${draftId}/ics`)).status, 404);
+  assert.equal((await request("/registrations", outsider.cookie, "POST", { eventId: draftId })).status, 404);
+  assert.equal((await request("/bookmarks", outsider.cookie, "POST", { eventId: draftId })).status, 404);
+  const draftPage = await (await fetch(`${base}/events/${draftId}`)).text();
+  assert.equal(draftPage.includes("Secret draft zebra"), false, "page metadata must not leak a draft title");
+  assert.equal((await request(`/events/${draftId}/announcements`, owner.cookie, "POST", { requestId: randomUUID(), title: "Too early", message: "Drafts cannot announce anything yet." })).status, 400);
+  assert.equal((await request(`/events/${draftId}/publish`, volunteer.cookie, "POST")).status, 403);
+  assert.equal((await request(`/events/${draftId}/publish`, stranger.cookie, "POST")).status, 404);
+  const publishes = await Promise.all([editor, owner, editor].map((member) => request(`/events/${draftId}/publish`, member.cookie, "POST")));
+  assert.deepEqual(publishes.map((result) => result.status), [200, 200, 200]);
+  assert.ok(publishes.every((result) => result.data.status === "upcoming" && result.data.publishedAt));
+  assert.equal(await Notification.countDocuments({ dedupeKey: new RegExp(`^event:${draftId}:created`) }), await User.countDocuments({ role: "admin" }), "one publish notice per admin");
+  assert.notEqual((await request(`/events/${draftId}`, owner.cookie, "PUT", { title: "Secret draft zebra live", draft: true })).data.status, "draft", "an update cannot unpublish");
+  assert.equal(await listCount("search=zebra"), 1);
+  assert.equal((await request(`/events/${draftId}`)).status, 200);
+  const stale = await Event.create({ ...eventData, title: "Stale draft", draft: true, registrationDeadline: new Date(Date.now() - 3600_000) });
+  assert.equal((await request(`/events/${stale._id}/publish`, owner.cookie, "POST")).status, 400, "a draft with a past deadline needs new dates");
+  console.log("PASS drafts stay private everywhere until a one-way, idempotent publish");
+
+  // --- Phase 1: attendee CSV export -----------------------------------------
+  const exportSize = 1203; // more than two 500-row pages
+  const exportEvent = await Event.create({ ...eventData, title: "Export, \"night\" 東京", capacity: 5000, registeredCount: exportSize, staff: [{ userId: editor.user._id, role: "editor" }, { userId: volunteer.user._id, role: "volunteer" }] });
+  const names = (i: number) => i === 0 ? "=HYPERLINK(\"http://evil\")" : i === 1 ? "Zoë 東京" : i === 2 ? "@SUM(A1)" : `Student${i}`;
+  const exportUsers = await User.insertMany(Array.from({ length: exportSize }, (_, i) => ({ firstName: names(i), lastName: i === 3 ? "O'Neil, \"Jr\"" : "", email: `export-${i}-${randomUUID()}@example.test`, role: "student" })));
+  await Registration.insertMany(exportUsers.map((user, i) => ({ eventId: exportEvent._id, studentId: user._id, registeredAt: new Date(Date.now() - i * 1000), checkedIn: i % 3 === 0, checkedInAt: i % 3 === 0 ? new Date() : null })));
+  async function download(cookie: string) {
+    const response = await fetch(`${base}/api/events/${exportEvent._id}/attendance/export`, { headers: { cookie } });
+    return { status: response.status, bytes: new Uint8Array(await response.arrayBuffer()), type: response.headers.get("content-type"), disposition: response.headers.get("content-disposition") ?? "" };
+  }
+  const exported = await download(owner.cookie);
+  assert.equal(exported.status, 200);
+  assert.match(exported.type ?? "", /^text\/csv; charset=utf-8/);
+  assert.deepEqual([...exported.bytes.slice(0, 3)], [0xef, 0xbb, 0xbf], "UTF-8 BOM for spreadsheet apps");
+  assert.match(exported.disposition, /filename\*=UTF-8''.*%E6%9D%B1%E4%BA%AC/);
+  const csvText = new TextDecoder("utf-8", { ignoreBOM: true }).decode(exported.bytes).slice(1);
+  const csvLines = csvText.trimEnd().split("\r\n");
+  assert.equal(csvLines.length, exportSize + 1, "every page is exported");
+  assert.equal(csvLines[0], '"Name","Email","Registered at (UTC)","Checked in","Checked in at (UTC)"');
+  assert.ok(csvText.includes('"\'=HYPERLINK(""http://evil"")"'), "formula is neutralised");
+  assert.ok(csvText.includes('"\'@SUM(A1)"'));
+  assert.ok(csvText.includes('"Zoë 東京"'), "Unicode survives");
+  assert.ok(csvText.includes('"Student3 O\'Neil, ""Jr"""'), "quotes and commas are escaped");
+  assert.equal(csvLines.filter((line) => line.includes('","Yes","')).length, Math.ceil(exportSize / 3));
+  assert.equal(new Set(csvLines.slice(1).map((line) => line.split('","')[1])).size, exportSize, "no row repeated across pages");
+  assert.equal((await download(editor.cookie)).status, 200);
+  assert.equal((await download(admin.cookie)).status, 200);
+  assert.equal((await download(volunteer.cookie)).status, 403, "volunteers cannot export");
+  assert.equal((await download(stranger.cookie)).status, 403, "other organizers cannot export");
+  assert.equal((await download("")).status, 401);
+  console.log("PASS paged attendee CSV export with escaping, Unicode, and permissions");
+
+  // --- Phase 1: announcements -----------------------------------------------
+  const { recoverAnnouncements } = await import("../lib/announcements");
+  const listeners = await Promise.all(Array.from({ length: 3 }, () => fixture("student")));
+  const announceEvent = await Event.create({ ...eventData, title: "Announce event", capacity: 10, staff: [{ userId: editor.user._id, role: "editor" }, { userId: volunteer.user._id, role: "volunteer" }] });
+  for (const listener of listeners) assert.equal((await request("/registrations", listener.cookie, "POST", { eventId: announceEvent._id.toString() })).status, 201);
+  await User.updateOne({ _id: listeners[0].user._id }, { $set: { "notificationPreferences.email": false } });
+  const announce = (cookie: string, requestId: string, title = "Room change") => request(`/events/${announceEvent._id}/announcements`, cookie, "POST", { requestId, title, message: "We moved to Hall B, second floor. Bring your ID." });
+  assert.equal((await announce(volunteer.cookie, randomUUID())).status, 403, "volunteers cannot announce");
+  assert.equal((await announce(stranger.cookie, randomUUID())).status, 403);
+  assert.equal((await announce(owner.cookie, "not-a-uuid")).status, 400);
+  const firstRequestId = randomUUID();
+  const retries = await Promise.all(Array.from({ length: 5 }, () => announce(editor.cookie, firstRequestId)));
+  assert.deepEqual(retries.map((result) => result.status).sort(), [200, 200, 200, 200, 201], JSON.stringify(retries.map((r) => r.status)));
+  assert.equal(new Set(retries.map((result) => result.data.id)).size, 1, "retries return the original announcement");
+  const announcementId = retries[0].data.id as string;
+  assert.equal(await Notification.countDocuments({ type: "announcement", dedupeKey: new RegExp(`^announcement:${announcementId}:`) }), 3, "one notification per registrant");
+  assert.equal(await Outbox.countDocuments({ dedupeKey: new RegExp(`^announcement:${announcementId}:.*:email$`) }), 3, "one email job per registrant");
+  const history = contracts.apiSuccessSchema(contracts.announcementListSchema).parse(await request(`/events/${announceEvent._id}/announcements`, owner.cookie));
+  assert.deepEqual([history.data.items.length, history.data.items[0].recipientCount, history.data.remainingToday], [1, 3, 2], "a retry does not use up the daily cap");
+  const capped = await Promise.all(Array.from({ length: 4 }, (_, i) => announce(owner.cookie, randomUUID(), `Update ${i}`)));
+  assert.deepEqual(capped.map((result) => result.status).sort(), [201, 201, 429, 429], JSON.stringify(capped.map((r) => r.status)));
+  assert.equal((await request(`/events/${announceEvent._id}/announcements`, owner.cookie)).data.remainingToday, 0);
+  assert.equal((await request(`/events/${announceEvent._id}/announcements`, volunteer.cookie)).status, 403);
+  await Outbox.updateMany({ status: "pending" }, { availableAt: new Date(0) });
+  await processOutbox(async () => {}, 1000);
+  const delivery = async (listener: { user: { _id: unknown } }) => (await Outbox.findOne({ dedupeKey: `announcement:${announcementId}:${listener.user._id}:email` }).lean<{ status: string }>())!.status;
+  assert.equal(await delivery(listeners[0]), "skipped", "email preference is respected");
+  assert.equal(await delivery(listeners[1]), "sent");
+  console.log("PASS announcements: idempotent retries, per-recipient dedupe, daily cap, preferences, permissions");
+
+  // A crash mid fan-out (row saved, one recipient already notified) heals once in the worker.
+  const crashed = await Announcement.create({ eventId: announceEvent._id, authorId: owner.user._id, requestId: randomUUID(), title: "Recovered", message: "This fan-out was interrupted.", slotAt: new Date(), fanoutPending: true });
+  await Notification.create({ dedupeKey: `announcement:${crashed._id}:${listeners[1].user._id}`, userId: listeners[1].user._id, eventId: announceEvent._id, type: "announcement", title: "Recovered", message: "partial" });
+  assert.ok(await recoverAnnouncements({ graceMs: 0 }) >= 1);
+  assert.equal(await recoverAnnouncements({ graceMs: 0 }), 0, "nothing left to recover");
+  assert.equal(await Notification.countDocuments({ dedupeKey: new RegExp(`^announcement:${crashed._id}:`) }), 3);
+  assert.equal((await Announcement.findById(crashed._id).lean<{ recipientCount: number }>())!.recipientCount, 3);
+  console.log("PASS interrupted announcement fan-out recovers without duplicates");
 } catch (error) {
   console.error(serverLog.slice(-18000));
   throw error;

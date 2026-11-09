@@ -33,7 +33,7 @@ export default function AllEventsPage() {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    const params: Record<string, string> = { page: String(page), limit: "10" };
+    const params: Record<string, string> = { page: String(page), limit: "10", includeDrafts: "true" };
     if (search) params.search = search;
     dispatch(fetchEvents(params));
   }, [dispatch, page, search]);

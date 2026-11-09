@@ -24,6 +24,7 @@ import {
   CalendarX,
   ScanLine,
   Handshake,
+  Copy,
 } from "lucide-react";
 import OrganizerAnalyticsSection from "@/components/dashboard/analytics/OrganizerAnalyticsSection";
 import { format } from "date-fns";
@@ -45,7 +46,7 @@ export default function OrganizerDashboard() {
   // returns the wrong result set and triggers a wasteful double-fetch.
   useEffect(() => {
     if (!user?.id) return;
-    dispatch(fetchEvents({ organizerId: user.id, page: String(page), limit: "10" })).unwrap().then((result) => {
+    dispatch(fetchEvents({ organizerId: user.id, includeDrafts: "true", page: String(page), limit: "10" })).unwrap().then((result) => {
       if (result.pagination && page > Math.max(1, result.pagination.totalPages)) setPage(Math.max(1, result.pagination.totalPages));
     }).catch(() => {});
   }, [dispatch, user?.id, page]);
@@ -57,7 +58,7 @@ export default function OrganizerDashboard() {
       await dispatch(deleteEvent(deleteTarget)).unwrap();
       toast.success("Event deleted successfully");
       if (user?.id) {
-        const result = await dispatch(fetchEvents({ organizerId: user.id, page: String(page), limit: "10" })).unwrap();
+        const result = await dispatch(fetchEvents({ organizerId: user.id, includeDrafts: "true", page: String(page), limit: "10" })).unwrap();
         if (page > Math.max(1, result.pagination.totalPages)) setPage(Math.max(1, result.pagination.totalPages));
         dispatch(fetchOrganizerAnalytics());
       }
@@ -80,7 +81,7 @@ export default function OrganizerDashboard() {
         </p>
         <Button
           onClick={() =>
-            user?.id && dispatch(fetchEvents({ organizerId: user.id, page: String(page), limit: "10" }))
+            user?.id && dispatch(fetchEvents({ organizerId: user.id, includeDrafts: "true", page: String(page), limit: "10" }))
           }
         >
           Try Again
@@ -227,6 +228,14 @@ export default function OrganizerDashboard() {
                             className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
                           >
                             <Pencil className="h-4 w-4" />
+                          </Link>
+                          <Link
+                            href={`/dashboard/create-event?from=${eid}`}
+                            title="Duplicate event"
+                            aria-label={`Duplicate ${event.title}`}
+                            className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
+                          >
+                            <Copy className="h-4 w-4" />
                           </Link>
                           <Link
                             href={`/dashboard/check-in/${eid}`}

@@ -65,7 +65,7 @@ export async function PATCH(
       const claimed = await Collaboration.findOneAndUpdate(
         { _id: id, status: "pending" },
         { $set: { status: action, respondedAt: new Date() } },
-        { new: true },
+        { returnDocument: "after" },
       );
       if (!claimed) {
         // Lost a race: fine only if the winner recorded the same response.

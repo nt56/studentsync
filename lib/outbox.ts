@@ -57,7 +57,7 @@ export async function processOutbox(deliver: (job: EmailJob) => Promise<void> = 
         { status: "processing", leaseUntil: { $lte: now } },
       ],
     }, { $set: { status: "processing", leaseToken, leaseUntil: new Date(Date.now() + 60_000) }, $inc: { attempts: 1 } },
-    { new: true, sort: { availableAt: 1 } });
+    { returnDocument: "after", sort: { availableAt: 1 } });
     if (!job) break;
     const owned = { _id: job._id, leaseToken };
     try {

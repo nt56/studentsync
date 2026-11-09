@@ -9,7 +9,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { createEvent, updateEvent } from "@/store/slices/eventsSlice";
+import { createEvent, updateEvent, publishEvent } from "@/store/slices/eventsSlice";
 import { fetchCollegeOptions } from "@/store/slices/collegesSlice";
 import { uploadService } from "@/services/uploadService";
 import { Button } from "@/components/ui/button";
@@ -103,6 +103,9 @@ interface EventFormProps {
   isEditing?: boolean;
 }
 
+/** Which button submitted the form. */
+type SubmitIntent = "draft" | "publish" | "save";
+
 const categories = [
   { value: "workshop", label: "Workshop" },
   { value: "seminar", label: "Seminar" },
@@ -120,7 +123,9 @@ export default function EventForm({
   const dispatch = useAppDispatch();
   const router = useRouter();
   const { options: colleges } = useAppSelector((s) => s.colleges);
-  const [submitting, setSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState<SubmitIntent | null>(null);
+  const intentRef = useRef<SubmitIntent>("publish");
+  const editingDraft = isEditing && defaultValues?.status === "draft";
   const [imageUrl, setImageUrl] = useState<string | null>(
     defaultValues?.image || null,
   );
@@ -192,7 +197,8 @@ export default function EventForm({
   });
 
   const onSubmit = async (values: EventFormValues) => {
-    setSubmitting(true);
+    const intent = intentRef.current;
+    setSubmitting(intent);
     const isInterCollege = values.isInterCollege ?? false;
     const partnerCollegeIds = isInterCollege
       ? (values.partnerCollegeIds ?? [])
@@ -213,10 +219,15 @@ export default function EventForm({
       if (isEditing && defaultValues) {
         const eid = defaultValues.id || defaultValues._id;
         await dispatch(updateEvent({ id: eid!, data: payload })).unwrap();
-        toast.success("Event updated successfully");
+        if (editingDraft && intent === "publish") {
+          await dispatch(publishEvent(eid!)).unwrap();
+          toast.success("Event published");
+        } else {
+          toast.success(editingDraft ? "Draft saved" : "Event updated successfully");
+        }
       } else {
-        await dispatch(createEvent(payload)).unwrap();
-        toast.success("Event created successfully");
+        await dispatch(createEvent({ ...payload, draft: intent === "draft" })).unwrap();
+        toast.success(intent === "draft" ? "Draft saved. Only you and your staff can see it." : "Event published");
       }
       router.push("/dashboard/manage-events");
     } catch (err) {
@@ -226,9 +237,10 @@ export default function EventForm({
           : (err as { message?: string })?.message || "Something went wrong";
       toast.error(msg);
     } finally {
-      setSubmitting(false);
+      setSubmitting(null);
     }
   };
+  const submitAs = (intent: SubmitIntent) => () => { intentRef.current = intent; };
 
   return (
     <div className="max-w-3xl">
@@ -598,23 +610,22 @@ export default function EventForm({
             />
           )}
 
-          {/* Submit */}
-          <div className="flex gap-4 pt-4">
+          {/* Submit: one primary action; drafts get a secondary "Save draft". */}
+          <div className="flex flex-wrap gap-3 pt-4">
+            {(!isEditing || editingDraft) && (
+              <Button type="submit" variant="outline" disabled={!!submitting} onClick={submitAs("draft")}>
+                {submitting === "draft" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save draft
+              </Button>
+            )}
             <Button
               type="submit"
-              disabled={submitting}
-              className="bg-primary text-white hover:bg-primary/90 px-8"
+              disabled={!!submitting}
+              onClick={submitAs(isEditing && !editingDraft ? "save" : "publish")}
+              className="px-8"
             >
-              {submitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {isEditing ? "Updating..." : "Creating..."}
-                </>
-              ) : isEditing ? (
-                "Update Event"
-              ) : (
-                "Create Event"
-              )}
+              {submitting && submitting !== "draft" && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isEditing && !editingDraft ? "Update Event" : editingDraft ? "Save & publish" : "Publish"}
             </Button>
             <Button
               type="button"

@@ -3,7 +3,7 @@ import { reserveSeat, releaseSeat } from "@/lib/seats";
 import { queueRegistrationEffects, finishCancellation } from "@/lib/registration-effects";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import Event, { liveEvent } from "@/models/Event";
+import Event, { liveEvent, publishedEvent } from "@/models/Event";
 import Registration from "@/models/Registration";
 import { requireAuth } from "@/lib/auth-guard";
 import { successResponse, ApiErrors } from "@/lib/api-response";
@@ -225,7 +225,7 @@ export async function POST(request: NextRequest) {
     const eventId = new mongoose.Types.ObjectId(validatedData.eventId);
     const studentId = new mongoose.Types.ObjectId(authResult.mongoUserId);
 
-    const event = await Event.findOne({ _id: eventId, ...liveEvent });
+    const event = await Event.findOne({ _id: eventId, ...publishedEvent });
 
     if (!event) {
       return ApiErrors.notFound("Event");
@@ -360,7 +360,7 @@ export async function DELETE(request: NextRequest) {
     const claimed = await Registration.findOneAndUpdate(
       { ...deleteFilter, cancelling: { $exists: false } },
       { $set: { cancelling: authResult.userRole === "student" ? "self" : "staff", cancellingAt: new Date() } },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     if (!claimed) {

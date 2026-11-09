@@ -2,7 +2,7 @@ import { eventEndExpression } from "@/lib/event-time";
 import { connectDB } from "@/lib/db";
 import { requireAuth } from "@/lib/auth-guard";
 import { successResponse, ApiErrors } from "@/lib/api-response";
-import Event, { liveEvent } from "@/models/Event";
+import Event, { publishedEvent } from "@/models/Event";
 import Registration from "@/models/Registration";
 import mongoose from "mongoose";
 import { subDays, format } from "date-fns";
@@ -21,7 +21,7 @@ export async function GET() {
     const organizerId = new mongoose.Types.ObjectId(auth.mongoUserId);
 
   // All events for this organizer
-  const events = await Event.find({ organizerId, ...liveEvent }).lean();
+  const events = await Event.find({ organizerId, ...publishedEvent }).lean();
   const eventIds = events.map((e) => e._id);
 
   const totalEvents = events.length;
@@ -34,7 +34,7 @@ export async function GET() {
   // Events by status — computed from dates, not the stale stored field
   const now = new Date();
   const byStatusRaw = await Event.aggregate([
-    { $match: { organizerId, ...liveEvent } },
+    { $match: { organizerId, ...publishedEvent } },
     {
       $addFields: {
         computedStatus: {
@@ -61,7 +61,7 @@ export async function GET() {
 
   // Events by category
   const byCategoryRaw = await Event.aggregate([
-    { $match: { organizerId, ...liveEvent } },
+    { $match: { organizerId, ...publishedEvent } },
     { $group: { _id: "$category", count: { $sum: 1 } } },
   ]);
   const eventsByCategory = byCategoryRaw.map((c) => ({

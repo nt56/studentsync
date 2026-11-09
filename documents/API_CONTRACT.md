@@ -2,7 +2,7 @@
 
 Purpose: a reference for frontend and backend developers describing API inputs, responses, permissions, and failure behavior. This document does not create or configure databases. Keep it alongside the OpenAPI reference when implementing the next phase.
 
-Updated October 1, 2026. `/api/docs` serves OpenAPI; `npm test` checks every application route/method against it. Better Auth's dynamic catch-all routes are owned by Better Auth and excluded from this coverage test. HTTP integration tests check the critical authenticated flows against MongoDB.
+Updated November 9, 2026 (Phase 1). `/api/docs` serves OpenAPI; `npm test` checks every application route/method against it. Better Auth's dynamic catch-all routes are owned by Better Auth and excluded from this coverage test. HTTP integration tests check the critical authenticated flows against MongoDB.
 
 JSON responses use `{ success, message, data }` on success and `{ success: false, message, errors }` on failure. Axios unwraps the outer HTTP response once; service callers use `response.data` for the payload. ICS downloads return `text/calendar`. Authentication uses Better Auth session cookies. Foreign keys reference the application profile ID.
 
@@ -14,11 +14,28 @@ Responses include `endDate` and `timeZone`. Status is `completed` at the end, `c
 
 `GET /api/events/{id}` includes the current viewer's `permissions`. `GET /api/events?staff=me` requires authentication and returns the caller's staff assignments with normal pagination.
 
+## Drafts and publishing
+
+`POST /api/events` accepts `draft: true` to save without publishing; omitting it publishes immediately, as before. A draft has `status: "draft"` and `publishedAt: null`. Published events report `publishedAt` (older events report their creation time). A draft is visible only to its owner, event staff (editor or volunteer), and admins. Everyone else gets 404 from `GET /api/events/{id}`, `/ics`, registration, and bookmarking, and drafts never appear in lists, search, or page metadata. List callers opt in with `GET /api/events?includeDrafts=true` (signed-in only; admins get every draft, others only drafts they own or staff) or `status=draft` (401 when signed out). Other `status` values never return drafts. Analytics count published events only.
+
+`POST /api/events/{id}/publish` (owner, editor, admin) publishes once and returns the event. Repeating it returns 200 with "Event is already published". It returns 400 if the registration deadline has passed. Publishing is one-way: `PUT /api/events/{id}` ignores `draft`. Admins get the "new event" notification when the event is published, not when the draft is saved.
+
+Duplicating is client-only: `/dashboard/create-event?from={id}` prefills the form from an event the viewer can edit, with dates cleared. The server copies nothing, so attendees, reviews, chat, staff, and collaborations stay with the original.
+
+## Attendee export
+
+`GET /api/events/{id}/attendance/export` streams `text/csv; charset=utf-8` with a UTF-8 BOM. Columns: Name, Email, Registered at (UTC), Checked in (Yes/No), Checked in at (UTC). Rows are read in pages of 500 ordered by registration ID, and registrations being cancelled are left out. Every cell is quoted. A cell starting with `=`, `+`, `-`, `@`, tab, or carriage return gets a leading apostrophe so spreadsheets show it as text. Owner, editor, and admin only: volunteers and other organizers get 403. A plain link works because the session cookie authenticates it. A database error mid-stream ends the download early, so re-export if the row count looks short.
+
+## Announcements
+
+`POST /api/events/{id}/announcements` (owner, editor, admin; published events only) accepts `{ requestId, title, message }`. `requestId` is a UUID the client creates per compose attempt and reuses when retrying. The first send returns 201. A retry with the same `requestId` returns 200 with the same announcement and sends nothing new. Each registrant gets one in-app notification (`type: "announcement"`) and one non-essential email job, which is skipped if they turned email off. Each event may send 3 announcements in any rolling 24 hours, and a send past the cap returns 429. There is also a per-user burst limit of 10 per 10 minutes when Redis is configured. `GET` returns `{ items (newest 20), dailyLimit, remainingToday }`. Shapes: `announcementResponseSchema` and `announcementListSchema` in `lib/contracts`.
+
 ## Event permissions
 
 | Action | Owner/admin | Editor | Volunteer | Registered participant |
 | --- | --- | --- | --- | --- |
-| Edit details/capacity | Yes | Yes | No | No |
+| Edit details/capacity, publish, duplicate | Yes | Yes | No | No |
+| Export attendees, send announcements | Yes | Yes | No | No |
 | Delete event/change staff | Yes | No | No | No |
 | View attendees/check in | Yes | Yes | Yes | No |
 | Chat | Yes | Yes | Yes | Yes |
@@ -52,4 +69,4 @@ There are no database transactions. Each mutation is a sequence of atomic single
 
 ## Shared response contracts
 
-The shapes of event, registration, pagination, and event-permission responses are defined once as Zod schemas in `lib/contracts/index.ts`. The web types derive from them, `npm test` and the integration suite parse real responses with them, and the mobile app can copy that file (it depends only on `zod`) or `z.infer` its own types from it. Change the schema first when a response changes.
+The shapes of event, registration, pagination, event-permission, and announcement responses are defined once as Zod schemas in `lib/contracts/index.ts`. The web types derive from them, `npm test` and the integration suite parse real responses with them, and the mobile app can copy that file (it depends only on `zod`) or `z.infer` its own types from it. Change the schema first when a response changes.

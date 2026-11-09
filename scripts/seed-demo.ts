@@ -250,7 +250,7 @@ async function main() {
       const row = await College.findOneAndUpdate(
         { name: college.name },
         { $setOnInsert: { name: college.name, location: college.location, isVerified: college.isVerified } },
-        { upsert: true, new: true },
+        { upsert: true, returnDocument: "after" },
       );
       collegeIds[key] = row._id;
     }

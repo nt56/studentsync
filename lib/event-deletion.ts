@@ -7,10 +7,11 @@ import Bookmark from "@/models/Bookmark";
 import Message from "@/models/Message";
 import Collaboration from "@/models/Collaboration";
 import Notification from "@/models/Notification";
+import Announcement from "@/models/Announcement";
 import { sendEventCancelledEmail } from "@/lib/email";
 
 /**
- * Deleting an event touches seven collections, and a standalone MongoDB cannot do
+ * Deleting an event touches eight collections, and a standalone MongoDB cannot do
  * that atomically. Instead the request makes ONE atomic write, `deleting: true`
  * (every user-facing query hides the event from that moment), and the cleanup
  * below runs afterwards. Every step is idempotent, so the request can run it
@@ -58,6 +59,7 @@ async function removeChildren(eventId: Types.ObjectId | string) {
   await Bookmark.deleteMany({ eventId });
   await Message.deleteMany({ eventId });
   await Collaboration.deleteMany({ eventId });
+  await Announcement.deleteMany({ eventId });
 }
 
 /** Worker entry point: finishes deletions whose request died part-way. */

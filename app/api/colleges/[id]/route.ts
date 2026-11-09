@@ -86,7 +86,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     const updatedCollege = await College.findByIdAndUpdate(id, validatedData, {
-      new: true,
+      returnDocument: "after",
       runValidators: true,
     }).lean<ICollege>();
 

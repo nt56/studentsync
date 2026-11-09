@@ -64,7 +64,7 @@ export async function requireAuth(
         authUserId: session.user.id,
         // gender, dateOfBirth, phone, collegeId — left empty for OAuth users
         // They can update these later via PATCH /api/auth/profile
-      } }, { upsert: true, new: true, runValidators: true });
+      } }, { upsert: true, returnDocument: "after", runValidators: true });
     }
 
     // Read current privileges from the application profile, not a cached cookie.

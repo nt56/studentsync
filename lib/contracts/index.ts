@@ -38,9 +38,10 @@ export const paginatedSchema = <T extends z.ZodType>(item: T) =>
 
 // ── Events ──────────────────────────────────────────────────────────────────
 
-export const EVENT_PERMISSIONS = ["edit", "delete", "staff", "attendees", "checkIn", "chat", "moderate"] as const;
+export const EVENT_PERMISSIONS = ["edit", "delete", "staff", "attendees", "export", "announce", "checkIn", "chat", "moderate"] as const;
 export const eventPermissionSchema = z.enum(EVENT_PERMISSIONS);
-export const eventStatusSchema = z.enum(["upcoming", "closed", "completed"]);
+/** `draft` is only ever returned to the owner, staff, or an admin. */
+export const eventStatusSchema = z.enum(["draft", "upcoming", "closed", "completed"]);
 export const eventCategorySchema = z.enum(["workshop", "seminar", "cultural", "sports", "technical", "social", "other"]);
 
 /** Schedule fields are always present in responses: `endDate` falls back to
@@ -73,6 +74,8 @@ export const eventResponseSchema = eventScheduleSchema.extend({
   isRegistered: z.boolean().optional(),
   /** Present on `GET /api/events/{id}`; empty for signed-out callers. */
   permissions: z.array(eventPermissionSchema).optional(),
+  /** Null while the event is a draft. Older events report their creation time. */
+  publishedAt: isoDate.nullable().optional(),
   createdAt: isoDate,
   updatedAt: isoDate,
 });
@@ -88,6 +91,28 @@ export const registrationResponseSchema = z.object({
   registeredAt: isoDate,
 });
 
+// ── Announcements ───────────────────────────────────────────────────────────
+
+export const ANNOUNCEMENT_DAILY_LIMIT = 3;
+
+export const announcementResponseSchema = z.object({
+  id: z.string(),
+  eventId: z.string(),
+  title: z.string(),
+  message: z.string(),
+  authorName: z.string(),
+  recipientCount: z.number().int().min(0),
+  createdAt: isoDate,
+});
+
+export const announcementListSchema = z.object({
+  items: z.array(announcementResponseSchema),
+  dailyLimit: z.number().int().min(1),
+  remainingToday: z.number().int().min(0),
+});
+
+export type AnnouncementResponse = z.infer<typeof announcementResponseSchema>;
+export type AnnouncementList = z.infer<typeof announcementListSchema>;
 export type EventResponse = z.infer<typeof eventResponseSchema>;
 export type EventPermission = z.infer<typeof eventPermissionSchema>;
 export type RegistrationResponse = z.infer<typeof registrationResponseSchema>;

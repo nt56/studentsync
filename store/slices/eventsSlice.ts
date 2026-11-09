@@ -15,7 +15,8 @@ export interface EventItem {
   collegeId: string | { _id: string; name: string };
   registrationDeadline: string;
   capacity: number;
-  status: "upcoming" | "closed" | "completed";
+  status: "draft" | "upcoming" | "closed" | "completed";
+  publishedAt?: string | null;
   category:
     | "workshop"
     | "seminar"
@@ -123,6 +124,21 @@ export const updateEvent = createAsyncThunk(
   },
 );
 
+export const publishEvent = createAsyncThunk(
+  "events/publishEvent",
+  async (id: string, { rejectWithValue }) => {
+    try {
+      const response = await eventService.publishEvent(id);
+      return response.data;
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      return rejectWithValue(
+        err.response?.data?.message || "Failed to publish event",
+      );
+    }
+  },
+);
+
 export const deleteEvent = createAsyncThunk(
   "events/deleteEvent",
   async (id: string, { rejectWithValue }) => {
@@ -196,7 +212,8 @@ const eventsSlice = createSlice({
         state.error = action.payload as string;
       });
 
-    builder.addCase(updateEvent.fulfilled, (state, action) => {
+    // An edit and a publish both return the full updated event.
+    const replaceEvent = (state: EventsState, action: { payload: EventItem }) => {
       state.isLoading = false;
       const idx = state.items.findIndex(
         (e) => (e.id || e._id) === (action.payload.id || action.payload._id),
@@ -209,7 +226,9 @@ const eventsSlice = createSlice({
       ) {
         state.currentEvent = action.payload;
       }
-    });
+    };
+    builder.addCase(updateEvent.fulfilled, replaceEvent);
+    builder.addCase(publishEvent.fulfilled, replaceEvent);
 
     builder.addCase(deleteEvent.fulfilled, (state, action) => {
       state.isLoading = false;

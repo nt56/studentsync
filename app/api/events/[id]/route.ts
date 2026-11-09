@@ -1,5 +1,5 @@
 import { eventEnd } from "@/lib/event-time";
-import { canManageEvent } from "@/lib/event-access";
+import { canManageEvent, canViewEvent } from "@/lib/event-access";
 import { markEventDeleting, finalizeEventDeletion } from "@/lib/event-deletion";
 import { recountMissingSeatCount } from "@/lib/seats";
 import { NextRequest } from "next/server";
@@ -42,6 +42,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return ApiErrors.notFound("Event");
     }
 
+    // A draft looks exactly like a missing event to anyone who may not see it.
+    const authResult = await requireAuth();
+    if (!canViewEvent(event, authResult.success ? authResult.mongoUserId : undefined, authResult.success ? authResult.userRole : "")) {
+      return ApiErrors.notFound("Event");
+    }
+
     // Get registration count
     const registrationCount = await Registration.countDocuments({
       eventId: event._id,
@@ -49,7 +55,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     // Check if current user is registered
     let isRegistered = false;
-    const authResult = await requireAuth();
     if (authResult.success && authResult.mongoUserId) {
       const userReg = await Registration.findOne({
         eventId: event._id,
@@ -171,7 +176,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         ...(validatedData.capacity !== undefined ? { registeredCount: { $lte: validatedData.capacity } } : {}),
       },
       updateData,
-      { new: true, runValidators: true },
+      { returnDocument: "after", runValidators: true },
     ).lean<IEvent>();
 
     if (!updatedEvent) {

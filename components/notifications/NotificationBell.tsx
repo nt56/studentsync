@@ -28,6 +28,7 @@ import {
   X,
   Check,
   Trash2,
+  Megaphone,
 } from "lucide-react";
 
 // ── Icon & colour per notification type ────────────────────────────────────
@@ -83,6 +84,11 @@ const typeConfig: Record<string, TypeConfig> = {
     Icon: CalendarPlus,
     bg: "bg-purple-100 dark:bg-purple-900/30",
     text: "text-purple-600 dark:text-purple-400",
+  },
+  announcement: {
+    Icon: Megaphone,
+    bg: "bg-primary/10",
+    text: "text-primary",
   },
   role_changed: {
     Icon: Shield,

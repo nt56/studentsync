@@ -1,7 +1,7 @@
 import { eventEnd } from "@/lib/event-time";
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
-import Event, { liveEvent } from "@/models/Event";
+import Event, { publishedEvent } from "@/models/Event";
 import { ApiErrors } from "@/lib/api-response";
 import { createEvent } from "ics";
 import mongoose from "mongoose";
@@ -24,7 +24,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
     await connectDB();
 
-    const event = await Event.findOne({ _id: id, ...liveEvent }).lean<{
+    const event = await Event.findOne({ _id: id, ...publishedEvent }).lean<{
       _id: mongoose.Types.ObjectId;
       title: string;
       description: string;

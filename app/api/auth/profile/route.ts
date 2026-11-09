@@ -156,7 +156,7 @@ export async function PATCH(request: NextRequest) {
     const updatedUser = await User.findOneAndUpdate(
       { email: authResult.userEmail },
       mongoUpdate,
-      { new: true, runValidators: true },
+      { returnDocument: "after", runValidators: true },
     );
 
     if (!updatedUser) {

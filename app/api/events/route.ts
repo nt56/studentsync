@@ -6,14 +6,14 @@ import Registration from "@/models/Registration";
 import { requireAuth, requireOrganizer } from "@/lib/auth-guard";
 import { successResponse, ApiErrors } from "@/lib/api-response";
 import {
-  createEventSchema,
+  createEventRequestSchema,
   eventQuerySchema,
 } from "@/lib/validators/event.schema";
 import { formatZodErrors } from "@/lib/validators/utils";
 import { formatEventResponse, createPaginatedResponse, IEvent } from "@/types";
 import { ZodError } from "zod";
 import mongoose from "mongoose";
-import { notifyAdmins } from "@/lib/notifications";
+import { notifyEventPublished } from "@/lib/event-publish";
 
 /**
  * GET /api/events
@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
       sortBy: searchParams.get("sortBy") || "date",
       sortOrder: searchParams.get("sortOrder") || "asc",
       isInterCollege: searchParams.get("isInterCollege") || undefined,
+      includeDrafts: searchParams.get("includeDrafts") || undefined,
     };
 
     // Validate query parameters
@@ -51,18 +52,37 @@ export async function GET(request: NextRequest) {
       sortBy,
       sortOrder,
       isInterCollege,
+      includeDrafts,
     } = validatedQuery;
 
-    // Build filter
+    // Build filter. Conditions are ANDed so draft visibility and the college
+    // filter can each use their own $or.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const filter: any = { ...liveEvent };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const and: any[] = [];
+    const authResult = await requireAuth();
+    const viewerId = authResult.success && authResult.mongoUserId ? new mongoose.Types.ObjectId(authResult.mongoUserId) : null;
+    const isAdmin = authResult.success && authResult.userRole === "admin";
     if (searchParams.get("staff") === "me") {
-      const staffAuth = await requireAuth();
-      if (!staffAuth.success) return staffAuth.response;
-      filter["staff.userId"] = new mongoose.Types.ObjectId(staffAuth.mongoUserId);
+      if (!authResult.success) return authResult.response;
+      filter["staff.userId"] = viewerId;
     }
 
-    if (status) {
+    // Drafts are hidden unless requested by someone allowed to see them:
+    // admins see all drafts, everyone else only drafts they own or staff.
+    const wantsDrafts = status === "draft" || (includeDrafts === true && !status);
+    if (status === "draft" && !authResult.success) return authResult.response;
+    if (wantsDrafts && viewerId) {
+      const manageable = isAdmin ? {} : { $or: [{ organizerId: viewerId }, { "staff.userId": viewerId }] };
+      and.push(status === "draft"
+        ? { draft: true, ...manageable }
+        : { $or: [{ draft: { $ne: true } }, { draft: true, ...manageable }] });
+    } else {
+      filter.draft = { $ne: true };
+    }
+
+    if (status && status !== "draft") {
       const now = new Date();
       if (status === "completed") {
         filter.$expr = { $lte: [eventEndExpression, now] };
@@ -81,7 +101,7 @@ export async function GET(request: NextRequest) {
     if (collegeId) {
       // Include host-college events AND inter-college events where this college is a partner
       const cid = new mongoose.Types.ObjectId(collegeId);
-      filter.$or = [{ collegeId: cid }, { partnerCollegeIds: cid }];
+      and.push({ $or: [{ collegeId: cid }, { partnerCollegeIds: cid }] });
     }
 
     if (organizerId && mongoose.Types.ObjectId.isValid(organizerId)) {
@@ -95,6 +115,8 @@ export async function GET(request: NextRequest) {
     if (search) {
       filter.$text = { $search: search };
     }
+
+    if (and.length) filter.$and = and;
 
     // Build sort
     const sort: Record<string, 1 | -1> = {
@@ -124,7 +146,6 @@ export async function GET(request: NextRequest) {
 
     // Check if current user is authenticated and get their registrations
     let userRegistrations = new Set<string>();
-    const authResult = await requireAuth();
     if (authResult.success && authResult.mongoUserId) {
       const userRegs = await Registration.find({
         studentId: new mongoose.Types.ObjectId(authResult.mongoUserId),
@@ -179,7 +200,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     // Validate request body
-    const validatedData = createEventSchema.parse(body);
+    const { draft, ...validatedData } = createEventRequestSchema.parse(body);
 
     // Validate that registration deadline is before event date
     const eventDate = new Date(validatedData.date);
@@ -203,25 +224,19 @@ export async function POST(request: NextRequest) {
       collegeId: new mongoose.Types.ObjectId(validatedData.collegeId),
       organizerId: new mongoose.Types.ObjectId(authResult.mongoUserId),
       status: "upcoming",
+      ...(draft ? { draft: true } : { publishedAt: new Date() }),
       isInterCollege: validatedData.isInterCollege ?? false,
       partnerCollegeIds: (validatedData.partnerCollegeIds ?? []).map(
         (id) => new mongoose.Types.ObjectId(id),
       ),
     });
 
-    // Notify admins of the new event (one notification per admin per event)
-    await notifyAdmins({
-      dedupeKey: `event:${event._id}:created`,
-      eventId: event._id,
-      type: "new_event",
-      title: "New Event Created",
-      message: `A new event "${event.title}" has been created.`,
-      link: `/dashboard/all-events`,
-    });
+    // Admins hear about an event once it is public, not while it is a draft.
+    if (!draft) await notifyEventPublished(event);
 
     return successResponse(
       formatEventResponse(event.toObject() as IEvent, 0, false),
-      "Event created successfully",
+      draft ? "Draft saved" : "Event created successfully",
       201,
     );
   } catch (error) {

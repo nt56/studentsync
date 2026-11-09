@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import Bookmark from "@/models/Bookmark";
-import Event, { liveEvent } from "@/models/Event";
+import Event, { publishedEvent } from "@/models/Event";
 import { requireAuth } from "@/lib/auth-guard";
 import { successResponse, ApiErrors } from "@/lib/api-response";
 import { createPaginatedResponse, formatEventResponse, type IEvent } from "@/types";
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     const membership = await Bookmark.aggregate([
       { $match: { userId } },
       { $lookup: { from: "events", localField: "eventId", foreignField: "_id", as: "event" } },
-      { $match: { "event.0": { $exists: true }, "event.deleting": { $ne: true } } },
+      { $match: { "event.0": { $exists: true }, "event.deleting": { $ne: true }, "event.draft": { $ne: true } } },
       { $sort: { createdAt: -1, _id: -1 } },
       { $project: { eventId: 1 } },
     ]);
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
       return ApiErrors.badRequest("Invalid event ID");
     }
 
-    if (!await Event.exists({ _id: eventId, ...liveEvent })) return ApiErrors.notFound("Event");
+    if (!await Event.exists({ _id: eventId, ...publishedEvent })) return ApiErrors.notFound("Event");
 
     const userId = new mongoose.Types.ObjectId(authResult.mongoUserId);
     const eventObjId = new mongoose.Types.ObjectId(eventId);

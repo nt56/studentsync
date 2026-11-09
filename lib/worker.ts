@@ -5,6 +5,7 @@ import { recoverNotices } from "@/lib/recovery-notices";
 import { reconcileReviewStats } from "@/lib/review-stats";
 import { purgeDeletingEvents } from "@/lib/event-deletion";
 import { reconcileSeats } from "@/lib/seats";
+import { recoverAnnouncements } from "@/lib/announcements";
 
 const RECONCILE_EVERY_MS = 5 * 60_000;
 let lastReconcile = 0;
@@ -20,6 +21,7 @@ export async function runWorkerPass({ forceReconcile = false }: { forceReconcile
     ["Registration effect recovery", () => recoverRegistrationEffects()],
     ["Cancellation recovery", () => recoverCancellations()],
     ["Notice recovery", () => recoverNotices()],
+    ["Announcement fan-out recovery", () => recoverAnnouncements()],
     ["Event deletion recovery", () => purgeDeletingEvents()],
     ["Email worker", () => processOutbox()],
   ];

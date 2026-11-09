@@ -236,7 +236,8 @@ const swaggerSpec = {
           capacity: { type: "integer", example: 200 },
           status: {
             type: "string",
-            enum: ["upcoming", "closed", "completed"],
+            enum: ["draft", "upcoming", "closed", "completed"],
+            description: "Computed from dates. `draft` is only returned to the owner, staff, or an admin.",
             example: "upcoming",
           },
           category: {
@@ -1816,10 +1817,17 @@ const swaggerSpec = {
           {
             name: "status",
             in: "query",
+            description: "`draft` requires sign-in and returns only drafts the caller may see",
             schema: {
               type: "string",
-              enum: ["upcoming", "closed", "completed"],
+              enum: ["draft", "upcoming", "closed", "completed"],
             },
+          },
+          {
+            name: "includeDrafts",
+            in: "query",
+            description: "Signed-in callers also get drafts they own or staff (admins: all drafts). Ignored when status is set.",
+            schema: { type: "string", enum: ["true", "false"] },
           },
           {
             name: "collegeId",
@@ -2946,4 +2954,10 @@ for (const name of ["Event", "CreateEventInput", "UpdateEventInput"] as const) {
     timeZone: { type: "string", example: "Asia/Kolkata", description: "IANA timezone for local display and scheduling" },
   });
 }
+Object.assign(swaggerSpec.components.schemas.CreateEventInput.properties, {
+  draft: { type: "boolean", default: false, description: "Save as a draft (hidden from public lists, details, ICS and search). Publish with POST /api/events/{id}/publish." },
+});
+Object.assign(swaggerSpec.components.schemas.Event.properties, {
+  publishedAt: { type: "string", format: "date-time", nullable: true, description: "Null while the event is a draft" },
+});
 export default swaggerSpec;

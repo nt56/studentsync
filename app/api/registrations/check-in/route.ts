@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
     const checkedIn = await Registration.findOneAndUpdate(
       { _id: registration._id, checkedIn: { $ne: true } },
       { $set: { checkedIn: true, checkedInAt: new Date() } },
-      { new: true },
+      { returnDocument: "after" },
     );
     if (!checkedIn) return errorResponse("Attendee is already checked in.", 409);
 

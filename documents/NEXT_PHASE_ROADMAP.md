@@ -21,11 +21,11 @@ Updated November 5, 2026. This is a personal learning project, so the plan stays
 | Quality | 15 unit/contract tests (including OpenAPI route coverage), an HTTP integration suite with seat races and fault injection on a plain `mongod`, shared Zod response contracts, and a CI workflow |
 | Mobile (separate repo) | Auth, events, bookmarks, tickets, chat, reviews, local reminders |
 
-**Not done yet:** contracts for the remaining responses (users, colleges, notifications, analytics), wiring the shared contracts into the mobile repo, and everything in Phases 1–5.
+**Not done yet:** contracts for the remaining responses (users, colleges, notifications, analytics), wiring the shared contracts into the mobile repo, the optional Phase 1 attendance certificate, and Phases 2–5.
 
 **Last verified:** November 5, 2026. `npm test` (15/15), `npm run test:integration` (22 sections, plain `mongod`, both in-memory and through `INTEGRATION_MONGODB_URI`), `npm run lint`, `npx tsc --noEmit`, and `npm run build` pass locally. The upgrade from `rs0` data files, `db:backfill-seats`, `worker --once`, and `db:audit` were run on a real `mongod` 7.0.14. Not exercised: the GitHub Actions workflow on GitHub (the file parses), the Compose stacks (`docker compose config` passes; the Docker daemon was off), and a real production database.
 
-## Phase 0 — Standalone-safe foundation (prerequisite)
+## Phase 0 — Standalone-safe foundation (completed)
 
 **Status:** implemented November 5, 2026. See the verification note above for what has not been exercised yet. [OPERATIONS.md](OPERATIONS.md) describes the result.
 
@@ -45,9 +45,11 @@ Updated November 5, 2026. This is a personal learning project, so the plan stays
 
 **Done when:** the app runs, passes the full test suite, and survives the concurrency tests on a plain `mongod`. No `transactional()` or session code remains. A forced crash between steps heals through the reconciler.
 
-## Phase 1 — Organizer paperwork
+## Phase 1 — Organizer paperwork (completed)
 
 **Problem:** organizers copy data by hand and rebuild events from scratch.
+
+**Status:** CSV export, duplicate, draft/publish, and announcements implemented November 9, 2026. The optional certificate is deferred. Decisions: drafts are visible to the owner, staff, and admins; editors may publish, export, and announce, volunteers may not; publishing is one-way; the announcement cap is 3 per event per rolling 24 hours. `npm test` (20/20), `npm run test:integration` (26 sections), lint, `tsc`, and `build` pass locally. [API_CONTRACT.md](API_CONTRACT.md) has the API details and [OPERATIONS.md](OPERATIONS.md) the write-safety notes.
 
 | Feature | Scope | Learn | Done when |
 | --- | --- | --- | --- |

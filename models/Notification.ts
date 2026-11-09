@@ -7,6 +7,7 @@ export type NotificationType =
   | "deadline_approaching"
   | "event_updated"
   | "event_cancelled"
+  | "announcement"
   // Organizer
   | "new_registration"
   | "registration_cancelled"
@@ -31,6 +32,7 @@ const NotificationSchema = new Schema(
         "deadline_approaching",
         "event_updated",
         "event_cancelled",
+        "announcement",
         "new_registration",
         "registration_cancelled",
         "new_user",

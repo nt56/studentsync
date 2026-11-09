@@ -10,7 +10,7 @@ export default function StaffEventsPage() {
   const dispatch = useAppDispatch();
   const [page, setPage] = useState(1);
   const { items, pagination, isLoading, error } = useAppSelector((state) => state.events);
-  useEffect(() => { dispatch(fetchEvents({ staff: "me", page: String(page), limit: "10" })); }, [dispatch, page]);
+  useEffect(() => { dispatch(fetchEvents({ staff: "me", includeDrafts: "true", page: String(page), limit: "10" })); }, [dispatch, page]);
   useEffect(() => { dispatch(fetchBookmarks()); }, [dispatch]);
   return <div className="space-y-6">
     <header><h1 className="text-2xl font-bold">Staff events</h1><p className="text-muted-foreground">Events you help run as an editor or volunteer. Open an event to access its staff tools.</p></header>

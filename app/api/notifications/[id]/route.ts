@@ -37,7 +37,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         userId: new mongoose.Types.ObjectId(authResult.mongoUserId),
       },
       { isRead: true },
-      { new: true },
+      { returnDocument: "after" },
     );
 
     if (!notification) {
