@@ -700,6 +700,86 @@ try {
   assert.equal((await request(`/events/${overlapping._id}/conflicts`)).status, 401);
   assert.equal((await request("/registrations", planner.cookie, "POST", { eventId: overlapping._id.toString() })).status, 201, "a conflict never blocks registration");
   console.log("PASS schedule conflict hint: overlaps warn, adjacent and own events do not");
+
+  // --- Phase 3: interests and recommendations ---------------------------------
+  const elsewhere = await College.create({ name: "Elsewhere College", location: "Far campus" });
+  const [explorer, firstTimer] = await Promise.all([fixture("student"), fixture("student")]);
+  await User.updateOne({ _id: explorer.user._id }, { $set: { collegeId: elsewhere._id } });
+  assert.equal((await request("/users/me/interests", explorer.cookie, "PUT", { interests: ["seminar", "competition", "competition"] })).data.interests.join(), "competition,seminar", "deduplicated, canonical order");
+  assert.deepEqual((await request("/users/me/interests", explorer.cookie)).data.interests, ["competition", "seminar"]);
+  assert.equal((await request("/users/me/interests", explorer.cookie, "PUT", { interests: ["summit"] })).status, 400);
+  assert.equal((await request("/users/me/interests", owner.cookie)).status, 403, "students only");
+  const inDays = (days: number) => new Date(Date.now() + days * 24 * hour);
+  const recEvent = (title: string, extra: Record<string, unknown>) => Event.create({ ...eventData, title, capacity: 10, publishedAt: new Date(), date: inDays(3), endDate: new Date(inDays(3).getTime() + 2 * hour), registrationDeadline: inDays(2), ...extra });
+  const interestPick = await recEvent("Interest pick", { category: "competition" });
+  const collegePick = await recEvent("College pick", { category: "other", collegeId: elsewhere._id, date: inDays(10), endDate: new Date(inDays(10).getTime() + hour), registrationDeadline: inDays(9) });
+  const fullPick = await recEvent("Full competition", { category: "competition", capacity: 1, registeredCount: 1 });
+  const heldPick = await recEvent("Held competition", { category: "competition", capacity: 1, heldCount: 1 });
+  const pastPick = await recEvent("Past competition", { category: "competition", date: new Date(Date.now() - 48 * hour), endDate: new Date(Date.now() - 46 * hour), registrationDeadline: new Date(Date.now() - 50 * hour) });
+  const draftPick = await recEvent("Draft competition", { category: "competition", draft: true, publishedAt: undefined });
+  const joinedPick = await recEvent("Joined competition", { category: "competition" });
+  assert.equal((await request("/registrations", explorer.cookie, "POST", { eventId: joinedPick._id.toString() })).status, 201);
+  const recommended = contracts.apiSuccessSchema(contracts.recommendationListSchema).parse(await request("/events/recommended?limit=20", explorer.cookie));
+  const recIds = recommended.data.items.map((item) => item.event.id);
+  assert.deepEqual(recIds.slice(0, 2), [interestPick._id.toString(), collegePick._id.toString()], "interest first, then own college");
+  assert.deepEqual(recommended.data.items[0].reasons.map((reason) => reason.code), ["interest", "soon"]);
+  assert.equal(recommended.data.items[1].reasons[0].label, "At your college");
+  for (const excluded of [fullPick, heldPick, pastPick, draftPick, joinedPick]) assert.ok(!recIds.includes(excluded._id.toString()), `${excluded.title} is excluded`);
+  const firstLook = contracts.apiSuccessSchema(contracts.recommendationListSchema).parse(await request("/events/recommended", firstTimer.cookie));
+  assert.ok(firstLook.data.items.length > 0 && firstLook.data.items.length <= 6, "a new student still sees results (default limit 6)");
+  assert.equal((await request("/events/recommended", owner.cookie)).status, 403);
+  assert.equal((await request("/events/recommended")).status, 401);
+  assert.equal((await request("/events/recommended?limit=99", explorer.cookie)).status, 400);
+  console.log("PASS recommendations explain themselves and skip full, held, past, draft and joined events");
+
+  // --- Phase 3: shareable search parameters and saved searches ----------------
+  const competitions = await request("/events?category=competition&limit=50");
+  assert.equal(competitions.status, 200);
+  assert.ok(competitions.data.items.length > 0 && competitions.data.items.every((item: { category: string }) => item.category === "competition"));
+  const { default: SavedSearch } = await import("../models/SavedSearch");
+  const { processSavedSearchAlerts, searchAlertKey } = await import("../lib/saved-search-alerts");
+  const alerter = await fixture("student");
+  const searches = "/users/me/saved-searches";
+  const roboticsResponse = await request(searches, alerter.cookie, "POST", { name: "Robotics", filters: { search: "robotics" }, alerts: true });
+  assert.equal(roboticsResponse.status, 201);
+  const robotics = contracts.apiSuccessSchema(contracts.savedSearchSchema).parse(roboticsResponse);
+  assert.equal((await request(searches, alerter.cookie, "POST", { name: "ROBOTICS ", filters: { category: "sports" } })).status, 409, "names are unique ignoring case");
+  assert.equal((await request(searches, alerter.cookie, "POST", { name: "Everything", filters: {} })).status, 400);
+  assert.equal((await request(searches, owner.cookie, "POST", { name: "Org", filters: { category: "sports" } })).status, 403);
+  const comps = (await request(searches, alerter.cookie, "POST", { name: "Competitions", filters: { category: "competition" }, alerts: false })).data;
+  assert.equal((await request(`${searches}/${comps.id}`, explorer.cookie, "PATCH", { alerts: true })).status, 404, "only the owner can change it");
+  assert.equal((await request(`${searches}/${comps.id}`, explorer.cookie, "DELETE")).status, 404);
+  const listedSearches = contracts.apiSuccessSchema(contracts.savedSearchListSchema).parse(await request(searches, alerter.cookie));
+  assert.deepEqual([listedSearches.data.items.map((item) => item.name), listedSearches.data.limit], [["Competitions", "Robotics"], contracts.SAVED_SEARCH_LIMIT]);
+  const fillers = await SavedSearch.insertMany(Array.from({ length: contracts.SAVED_SEARCH_LIMIT - 2 }, (_, i) => ({ userId: alerter.user._id, name: `Filler ${i}`, nameKey: `filler ${i}`, filters: { category: "sports" } })));
+  assert.equal((await request(searches, alerter.cookie, "POST", { name: "One too many", filters: { category: "sports" } })).status, 400, "per-student limit");
+  await SavedSearch.deleteMany({ _id: { $in: fillers.map((row) => row._id) } });
+  console.log("PASS URL filter names work on the API; saved searches are owned, unique, and limited");
+
+  // --- Phase 3: saved-search alerts --------------------------------------------
+  const alertsFor = (searchId: string) => Notification.countDocuments({ userId: alerter.user._id, type: "saved_search_match", dedupeKey: new RegExp(`^search-alert:${searchId}:`) });
+  const roboticsDraft = await Event.create({ ...eventData, title: "Robotics league", category: "competition", capacity: 20, draft: true });
+  await processSavedSearchAlerts();
+  assert.equal(await alertsFor(robotics.data.id), 0, "drafts never alert");
+  assert.equal((await request(`/events/${roboticsDraft._id}/publish`, owner.cookie, "POST")).status, 200);
+  await Promise.all([processSavedSearchAlerts(), processSavedSearchAlerts()]);
+  await processSavedSearchAlerts(); // a restart re-reads the overlap window and adds nothing
+  const roboticsKey = searchAlertKey(robotics.data.id, roboticsDraft._id);
+  assert.equal(await Notification.countDocuments({ dedupeKey: roboticsKey }), 1, "one alert per event per saved search");
+  assert.equal(await Outbox.countDocuments({ dedupeKey: `${roboticsKey}:email` }), 1, "with one email job");
+  assert.equal(await alertsFor(comps.id), 0, "alerts off sends nothing");
+  // Turning alerts on starts from now: the competition published a moment ago is not sent.
+  assert.equal((await request(`${searches}/${comps.id}`, alerter.cookie, "PATCH", { alerts: true })).data.alerts, true);
+  await processSavedSearchAlerts();
+  assert.equal(await alertsFor(comps.id), 0, "no backlog after switching alerts on");
+  const chess = await request("/events", owner.cookie, "POST", { title: "Chess open", description: "Rapid chess for every college", date: inDays(5).toISOString(), registrationDeadline: inDays(4).toISOString(), venue: "Main Hall", capacity: 30, collegeId: college._id.toString(), category: "competition" });
+  assert.equal(chess.status, 201, JSON.stringify(chess));
+  await processSavedSearchAlerts();
+  assert.equal(await Notification.countDocuments({ dedupeKey: searchAlertKey(comps.id, chess.data.id) }), 1);
+  assert.equal(await Notification.countDocuments({ dedupeKey: searchAlertKey(robotics.data.id, chess.data.id) }), 0, "the text filter still applies");
+  assert.equal((await request(`${searches}/${comps.id}`, alerter.cookie, "DELETE")).status, 200);
+  assert.equal(await SavedSearch.countDocuments({ userId: alerter.user._id }), 1);
+  console.log("PASS saved-search alerts: drafts skipped, one alert per event per search, no backlog, deduplicated across workers");
 } catch (error) {
   console.error(serverLog.slice(-18000));
   throw error;

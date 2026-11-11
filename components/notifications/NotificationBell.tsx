@@ -25,6 +25,7 @@ import {
   UserCheck,
   CalendarPlus,
   Shield,
+  SearchCheck,
   X,
   Check,
   Trash2,
@@ -101,6 +102,11 @@ const typeConfig: Record<string, TypeConfig> = {
     Icon: TimerOff,
     bg: "bg-muted ring-1 ring-border",
     text: "text-muted-foreground",
+  },
+  saved_search_match: {
+    Icon: SearchCheck,
+    bg: "bg-primary/10 ring-1 ring-primary/25",
+    text: "text-primary",
   },
   role_changed: {
     Icon: Shield,

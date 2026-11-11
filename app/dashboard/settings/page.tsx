@@ -2,6 +2,8 @@
 
 import { NotificationPreferences } from "@/components/notifications/NotificationPreferences";
 import { CalendarFeedSettings } from "@/components/settings/CalendarFeedSettings";
+import { InterestsSettings } from "@/components/settings/InterestsSettings";
+import { SavedSearchesSettings } from "@/components/settings/SavedSearchesSettings";
 import { useAppSelector } from "@/store/hooks";
 import { useTheme } from "next-themes";
 import { useSyncExternalStore } from "react";
@@ -141,8 +143,14 @@ export default function SettingsPage() {
       {/* Notifications */}
       <NotificationPreferences />
 
-      {/* Only students register, so only they have events to subscribe to. */}
-      {role === "student" && <CalendarFeedSettings />}
+      {/* Discovery and the calendar feed are student features. */}
+      {role === "student" && (
+        <>
+          <InterestsSettings />
+          <SavedSearchesSettings />
+          <CalendarFeedSettings />
+        </>
+      )}
     </div>
   );
 }

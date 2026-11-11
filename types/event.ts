@@ -1,17 +1,10 @@
 import { Types } from "mongoose";
 import { eventEnd } from "@/lib/event-time";
-import type { EventResponse as ContractEventResponse } from "@/lib/contracts";
+import type { EventResponse as ContractEventResponse, EventCategory as ContractEventCategory } from "@/lib/contracts";
 
 export type EventStatus = "draft" | "upcoming" | "closed" | "completed";
 
-export type EventCategory =
-  | "workshop"
-  | "seminar"
-  | "cultural"
-  | "sports"
-  | "technical"
-  | "social"
-  | "other";
+export type EventCategory = ContractEventCategory;
 
 export interface IEvent {
   _id: Types.ObjectId;

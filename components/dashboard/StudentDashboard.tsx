@@ -30,6 +30,7 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import StudentAnalyticsSection from "@/components/dashboard/analytics/StudentAnalyticsSection";
+import { RecommendedEvents } from "@/components/dashboard/RecommendedEvents";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -223,6 +224,8 @@ export default function StudentDashboard() {
           </div>
         ))}
       </div>
+
+      <RecommendedEvents />
 
       {/* Registered Events Table / Section */}
       <div className="rounded-2xl border border-border/80 bg-card/85 shadow-xs backdrop-blur-xl overflow-hidden">

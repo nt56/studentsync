@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { validTimeZone } from "@/lib/event-time";
+import { EVENT_CATEGORIES } from "@/lib/contracts";
 
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid ID");
 
@@ -45,16 +46,7 @@ export const createEventSchema = z.object({
 
   collegeId: objectId,
 
-  category: z
-    .enum([
-      "workshop",
-      "seminar",
-      "cultural",
-      "sports",
-      "technical",
-      "social",
-      "other",
-    ])
+  category: z.enum(EVENT_CATEGORIES)
     .optional()
     .default("other"),
 
@@ -99,16 +91,7 @@ export const eventQuerySchema = z.object({
   includeDrafts: z.enum(["true", "false"]).transform((value) => value === "true").optional(),
   collegeId: objectId.optional(),
   organizerId: objectId.optional(),
-  category: z
-    .enum([
-      "workshop",
-      "seminar",
-      "cultural",
-      "sports",
-      "technical",
-      "social",
-      "other",
-    ])
+  category: z.enum(EVENT_CATEGORIES)
     .optional(),
   search: z.string().optional(),
   sortBy: z.enum(["date", "createdAt", "title"]).default("date"),

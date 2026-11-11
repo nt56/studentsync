@@ -72,6 +72,20 @@ Registered students get two `event_reminder` notifications: 24 hours before the 
 
 `GET /api/events/{id}/conflicts` (signed in) returns `{ items }`, the caller's other registered events whose time overlaps this one: `{ id, title, date, endDate, timeZone, venue }`. Overlap compares UTC instants (`a.start < b.end && b.start < a.end`), so an event ending exactly when another starts is not a conflict, and time zones only affect display. It is a hint: registration is never blocked. Shape: `scheduleConflictListSchema`.
 
+## Discovery: shareable search, interests, recommendations, saved searches
+
+**Shareable search.** The `/events` page keeps every filter and the page in the URL with the same names as `GET /api/events`: `search`, `category`, `status` (`upcoming` is the default and is omitted), `collegeId`, `isInterCollege=true`, and `page`. Unknown or invalid values are ignored, so old links still open. `lib/event-search.ts` parses and builds these; mobile deep links use the same names. The `competition` category is now valid everywhere; the full list is `EVENT_CATEGORIES` in `lib/contracts`.
+
+**Interests** (students only). `GET /api/users/me/interests` returns `{ interests }`. `PUT` takes `{ interests: Category[] }` and replaces the list; duplicates are dropped and the list comes back in canonical order. Unknown categories return 400.
+
+**Recommendations** (students only). `GET /api/events/recommended?limit=6` (1–20) returns `{ items: [{ event, score, reasons }] }`. Candidates are published events open for registration with a free seat (`capacity − registrationCount − seatsHeld > 0`) that the student has not registered or queued for. Points: interest category +3, past registrations in the category +1 each (at most +2), host college +2 or partner college +1.5, starts within 7 days +1, at least half full +0.5. Ties go to the sooner event. `reasons` is never empty: `{ code, label }` with codes `interest`, `history`, `college`, `soon`, `popular`, and `upcoming` (no other signal, used for new students). Show `label`; switch on `code`.
+
+**Saved searches** (students only). `GET /api/users/me/saved-searches` returns `{ items, limit }` (newest first, `limit` = 10). `POST` takes `{ name, filters, alerts? }` where `filters` holds at least one of `search`, `category`, `collegeId`, `isInterCollege: true` (not both college fields). Status and page are not saved. It returns 201, 409 for a name already used (ignoring case), and 400 at the limit. `PATCH /api/users/me/saved-searches/{id}` takes `{ name?, alerts? }`; filters are fixed once saved. `DELETE` removes it; alerts already sent stay. Other students' searches return 404.
+
+**Alerts.** With `alerts: true`, each event published after alerts were switched on that matches the filters (and is open for registration) creates one `saved_search_match` notification per saved search and a non-essential email (skipped when the email preference is off). Drafts never alert: an alert can only follow publishing. Switching alerts off and on again starts from that moment. Alerts are matched by the worker (every 15 seconds by default) and reach clients through notification polling, not push.
+
+Shapes: `interestsSchema`, `recommendationListSchema`, `savedSearchSchema`, `savedSearchListSchema`, and `SAVED_SEARCH_LIMIT` in `lib/contracts`.
+
 ## Pagination and totals
 
 Events, users, colleges, registrations, and bookmarks return `{ items, pagination: { page, limit, total, totalPages, hasMore } }`. Management search is applied on the server before pagination. Dashboard headline counts use analytics across the complete relevant dataset.
@@ -92,4 +106,4 @@ There are no database transactions. Each mutation is a sequence of atomic single
 
 ## Shared response contracts
 
-The shapes of event, registration, pagination, event-permission, announcement, waitlist, schedule-conflict, and calendar-feed responses are defined once as Zod schemas in `lib/contracts/index.ts`. The web types derive from them, `npm test` and the integration suite parse real responses with them, and the mobile app can copy that file (it depends only on `zod`) or `z.infer` its own types from it. Change the schema first when a response changes.
+The shapes of event, registration, pagination, event-permission, announcement, waitlist, schedule-conflict, calendar-feed, interest, recommendation, and saved-search responses are defined once as Zod schemas in `lib/contracts/index.ts`. The web types derive from them, `npm test` and the integration suite parse real responses with them, and the mobile app can copy that file (it depends only on `zod`) or `z.infer` its own types from it. Change the schema first when a response changes.

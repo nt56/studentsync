@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { eventService } from "@/services/eventService";
+import type { EventCategory } from "@/lib/contracts";
 
 export interface EventItem {
   id: string;
@@ -17,14 +18,7 @@ export interface EventItem {
   capacity: number;
   status: "draft" | "upcoming" | "closed" | "completed";
   publishedAt?: string | null;
-  category:
-    | "workshop"
-    | "seminar"
-    | "cultural"
-    | "sports"
-    | "technical"
-    | "social"
-    | "other";
+  category: EventCategory;
   image?: string;
   latitude?: number | null;
   longitude?: number | null;

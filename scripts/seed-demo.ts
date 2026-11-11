@@ -68,7 +68,7 @@ const STUDENTS: { firstName: string; lastName: string; gender: string; college?:
   { firstName: "Zoya", lastName: "Sheikh", gender: "female" },
 ];
 
-type Category = "workshop" | "seminar" | "cultural" | "sports" | "technical" | "social" | "other";
+type Category = import("../lib/contracts").EventCategory;
 interface EventSpec {
   key: string;
   title: string;

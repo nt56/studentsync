@@ -367,6 +367,35 @@ export async function sendWaitlistOfferEmail(
   });
 }
 
+// ─── Saved-search alert (a new event matches) ────────────────────────────────
+
+export async function sendSavedSearchAlertEmail(
+  email: string,
+  name: string,
+  searchName: string,
+  event: EventEmailData,
+  dedupeKey: string,
+): Promise<void> {
+  const content = `
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#1e293b;">New event for “${esc(searchName)}”</h1>
+    <p style="margin:0 0 24px;font-size:15px;color:#475569;line-height:1.6;">
+      Hi <strong>${esc(name)}</strong>, <strong>${esc(event.title)}</strong> was just published and matches your saved search.
+    </p>
+    ${eventCard(event)}
+    <p style="margin:0 0 24px;font-size:14px;color:#64748b;line-height:1.6;">
+      You can turn off alerts for this search in Settings.
+    </p>
+    ${btn("View Event", `${appUrl()}/events/${event.id}`)}
+  `;
+
+  await sendEmail({
+    dedupeKey,
+    to: { email, name },
+    subject: `New match for “${searchName}” — ${event.title}`,
+    htmlContent: buildEmail(content),
+  });
+}
+
 // ─── Event reminder (24 hours before) ────────────────────────────────────────
 
 export async function sendEventReminderEmail(

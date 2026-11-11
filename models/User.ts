@@ -1,4 +1,5 @@
 import { Schema, models, model } from "mongoose";
+import { EVENT_CATEGORIES } from "@/lib/contracts";
 
 export type UserRole = "student" | "organizer" | "admin";
 
@@ -8,6 +9,8 @@ const UserSchema = new Schema(
     pendingRoleNotice: { _id: false, type: { key: String, role: String, at: Date } },
     // Private calendar feed. Only a SHA-256 hash of the token is stored.
     calendarFeed: { _id: false, type: { tokenHash: String, createdAt: Date } },
+    // Event categories the student picked; used only to rank recommendations.
+    interests: { type: [{ type: String, enum: [...EVENT_CATEGORIES] }], default: undefined },
     notificationPreferences: {
       reminders: { type: Boolean, default: true },
       email: { type: Boolean, default: true },

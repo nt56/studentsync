@@ -1,4 +1,5 @@
 import { Schema, models, model } from "mongoose";
+import { EVENT_CATEGORIES } from "@/lib/contracts";
 
 const EventSchema = new Schema(
   {
@@ -78,15 +79,7 @@ const EventSchema = new Schema(
 
     category: {
       type: String,
-      enum: [
-        "workshop",
-        "seminar",
-        "cultural",
-        "sports",
-        "technical",
-        "social",
-        "other",
-      ],
+      enum: [...EVENT_CATEGORIES],
       default: "other",
     },
 
@@ -142,6 +135,8 @@ EventSchema.index({ organizerId: 1 });
 EventSchema.index({ title: "text", description: "text" });
 EventSchema.index({ deleting: 1 }, { sparse: true });
 EventSchema.index({ draft: 1 }, { sparse: true });
+// Saved-search alerts scan newly published events.
+EventSchema.index({ publishedAt: 1 }, { sparse: true });
 EventSchema.index({ "updateNotice.at": 1 }, { sparse: true });
 
 const Event = models.Event || model("Event", EventSchema);

@@ -14,6 +14,7 @@ import { formatEventResponse, createPaginatedResponse, IEvent } from "@/types";
 import { ZodError } from "zod";
 import mongoose from "mongoose";
 import { notifyEventPublished } from "@/lib/event-publish";
+import { applyDiscoveryFilters } from "@/lib/event-filters";
 
 /**
  * GET /api/events
@@ -95,25 +96,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    if (isInterCollege !== undefined) {
-      filter.isInterCollege = isInterCollege;
-    }
-    if (collegeId) {
-      // Include host-college events AND inter-college events where this college is a partner
-      const cid = new mongoose.Types.ObjectId(collegeId);
-      and.push({ $or: [{ collegeId: cid }, { partnerCollegeIds: cid }] });
-    }
+    applyDiscoveryFilters(filter, and, { search, category, collegeId, isInterCollege });
 
     if (organizerId && mongoose.Types.ObjectId.isValid(organizerId)) {
       filter.organizerId = new mongoose.Types.ObjectId(organizerId);
-    }
-
-    if (category) {
-      filter.category = category;
-    }
-
-    if (search) {
-      filter.$text = { $search: search };
     }
 
     if (and.length) filter.$and = and;

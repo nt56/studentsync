@@ -20,7 +20,7 @@ export function EventCard({ event }: { event: EventItem }) {
   const isNearlyFull = remaining != null && remaining > 0 && remaining <= 10;
 
   return (
-    <article className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-border/80 bg-card hover:border-primary/50 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300">
+    <article className="group relative flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card hover:border-primary/50 transition-colors duration-200">
       {/* Card Header / Image Media */}
       <div className="relative aspect-[16/10] w-full overflow-hidden bg-secondary/50">
         {event.image ? (
@@ -32,7 +32,7 @@ export function EventCard({ event }: { event: EventItem }) {
             className="object-cover transition-transform duration-500 ease-out group-hover:scale-105"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 via-secondary to-accent">
+          <div className="flex h-full w-full items-center justify-center bg-muted">
             <Calendar className="size-12 text-primary/30" />
           </div>
         )}

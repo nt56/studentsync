@@ -42,7 +42,19 @@ export const EVENT_PERMISSIONS = ["edit", "delete", "staff", "attendees", "expor
 export const eventPermissionSchema = z.enum(EVENT_PERMISSIONS);
 /** `draft` is only ever returned to the owner, staff, or an admin. */
 export const eventStatusSchema = z.enum(["draft", "upcoming", "closed", "completed"]);
-export const eventCategorySchema = z.enum(["workshop", "seminar", "cultural", "sports", "technical", "social", "other"]);
+/** The one list of event categories. Model, validators, forms and filters all read it. */
+export const EVENT_CATEGORIES = ["technical", "workshop", "cultural", "competition", "seminar", "sports", "social", "other"] as const;
+export const EVENT_CATEGORY_LABELS: Record<(typeof EVENT_CATEGORIES)[number], string> = {
+  technical: "Technical & Hackathons",
+  workshop: "Workshops & Bootcamps",
+  cultural: "Cultural & Arts",
+  competition: "Competitions",
+  seminar: "Seminars & Talks",
+  sports: "Sports & Gaming",
+  social: "Social & Community",
+  other: "Other",
+};
+export const eventCategorySchema = z.enum(EVENT_CATEGORIES);
 
 /** Schedule fields are always present in responses: `endDate` falls back to
  * start + 2 hours and `timeZone` to "UTC" on the server. Times are UTC ISO strings. */
@@ -152,6 +164,40 @@ export const calendarFeedStatusSchema = z.object({
   webcalUrl: z.string().optional(),
 });
 
+// ── Discovery: interests, recommendations, saved searches ───────────────────
+
+export const interestsSchema = z.object({ interests: z.array(eventCategorySchema) });
+
+/** Why a recommendation appears. `label` is display text; switch on `code`. */
+export const RECOMMENDATION_REASONS = ["interest", "history", "college", "soon", "popular", "upcoming"] as const;
+export const recommendationSchema = z.object({
+  event: eventResponseSchema,
+  score: z.number().min(0),
+  reasons: z.array(z.object({ code: z.enum(RECOMMENDATION_REASONS), label: z.string().min(1) })).min(1),
+});
+export const recommendationListSchema = z.object({ items: z.array(recommendationSchema) });
+
+export const SAVED_SEARCH_LIMIT = 10;
+/** The filters a saved search keeps. Status and page are not saved: alerts are for open events. */
+export const savedSearchFiltersSchema = z.object({
+  search: z.string().trim().min(1).max(100).optional(),
+  category: eventCategorySchema.optional(),
+  collegeId: z.string().regex(/^[a-f\d]{24}$/i).optional(),
+  isInterCollege: z.literal(true).optional(),
+});
+export const savedSearchSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  filters: savedSearchFiltersSchema,
+  alerts: z.boolean(),
+  createdAt: isoDate,
+});
+export const savedSearchListSchema = z.object({ items: z.array(savedSearchSchema), limit: z.number().int().min(1) });
+
+export type SavedSearchFilters = z.infer<typeof savedSearchFiltersSchema>;
+export type SavedSearch = z.infer<typeof savedSearchSchema>;
+export type Recommendation = z.infer<typeof recommendationSchema>;
+export type EventCategory = z.infer<typeof eventCategorySchema>;
 export type WaitlistEntryResponse = z.infer<typeof waitlistEntrySchema>;
 export type WaitlistState = z.infer<typeof waitlistStateSchema>;
 export type ScheduleConflict = z.infer<typeof scheduleConflictSchema>;

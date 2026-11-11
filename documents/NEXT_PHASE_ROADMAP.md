@@ -1,6 +1,6 @@
 # StudentSync: roadmap
 
-Updated November 10, 2026. This is a personal learning project, so the plan stays small. Each feature must solve a concrete problem for a **student**, **organizer**, or **admin**, and every phase ships one working user journey before the next starts. [OPERATIONS.md](OPERATIONS.md) describes how to run the app. [API_CONTRACT.md](API_CONTRACT.md) describes API behavior.
+Updated November 11, 2026. This is a personal learning project, so the plan stays small. Each feature must solve a concrete problem for a **student**, **organizer**, or **admin**, and every phase ships one working user journey before the next starts. [OPERATIONS.md](OPERATIONS.md) describes how to run the app. [API_CONTRACT.md](API_CONTRACT.md) describes API behavior.
 
 ## Project constraints
 
@@ -13,16 +13,16 @@ Updated November 10, 2026. This is a personal learning project, so the plan stay
 | Area | Existing functionality |
 | --- | --- |
 | Accounts | Email/password, Google/GitHub sign-in, verification, password reset, profiles, student/organizer/admin roles |
-| Discovery | Text search, category/status/college filters, inter-college events, maps |
+| Discovery | Text search, category/status/college filters in shareable URLs, inter-college events, maps, interests, explained recommendations, saved searches with new-event alerts |
 | Participation | Registration/cancellation, saved events, QR tickets, organizer check-in, attendance lists |
 | Community | Event chat, reviews/ratings, collaboration invitations, event staff (editor / volunteer) |
 | Organizer/admin | Event create/edit, dashboards, user roles, college verification, analytics |
 | Waitlist and calendar | FIFO waitlist with 12-hour held offers, private calendar feed, schedule conflict hint |
 | Communication | Email outbox with retries, polled in-app notifications, persistent 24-hour (with email) and 1-hour reminders, preferences, ICS/Google Calendar links |
-| Quality | 15 unit/contract tests (including OpenAPI route coverage), an HTTP integration suite with seat races and fault injection on a plain `mongod`, shared Zod response contracts, and a CI workflow |
+| Quality | 29 unit/contract tests (including OpenAPI route coverage), an HTTP integration suite with seat races and fault injection on a plain `mongod`, shared Zod response contracts, and a CI workflow |
 | Mobile (separate repo) | Auth, events, bookmarks, tickets, chat, reviews, local reminders |
 
-**Not done yet:** contracts for the remaining responses (users, colleges, notifications, analytics), wiring the shared contracts into the mobile repo, the optional Phase 1 attendance certificate, the Phase 2 mobile screens, and Phases 3–5.
+**Not done yet:** contracts for the remaining responses (users, colleges, notifications, analytics), wiring the shared contracts into the mobile repo, the optional Phase 1 attendance certificate, the Phase 2 and Phase 3 mobile screens, and Phases 4–5.
 
 **Last verified:** November 5, 2026. `npm test` (15/15), `npm run test:integration` (22 sections, plain `mongod`, both in-memory and through `INTEGRATION_MONGODB_URI`), `npm run lint`, `npx tsc --noEmit`, and `npm run build` pass locally. The upgrade from `rs0` data files, `db:backfill-seats`, `worker --once`, and `db:audit` were run on a real `mongod` 7.0.14. Not exercised: the GitHub Actions workflow on GitHub (the file parses), the Compose stacks (`docker compose config` passes; the Docker daemon was off), and a real production database.
 
@@ -81,9 +81,11 @@ Updated November 10, 2026. This is a personal learning project, so the plan stay
 
 **Mobile follows:** join waitlist, accept or decline an offer, and a calendar feed link. Until Phase 5 push exists, offers reach students through polling and email.
 
-## Phase 3 — Find the right events
+## Phase 3 — Find the right events (completed)
 
 **Problem:** students cannot find events that fit them.
+
+**Status:** shareable search, interests and recommendations, and saved searches with alerts implemented November 11, 2026 (web + API; mobile follows). Decisions: URL parameters use the `GET /api/events` names, and invalid values are ignored; `competition` became a real category, and one list in `lib/contracts` feeds the model, validators, and forms; the "Live / Ongoing" browse option was removed because the API never supported it; interests, recommendations, and saved searches are student-only; recommendations use fixed, explained weights (interest, past registrations, college, this week, filling up) and exclude full, held, past, draft, and joined events; saved searches keep search, category, and college (not status or page), at most 10 per student, names unique ignoring case, filters fixed once saved; alerts are in-app plus a non-essential email, matched by the worker on `publishedAt`, and switching alerts on sends no backlog; recommendations sit on the student dashboard, and interests and saved searches in Settings. The browse page was also flattened to the current UI direction. `npm test` (29/29), `npm run test:integration` (36 sections), lint, `tsc`, and `build` pass locally. The new UI was not exercised in a browser. [API_CONTRACT.md](API_CONTRACT.md) has the API details and [OPERATIONS.md](OPERATIONS.md) the write-safety notes.
 
 | Feature | Scope | Done when |
 | --- | --- | --- |

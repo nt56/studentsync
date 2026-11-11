@@ -50,6 +50,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import type { EventItem } from "@/store/slices/eventsSlice";
+import { EVENT_CATEGORIES, EVENT_CATEGORY_LABELS } from "@/lib/contracts";
 
 // Leaflet requires browser APIs — SSR must be disabled
 const LocationPicker = dynamic(
@@ -77,15 +78,7 @@ const eventFormSchema = z
       .min(1, "Capacity must be at least 1")
       .max(10000),
     collegeId: z.string().min(1, "College is required"),
-    category: z.enum([
-      "workshop",
-      "seminar",
-      "cultural",
-      "sports",
-      "technical",
-      "social",
-      "other",
-    ]),
+    category: z.enum(EVENT_CATEGORIES),
     latitude: z.coerce.number().optional().nullable(),
     longitude: z.coerce.number().optional().nullable(),
     isInterCollege: z.boolean().optional().default(false),
@@ -105,15 +98,7 @@ interface EventFormProps {
 
 type SubmitIntent = "draft" | "publish" | "save";
 
-const categories = [
-  { value: "workshop", label: "Workshop" },
-  { value: "seminar", label: "Seminar" },
-  { value: "cultural", label: "Cultural" },
-  { value: "sports", label: "Sports" },
-  { value: "technical", label: "Technical" },
-  { value: "social", label: "Social" },
-  { value: "other", label: "Other" },
-];
+const categories = EVENT_CATEGORIES.map((value) => ({ value, label: EVENT_CATEGORY_LABELS[value] }));
 
 export default function EventForm({
   defaultValues,

@@ -62,6 +62,19 @@ export const additionalPaths: Record<string, Record<string, unknown>> = {
     delete: operation("Revoke your private calendar feed link"),
   },
   "/api/calendar/{token}": { get: operation("Private ICS feed of your registered events. The token (optionally with .ics) is the credential", false, { responses: { "200": { description: "Calendar feed", content: { "text/calendar": { schema: string } } }, "404": { description: "Unknown or revoked token" }, "429": { description: "Rate limit exceeded" } } }) },
+  "/api/events/recommended": { get: operation("Students only. Open, not-full events you have not joined, ranked by interests, college and past registrations; each item has `reasons`", true, { parameters: [{ name: "limit", in: "query", schema: { type: "integer", minimum: 1, maximum: 20, default: 6 } }] }) },
+  "/api/users/me/interests": {
+    get: operation("Students only. The event categories you picked"),
+    put: operation("Students only. Replace your interest categories", true, { requestBody: body(object({ interests: { type: "array", items: { type: "string", enum: ["technical", "workshop", "cultural", "competition", "seminar", "sports", "social", "other"] } } })) }),
+  },
+  "/api/users/me/saved-searches": {
+    get: operation("Students only. Your saved searches (newest first) and the limit"),
+    post: operation("Students only. Save named filters; with alerts on, newly published matching events notify you once each", true, { requestBody: body(object({ name: { type: "string", minLength: 1, maxLength: 60 }, filters: object({ search: string, category: string, collegeId: string, isInterCollege: boolean }, []), alerts: boolean }, ["name", "filters"])), responses: { "201": { description: "Saved" }, "400": { description: "No filters, both college and inter-college, or limit reached" }, "401": { description: "Authentication required" }, "403": { description: "Students only" }, "409": { description: "Name already used" } } }),
+  },
+  "/api/users/me/saved-searches/{id}": {
+    patch: operation("Rename a saved search or switch its alerts (turning on starts from now)", true, { requestBody: body(object({ name: string, alerts: boolean }, [])) }),
+    delete: operation("Delete a saved search"),
+  },
   "/api/docs": { get: operation("Read this OpenAPI specification", false) },
 };
 for (const [path, methods] of Object.entries(additionalPaths)) {
