@@ -49,7 +49,11 @@ export async function createAnnouncement(input: {
     { $push: { announcementLog: { $each: [now], $sort: 1, $slice: -ANNOUNCEMENT_DAILY_LIMIT } } },
   );
   if (claimed.matchedCount === 0) {
-    return await Event.exists({ _id: input.eventId, ...publishedEvent }) ? { status: "limited" } : { status: "missing" };
+    if (!await Event.exists({ _id: input.eventId, ...publishedEvent })) return { status: "missing" };
+    // A parallel retry with the same requestId may hold one of the slots and be about
+    // to insert its row (one round trip). Replay it rather than reporting the cap.
+    const sibling = await awaitInFlightSibling(input.eventId, input.requestId, now);
+    return sibling ? { status: "replayed", announcementId: sibling } : { status: "limited" };
   }
 
   try {
@@ -66,6 +70,18 @@ export async function createAnnouncement(input: {
     if (!winner) throw error;
     return { status: "replayed", announcementId: winner._id };
   }
+}
+
+/** Waits briefly for a same-requestId row, only while a slot was claimed moments ago. */
+async function awaitInFlightSibling(eventId: Id, requestId: string, now: Date): Promise<Types.ObjectId | null> {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const row = await Announcement.findOne({ eventId, requestId }).select("_id").lean<{ _id: Types.ObjectId } | null>();
+    if (row) return row._id;
+    const fresh = await Event.exists({ _id: eventId, announcementLog: { $gte: new Date(now.getTime() - 5000) } });
+    if (!fresh) return null;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  return null;
 }
 
 /** Queues one in-app notification and one email job per registrant. Safe to repeat. */

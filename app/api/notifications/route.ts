@@ -11,7 +11,7 @@ import mongoose from "mongoose";
  * GET /api/notifications
  * Returns stored notifications for the user.
  * Also persists event-reminder notifications
- * for registered events happening within the next 48 hours.
+ * for registered events: one 24 hours and one 1 hour before the start.
  */
 export async function GET(request: NextRequest) {
   try {

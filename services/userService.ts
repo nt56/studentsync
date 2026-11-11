@@ -30,4 +30,19 @@ export const userService = {
   deleteUser(id: string) {
     return api.delete(`/users/${id}`);
   },
+
+  /** GET /api/users/me/calendar-feed — whether a private feed link exists */
+  getCalendarFeed() {
+    return api.get("/users/me/calendar-feed");
+  },
+
+  /** POST /api/users/me/calendar-feed — create/replace the link (shown only once) */
+  createCalendarFeed() {
+    return api.post("/users/me/calendar-feed");
+  },
+
+  /** DELETE /api/users/me/calendar-feed — revoke the link */
+  revokeCalendarFeed() {
+    return api.delete("/users/me/calendar-feed");
+  },
 };

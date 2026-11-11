@@ -531,6 +531,175 @@ try {
   assert.equal(await Notification.countDocuments({ dedupeKey: new RegExp(`^announcement:${crashed._id}:`) }), 3);
   assert.equal((await Announcement.findById(crashed._id).lean<{ recipientCount: number }>())!.recipientCount, 3);
   console.log("PASS interrupted announcement fan-out recovers without duplicates");
+
+  // --- Phase 2: waitlist ------------------------------------------------------
+  const { default: WaitlistEntry } = await import("../models/WaitlistEntry");
+  const { promoteWaitlist, processWaitlists } = await import("../lib/waitlist");
+  const hour = 3600_000;
+  /** Both counters must equal the real rows, and taken + held never exceeds capacity. */
+  async function assertWaitlistConsistent(eventId: mongoose.Types.ObjectId, label: string) {
+    await assertSeatsConsistent(eventId, label);
+    const [current, offers] = await Promise.all([Event.findById(eventId).lean(), WaitlistEntry.countDocuments({ eventId, status: "offered" })]);
+    assert.equal(current!.heldCount ?? 0, offers, `${label}: heldCount ${current!.heldCount} vs ${offers} offers`);
+    assert.ok(current!.registeredCount + (current!.heldCount ?? 0) <= current!.capacity, `${label}: taken + held exceed capacity`);
+  }
+  const [seated, w1, w2, w3, walkIn] = await Promise.all(Array.from({ length: 5 }, () => fixture("student")));
+  const waitEvent = await Event.create({ ...eventData, title: "Waitlist event", capacity: 1, date: new Date(Date.now() + 48 * hour), endDate: new Date(Date.now() + 50 * hour), registrationDeadline: new Date(Date.now() + 40 * hour) });
+  const waitPath = `/events/${waitEvent._id}/waitlist`;
+  assert.equal((await request(waitPath, w1.cookie, "POST")).status, 400, "cannot queue while seats are free");
+  assert.equal((await request("/registrations", seated.cookie, "POST", { eventId: waitEvent._id.toString() })).status, 201);
+  assert.equal((await request(waitPath, owner.cookie, "POST")).status, 403, "students only");
+  assert.equal((await request(waitPath, "", "POST")).status, 401);
+  const joins = await Promise.all(Array.from({ length: 4 }, () => request(waitPath, w1.cookie, "POST")));
+  assert.deepEqual(joins.map((result) => result.status).sort(), [200, 200, 200, 201], JSON.stringify(joins.map((r) => r.status)));
+  assert.equal(await WaitlistEntry.countDocuments({ eventId: waitEvent._id, studentId: w1.user._id }), 1);
+  assert.equal((await request(waitPath, w2.cookie, "POST")).status, 201);
+  assert.equal((await request(waitPath, w3.cookie, "POST")).status, 201);
+  const w3State = contracts.apiSuccessSchema(contracts.waitlistStateSchema).parse(await request(waitPath, w3.cookie));
+  assert.deepEqual([w3State.data.entry?.status, w3State.data.entry?.position, w3State.data.waitingCount], ["waiting", 3, 3]);
+  assert.equal((await request(waitPath, w1.cookie, "POST")).data.entry.position, 1, "refresh and retry keep the position");
+  assert.equal((await request("/registrations", walkIn.cookie, "POST", { eventId: waitEvent._id.toString() })).status, 400);
+  console.log("PASS waitlist join is idempotent, FIFO, and students-only");
+
+  // A cancellation promotes exactly one student, once, even with racing workers.
+  assert.equal((await request(`/registrations?eventId=${waitEvent._id}`, seated.cookie, "DELETE")).status, 200);
+  await Promise.all([promoteWaitlist(waitEvent._id), promoteWaitlist(waitEvent._id), processWaitlists({ graceMs: 0 }), processWaitlists({ graceMs: 0 })]);
+  const offeredRows = await WaitlistEntry.find({ eventId: waitEvent._id, status: "offered" }).lean();
+  assert.deepEqual(offeredRows.map((row) => row.studentId.toString()), [w1.user._id.toString()], "one offer, to the first in line");
+  await assertWaitlistConsistent(waitEvent._id, "after promotion");
+  const offerState = (await request(waitPath, w1.cookie)).data;
+  assert.equal(offerState.entry.status, "offered");
+  const offerHours = (new Date(offerState.entry.expiresAt).getTime() - new Date(offerState.entry.offeredAt).getTime()) / hour;
+  assert.ok(Math.abs(offerHours - contracts.WAITLIST_OFFER_HOURS) < 0.01, `offer window is ${offerHours}h`);
+  assert.equal(await Notification.countDocuments({ userId: w1.user._id, type: "waitlist_offer" }), 1);
+  assert.equal(await Outbox.countDocuments({ dedupeKey: new RegExp(`^waitlist:${offeredRows[0]._id}:offer:.*:email$`) }), 1);
+  assert.equal((await request(`/events/${waitEvent._id}`)).data.seatsHeld, 1);
+  assert.equal((await request("/registrations", walkIn.cookie, "POST", { eventId: waitEvent._id.toString() })).status, 400, "the held seat is not up for grabs");
+  assert.equal((await request(`${waitPath}/accept`, w2.cookie, "POST")).status, 404, "only the offered student can accept");
+  const accepts = await Promise.all(Array.from({ length: 4 }, () => request(`${waitPath}/accept`, w1.cookie, "POST")));
+  assert.deepEqual(accepts.map((result) => result.status).sort(), [200, 200, 200, 201], JSON.stringify(accepts.map((r) => [r.status, r.message])));
+  contracts.apiSuccessSchema(contracts.registrationResponseSchema).parse(accepts.find((result) => result.status === 201));
+  assert.equal(await Registration.countDocuments({ eventId: waitEvent._id, studentId: w1.user._id }), 1);
+  assert.equal(await Outbox.countDocuments({ subject: /Registration Confirmed — Waitlist event/ }), 2, "seated + w1 each confirmed once");
+  await assertWaitlistConsistent(waitEvent._id, "after accept");
+  console.log("PASS cancellation promotes once; racing workers and parallel accepts take one seat");
+
+  // An expired offer releases its hold and promotes the next student.
+  assert.equal((await request(`/registrations?eventId=${waitEvent._id}`, w1.cookie, "DELETE")).status, 200);
+  const w2Entry = await WaitlistEntry.findOne({ eventId: waitEvent._id, studentId: w2.user._id }).lean();
+  assert.equal(w2Entry!.status, "offered");
+  await WaitlistEntry.updateOne({ _id: w2Entry!._id }, { $set: { expiresAt: new Date(Date.now() - 1000) } });
+  assert.equal((await request(`${waitPath}/accept`, w2.cookie, "POST")).status, 400, "an expired offer cannot be accepted");
+  await Promise.all([processWaitlists({ graceMs: 0 }), processWaitlists({ graceMs: 0 })]);
+  assert.equal((await WaitlistEntry.findById(w2Entry!._id).lean())!.status, "expired");
+  assert.equal((await WaitlistEntry.findOne({ eventId: waitEvent._id, studentId: w3.user._id }).lean())!.status, "offered");
+  assert.equal(await Notification.countDocuments({ userId: w2.user._id, type: "waitlist_expired" }), 1);
+  await assertWaitlistConsistent(waitEvent._id, "after expiry");
+  // Declining frees the seat; with nobody waiting it is open to everyone again.
+  assert.equal((await request(waitPath, w3.cookie, "DELETE")).status, 200);
+  assert.equal((await request(waitPath, w3.cookie, "DELETE")).status, 404);
+  await assertWaitlistConsistent(waitEvent._id, "after decline");
+  assert.equal((await request("/registrations", walkIn.cookie, "POST", { eventId: waitEvent._id.toString() })).status, 201);
+  // Re-joining after an expired offer goes to the back; more capacity is offered in order.
+  const rejoin = await request(waitPath, w2.cookie, "POST");
+  assert.deepEqual([rejoin.status, rejoin.data.entry.status, rejoin.data.entry.position], [201, "waiting", 1]);
+  assert.equal((await request(waitPath, w3.cookie, "POST")).data.entry.position, 2);
+  assert.equal((await request(`/events/${waitEvent._id}`, owner.cookie, "PUT", { capacity: 2 })).status, 200);
+  assert.equal((await WaitlistEntry.findOne({ eventId: waitEvent._id, studentId: w2.user._id }).lean())!.status, "offered", "raising capacity promotes");
+  assert.equal((await WaitlistEntry.findOne({ eventId: waitEvent._id, studentId: w3.user._id }).lean())!.status, "waiting");
+  assert.equal((await request(`/events/${waitEvent._id}`, owner.cookie, "PUT", { capacity: 1 })).status, 400, "capacity cannot drop below taken + held");
+  await assertWaitlistConsistent(waitEvent._id, "after capacity change");
+  console.log("PASS expiry and decline promote the next student; re-join goes to the back; capacity respects holds");
+
+  // Fault injection: a crash after the accept claim (before the registration) heals.
+  await WaitlistEntry.updateOne({ eventId: waitEvent._id, studentId: w2.user._id }, { $set: { status: "accepted", acceptPending: true, respondedAt: new Date(Date.now() - 60_000) } });
+  await processWaitlists({ graceMs: 0 });
+  assert.ok(await Registration.exists({ eventId: waitEvent._id, studentId: w2.user._id }), "the accepted student is registered");
+  assert.equal((await WaitlistEntry.findOne({ eventId: waitEvent._id, studentId: w2.user._id }).lean())!.acceptPending, undefined);
+  await reconcileSeats({ graceMs: 0 });
+  await assertWaitlistConsistent(waitEvent._id, "after accept recovery");
+  // A crash between holding a seat and claiming an entry leaks a hold; the reconciler returns it.
+  await Event.updateOne({ _id: waitEvent._id }, { $inc: { heldCount: 1 } });
+  await reconcileSeats({ graceMs: 0 });
+  await assertWaitlistConsistent(waitEvent._id, "after leaked hold");
+  // The queue closes at the registration deadline.
+  await Event.updateOne({ _id: waitEvent._id }, { $set: { registrationDeadline: new Date(Date.now() - 1000) } });
+  await processWaitlists({ graceMs: 0 });
+  assert.equal((await WaitlistEntry.findOne({ eventId: waitEvent._id, studentId: w3.user._id }).lean())!.status, "expired");
+  console.log("PASS waitlist crash recovery, leaked-hold repair, and deadline close");
+
+  // --- Phase 2: separate 24-hour and 1-hour reminders ------------------------
+  const { materializeReminders } = await import("../lib/reminders");
+  const [early, late] = await Promise.all([fixture("student"), fixture("student")]);
+  const soonEvent = await Event.create({ ...eventData, title: "Starts soon", capacity: 5, date: new Date(Date.now() + 30 * 60_000), endDate: new Date(Date.now() + 90 * 60_000), registrationDeadline: new Date(Date.now() + 20 * 60_000) });
+  const dayEvent = await Event.create({ ...eventData, title: "Tomorrow event", capacity: 5, date: new Date(Date.now() + 20 * hour), endDate: new Date(Date.now() + 22 * hour), registrationDeadline: new Date(Date.now() + 19 * hour) });
+  for (const target of [soonEvent, dayEvent]) assert.equal((await request("/registrations", early.cookie, "POST", { eventId: target._id.toString() })).status, 201);
+  assert.equal((await request("/registrations", late.cookie, "POST", { eventId: dayEvent._id.toString() })).status, 201);
+  await Promise.all([materializeReminders(), materializeReminders()]);
+  await materializeReminders(); // a restart re-runs the pass and adds nothing
+  const soonReminders = await Notification.find({ eventId: soonEvent._id, type: "event_reminder" }).lean();
+  assert.deepEqual(soonReminders.map((row) => row.dedupeKey), [`reminder:${early.user._id}:${soonEvent._id}:1h:${soonEvent.date.toISOString()}`], "only the 1-hour reminder is due");
+  assert.equal(await Outbox.countDocuments({ dedupeKey: new RegExp(`^reminder:.*:${soonEvent._id}:`) }), 0, "the 1-hour reminder is in-app only");
+  assert.equal(await Notification.countDocuments({ eventId: dayEvent._id, type: "event_reminder", dedupeKey: /:24h:/ }), 2);
+  assert.equal(await Outbox.countDocuments({ dedupeKey: new RegExp(`^reminder:.*:${dayEvent._id}:24h:.*:email$`) }), 2, "one 24-hour email each");
+  // Rescheduling invalidates the old reminders; the new time gets its own.
+  const newStart = new Date(Date.now() + 23 * hour);
+  assert.equal((await request(`/events/${dayEvent._id}`, owner.cookie, "PUT", { date: newStart.toISOString(), endDate: new Date(newStart.getTime() + 2 * hour).toISOString(), registrationDeadline: new Date(Date.now() + 21 * hour).toISOString() })).status, 200);
+  assert.equal(await Notification.countDocuments({ eventId: dayEvent._id, type: "event_reminder", dismissedAt: { $exists: false } }), 0, "old-time reminders are hidden");
+  await materializeReminders();
+  const fresh = await Notification.find({ eventId: dayEvent._id, type: "event_reminder", dismissedAt: { $exists: false } }).lean();
+  assert.equal(fresh.length, 2);
+  assert.ok(fresh.every((row) => row.dedupeKey!.endsWith(`:24h:${newStart.toISOString()}`)));
+  // Cancelling hides the student's reminders and no new ones are written.
+  assert.equal((await request(`/registrations?eventId=${dayEvent._id}`, late.cookie, "DELETE")).status, 200);
+  await materializeReminders();
+  assert.equal(await Notification.countDocuments({ userId: late.user._id, eventId: dayEvent._id, type: "event_reminder", dismissedAt: { $exists: false } }), 0);
+  console.log("PASS separate 24h/1h reminders survive restarts and follow reschedules and cancellations");
+
+  // --- Phase 2: private calendar feed ----------------------------------------
+  const subscriber = await fixture("student");
+  const feedEvent = await Event.create({ ...eventData, title: "Feed event", capacity: 5 });
+  const feedPath = "/users/me/calendar-feed";
+  assert.equal((await request(feedPath)).status, 401);
+  assert.deepEqual((await request(feedPath, subscriber.cookie)).data, { enabled: false, createdAt: null });
+  const created = contracts.apiSuccessSchema(contracts.calendarFeedStatusSchema).parse(await request(feedPath, subscriber.cookie, "POST"));
+  const feedUrl = created.data.url!;
+  const feedToken = feedUrl.split("/").pop()!.replace(/\.ics$/, "");
+  const stored = (await User.findById(subscriber.user._id).lean())!.calendarFeed!;
+  assert.ok(stored.tokenHash && stored.tokenHash !== feedToken && !JSON.stringify(stored).includes(feedToken), "only a hash is stored");
+  const readFeed = async (url: string) => { const response = await fetch(url); return { status: response.status, type: response.headers.get("content-type"), body: await response.text() }; };
+  const uid = `${feedEvent._id}@studentsync`;
+  assert.equal((await readFeed(feedUrl)).body.includes(uid), false);
+  assert.equal((await request("/registrations", subscriber.cookie, "POST", { eventId: feedEvent._id.toString() })).status, 201);
+  const withEvent = await readFeed(feedUrl);
+  assert.deepEqual([withEvent.status, withEvent.type?.startsWith("text/calendar")], [200, true]);
+  assert.ok(withEvent.body.includes(uid) && withEvent.body.includes("BEGIN:VCALENDAR"), "registering adds the event");
+  assert.ok((await readFeed(feedUrl.replace(/\.ics$/, ""))).body.includes(uid), "the .ics suffix is optional");
+  assert.equal((await request(`/registrations?eventId=${feedEvent._id}`, subscriber.cookie, "DELETE")).status, 200);
+  assert.equal((await readFeed(feedUrl)).body.includes(uid), false, "cancelling removes the event");
+  const rotated = (await request(feedPath, subscriber.cookie, "POST")).data.url as string;
+  assert.equal((await readFeed(feedUrl)).status, 404, "a new link revokes the old one");
+  assert.equal((await readFeed(rotated)).status, 200);
+  assert.equal((await request(feedPath, subscriber.cookie, "DELETE")).status, 200);
+  assert.equal((await readFeed(rotated)).status, 404, "revoking ends access");
+  assert.equal((await readFeed(`${base}/api/calendar/not-a-token.ics`)).status, 404);
+  console.log("PASS private calendar feed follows registrations and revocation");
+
+  // --- Phase 2: schedule conflict hint ---------------------------------------
+  const planner = await fixture("student");
+  const slot = Date.now() + 72 * hour;
+  const timed = (title: string, startOffset: number, endOffset: number, timeZone = "Asia/Kolkata") => Event.create({ ...eventData, title, capacity: 5, timeZone, date: new Date(slot + startOffset * hour), endDate: new Date(slot + endOffset * hour), registrationDeadline: new Date(slot - hour) });
+  const joined = await timed("Joined", 0, 2);
+  const overlapping = await timed("Overlapping", 1, 3, "America/New_York");
+  const adjacent = await timed("Adjacent", 2, 4);
+  assert.equal((await request("/registrations", planner.cookie, "POST", { eventId: joined._id.toString() })).status, 201);
+  const clash = contracts.apiSuccessSchema(contracts.scheduleConflictListSchema).parse(await request(`/events/${overlapping._id}/conflicts`, planner.cookie));
+  assert.deepEqual(clash.data.items.map((item) => item.id), [joined._id.toString()], "overlap across time zones warns");
+  assert.deepEqual((await request(`/events/${adjacent._id}/conflicts`, planner.cookie)).data.items, [], "adjacent events do not warn");
+  assert.deepEqual((await request(`/events/${joined._id}/conflicts`, planner.cookie)).data.items, [], "an event never conflicts with itself");
+  assert.equal((await request(`/events/${overlapping._id}/conflicts`)).status, 401);
+  assert.equal((await request("/registrations", planner.cookie, "POST", { eventId: overlapping._id.toString() })).status, 201, "a conflict never blocks registration");
+  console.log("PASS schedule conflict hint: overlaps warn, adjacent and own events do not");
 } catch (error) {
   console.error(serverLog.slice(-18000));
   throw error;

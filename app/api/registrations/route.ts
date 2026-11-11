@@ -1,6 +1,8 @@
 import { canManageEvent } from "@/lib/event-access";
 import { reserveSeat, releaseSeat } from "@/lib/seats";
 import { queueRegistrationEffects, finishCancellation } from "@/lib/registration-effects";
+import { acceptOffer, findEntry } from "@/lib/waitlist";
+import WaitlistEntry from "@/models/WaitlistEntry";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import Event, { liveEvent, publishedEvent } from "@/models/Event";
@@ -246,6 +248,21 @@ export async function POST(request: NextRequest) {
     // Cheap early exit; the unique index below is the real guard.
     if (await Registration.exists({ eventId, studentId })) {
       return ApiErrors.badRequest("You are already registered for this event");
+    }
+
+    // A student holding a waitlist offer registers by accepting it (the seat is held).
+    const entry = await findEntry(eventId, studentId);
+    if (entry?.status === "offered") {
+      const accepted = await acceptOffer(eventId, studentId);
+      if (!accepted.ok) return ApiErrors.badRequest(accepted.reason === "expired" ? "Your seat offer has expired" : "Registration is closed for this event");
+      const created = await Registration.findById(accepted.registrationId).lean<IRegistration>();
+      return successResponse(formatRegistrationResponse(created!), "Successfully registered for the event", 201);
+    }
+
+    // Fairness: while students are waiting, a freed seat is offered to them first.
+    // (Best effort: the worker promotes any seat a racing request did not take.)
+    if (await WaitlistEntry.exists({ eventId, status: "waiting" })) {
+      return ApiErrors.badRequest("Event has reached maximum capacity. Join the waitlist to get the next free seat.");
     }
 
     if (!await reserveSeat(eventId)) {

@@ -8,6 +8,8 @@ export type NotificationType =
   | "event_updated"
   | "event_cancelled"
   | "announcement"
+  | "waitlist_offer"
+  | "waitlist_expired"
   // Organizer
   | "new_registration"
   | "registration_cancelled"
@@ -22,6 +24,9 @@ const NotificationSchema = new Schema(
     dedupeKey: { type: String },
     eventId: { type: Schema.Types.ObjectId, ref: "Event" },
     dismissedAt: { type: Date },
+    // Reminders only: the event start this reminder was written for. A reschedule
+    // dismisses reminders whose start no longer matches.
+    scheduledFor: { type: Date },
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     type: {
       type: String,
@@ -33,6 +38,8 @@ const NotificationSchema = new Schema(
         "event_updated",
         "event_cancelled",
         "announcement",
+        "waitlist_offer",
+        "waitlist_expired",
         "new_registration",
         "registration_cancelled",
         "new_user",

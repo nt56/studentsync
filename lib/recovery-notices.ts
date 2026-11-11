@@ -5,6 +5,7 @@ import Registration from "@/models/Registration";
 import User from "@/models/User";
 import { createNotification } from "@/lib/notifications";
 import { sendEventUpdatedEmail, sendRoleChangedEmail } from "@/lib/email";
+import { invalidateStaleReminders } from "@/lib/reminders";
 
 /**
  * Announcements that follow a committed change. The change and a small "notice
@@ -40,6 +41,8 @@ export async function finishEventUpdateNotice(eventId: Id): Promise<void> {
   } | null>();
   const key = event?.updateNotice?.key;
   if (!event || !key) return;
+  // A reschedule makes reminders written for the old start time stale.
+  await invalidateStaleReminders(event._id, event.date);
   type Row = { studentId: { _id: Types.ObjectId; firstName: string; lastName: string; email: string } | null };
   const registrations = await Registration.find({ eventId: event._id }).populate("studentId", "firstName lastName email").lean<Row[]>();
   for (const { studentId: student } of registrations) {

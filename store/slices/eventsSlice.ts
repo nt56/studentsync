@@ -33,6 +33,8 @@ export interface EventItem {
   isInterCollege?: boolean;
   partnerCollegeIds?: string[];
   registrationCount?: number;
+  /** Seats held for open waitlist offers. */
+  seatsHeld?: number;
   isRegistered?: boolean;
   createdAt: string;
   updatedAt: string;

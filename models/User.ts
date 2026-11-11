@@ -6,6 +6,8 @@ const UserSchema = new Schema(
   {
     // Set atomically with a role change until its notification/email are queued.
     pendingRoleNotice: { _id: false, type: { key: String, role: String, at: Date } },
+    // Private calendar feed. Only a SHA-256 hash of the token is stored.
+    calendarFeed: { _id: false, type: { tokenHash: String, createdAt: Date } },
     notificationPreferences: {
       reminders: { type: Boolean, default: true },
       email: { type: Boolean, default: true },
@@ -92,6 +94,7 @@ const UserSchema = new Schema(
 UserSchema.index({ role: 1 });
 UserSchema.index({ collegeId: 1 });
 UserSchema.index({ "pendingRoleNotice.at": 1 }, { sparse: true });
+UserSchema.index({ "calendarFeed.tokenHash": 1 }, { unique: true, sparse: true });
 
 const User = models.User || model("User", UserSchema);
 export default User;

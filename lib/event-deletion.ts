@@ -8,6 +8,7 @@ import Message from "@/models/Message";
 import Collaboration from "@/models/Collaboration";
 import Notification from "@/models/Notification";
 import Announcement from "@/models/Announcement";
+import WaitlistEntry from "@/models/WaitlistEntry";
 import { sendEventCancelledEmail } from "@/lib/email";
 
 /**
@@ -60,6 +61,7 @@ async function removeChildren(eventId: Types.ObjectId | string) {
   await Message.deleteMany({ eventId });
   await Collaboration.deleteMany({ eventId });
   await Announcement.deleteMany({ eventId });
+  await WaitlistEntry.deleteMany({ eventId });
 }
 
 /** Worker entry point: finishes deletions whose request died part-way. */

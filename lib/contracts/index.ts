@@ -71,6 +71,8 @@ export const eventResponseSchema = eventScheduleSchema.extend({
   isInterCollege: z.boolean().optional(),
   partnerCollegeIds: z.array(z.string()).optional(),
   registrationCount: z.number().int().min(0).optional(),
+  /** Seats held for open waitlist offers. Free seats = capacity - registrationCount - seatsHeld. */
+  seatsHeld: z.number().int().min(0).optional(),
   isRegistered: z.boolean().optional(),
   /** Present on `GET /api/events/{id}`; empty for signed-out callers. */
   permissions: z.array(eventPermissionSchema).optional(),
@@ -111,6 +113,49 @@ export const announcementListSchema = z.object({
   remainingToday: z.number().int().min(0),
 });
 
+// ── Waitlist ────────────────────────────────────────────────────────────────
+
+/** How long an offered seat is held before it passes to the next student. */
+export const WAITLIST_OFFER_HOURS = 12;
+export const WAITLIST_STATUSES = ["waiting", "offered", "accepted", "declined", "expired"] as const;
+
+export const waitlistEntrySchema = z.object({
+  status: z.enum(WAITLIST_STATUSES),
+  /** 1-based place among waiting students; null unless `waiting`. */
+  position: z.number().int().min(1).nullable(),
+  joinedAt: isoDate,
+  offeredAt: isoDate.nullable(),
+  /** Accept before this instant (at most 12 hours, never after the registration deadline). */
+  expiresAt: isoDate.nullable(),
+});
+
+export const waitlistStateSchema = z.object({
+  entry: waitlistEntrySchema.nullable(),
+  waitingCount: z.number().int().min(0),
+});
+
+// ── Schedule conflicts and calendar feed ────────────────────────────────────
+
+export const scheduleConflictSchema = eventScheduleSchema.omit({ registrationDeadline: true }).extend({
+  id: z.string(),
+  title: z.string(),
+  venue: z.string(),
+});
+
+export const scheduleConflictListSchema = z.object({ items: z.array(scheduleConflictSchema) });
+
+export const calendarFeedStatusSchema = z.object({
+  enabled: z.boolean(),
+  createdAt: isoDate.nullable(),
+  /** Only in the POST response: the link is never retrievable again. */
+  url: z.string().url().optional(),
+  webcalUrl: z.string().optional(),
+});
+
+export type WaitlistEntryResponse = z.infer<typeof waitlistEntrySchema>;
+export type WaitlistState = z.infer<typeof waitlistStateSchema>;
+export type ScheduleConflict = z.infer<typeof scheduleConflictSchema>;
+export type CalendarFeedStatus = z.infer<typeof calendarFeedStatusSchema>;
 export type AnnouncementResponse = z.infer<typeof announcementResponseSchema>;
 export type AnnouncementList = z.infer<typeof announcementListSchema>;
 export type EventResponse = z.infer<typeof eventResponseSchema>;

@@ -2,7 +2,7 @@
 
 Purpose: a reference for frontend and backend developers describing API inputs, responses, permissions, and failure behavior. This document does not create or configure databases. Keep it alongside the OpenAPI reference when implementing the next phase.
 
-Updated November 9, 2026 (Phase 1). `/api/docs` serves OpenAPI; `npm test` checks every application route/method against it. Better Auth's dynamic catch-all routes are owned by Better Auth and excluded from this coverage test. HTTP integration tests check the critical authenticated flows against MongoDB.
+Updated November 10, 2026 (Phase 2). `/api/docs` serves OpenAPI; `npm test` checks every application route/method against it. Better Auth's dynamic catch-all routes are owned by Better Auth and excluded from this coverage test. HTTP integration tests check the critical authenticated flows against MongoDB.
 
 JSON responses use `{ success, message, data }` on success and `{ success: false, message, errors }` on failure. Axios unwraps the outer HTTP response once; service callers use `response.data` for the payload. ICS downloads return `text/calendar`. Authentication uses Better Auth session cookies. Foreign keys reference the application profile ID.
 
@@ -10,7 +10,7 @@ JSON responses use `{ success, message, data }` on success and `{ success: false
 
 `POST /api/events` and `PUT /api/events/{id}` accept UTC ISO `date`, `endDate`, `registrationDeadline`, and an IANA `timeZone` such as `Asia/Kolkata`. End must be after start; the deadline must precede start. Creation still accepts omitted end/timezone for older clients, defaulting to two hours and UTC. Partial updates preserve omitted scheduling fields. The event form interprets entered wall times in the selected zone and rejects skipped/repeated daylight-saving times.
 
-Responses include `endDate` and `timeZone`. Status is `completed` at the end, `closed` after the registration deadline or start, and `upcoming` otherwise. An event in progress is closed to registration, not completed. ICS, Google, and Outlook exports use the actual end instant. Recurrence and conflict detection are not part of this phase.
+Responses include `endDate` and `timeZone`. Status is `completed` at the end, `closed` after the registration deadline or start, and `upcoming` otherwise. An event in progress is closed to registration, not completed. ICS, Google, and Outlook exports use the actual end instant. Recurrence is not supported.
 
 `GET /api/events/{id}` includes the current viewer's `permissions`. `GET /api/events?staff=me` requires authentication and returns the caller's staff assignments with normal pagination.
 
@@ -45,9 +45,32 @@ Duplicating is client-only: `/dashboard/create-event?from={id}` prefills the for
 
 ## Registration and attendance
 
-`POST /api/registrations` accepts `{ eventId }`. Only students register. A seat is reserved atomically (a full event returns 400 "Event has reached maximum capacity"), then the registration is inserted; duplicates return 400. Dates are checked first. `DELETE /api/registrations?eventId=...` cancels the caller's registration. Authorized event editors/owners/admins can provide `studentId` to remove another attendee. Cancelling twice returns 404 the second time and releases the seat once. If follow-up queueing fails, cancellation still returns 200 and the worker removes the row within about a minute, so a reload can briefly still show the registration. `PUT /api/events/{id}` returns 400 if `capacity` is below the seats already taken.
+`POST /api/registrations` accepts `{ eventId }`. Only students register. A seat is reserved atomically (a full event returns 400 "Event has reached maximum capacity"), then the registration is inserted; duplicates return 400. Dates are checked first. `DELETE /api/registrations?eventId=...` cancels the caller's registration. Authorized event editors/owners/admins can provide `studentId` to remove another attendee. Cancelling twice returns 404 the second time and releases the seat once. If follow-up queueing fails, cancellation still returns 200 and the worker removes the row within about a minute, so a reload can briefly still show the registration. `PUT /api/events/{id}` returns 400 if `capacity` is below the seats already taken plus the seats held for waitlist offers. Raising capacity offers the new seats to the waitlist in order.
+
+Event responses include `seatsHeld`, the seats held for open waitlist offers. Free seats are `capacity - registrationCount - seatsHeld`. While any student is waiting, `POST /api/registrations` returns 400 ("Join the waitlist") even if a seat is momentarily free, so freed seats go to the queue first. A student holding an open offer who calls `POST /api/registrations` accepts the offer (201).
 
 `POST /api/registrations/check-in` accepts `{ token }`. It returns 200 for the first valid scan, 409 for a repeat, 400 for an invalid/expired ticket, and 403 for an unauthorized scanner. `GET /api/registrations/{id}/qr` requires the ticket owner or admin. `GET /api/events/{id}/attendance` returns `{ total, checkedIn, attendees }` to authorized staff.
+
+## Waitlist
+
+A full event has a FIFO waitlist (ordered by `joinedAt`). Students only.
+
+- `POST /api/events/{id}/waitlist` joins. It returns 201 when it creates or re-creates the entry and 200 when the caller is already waiting or offered, with the original position. It returns 400 while seats are free and nobody is waiting ("Register instead"), when already registered, or after registration closes. If a seat is free right away, the response may already show an offer.
+- `GET /api/events/{id}/waitlist` (any signed-in user) returns `{ entry, waitingCount }`. `entry` is `{ status, position, joinedAt, offeredAt, expiresAt }` or null. `position` is 1-based and only set while `waiting`. Statuses: `waiting`, `offered`, `accepted`, `declined`, `expired`.
+- When a seat frees up (cancellation, decline, expiry, more capacity) the first waiting student is offered it. The seat is held for 12 hours, never past the registration deadline, and the student gets an in-app `waitlist_offer` notification plus a non-essential email.
+- `POST /api/events/{id}/waitlist/accept` accepts the open offer and returns the registration (201). Retrying returns 200 with the same registration. It returns 400 when the offer expired or registration closed, and 404 without an open offer.
+- `DELETE /api/events/{id}/waitlist` leaves the queue or declines an open offer (the seat goes to the next student), and returns the new state. 404 when there is nothing to leave.
+- An expired offer becomes `expired` (with a `waitlist_expired` notification) and the seat moves on. At the registration deadline, waiting entries expire. Re-joining after `declined` or `expired`, or after cancelling an accepted seat, puts the student at the back.
+
+Shapes: `waitlistStateSchema` and `WAITLIST_OFFER_HOURS` in `lib/contracts`. Until push notifications exist (Phase 5), offers reach students through notification polling and email.
+
+## Reminders, calendar feed, and schedule conflicts
+
+Registered students get two `event_reminder` notifications: 24 hours before the start (also emailed, subject to the email preference) and 1 hour before (in-app only). Both respect the reminders preference. A reschedule hides reminders written for the old time and the new time gets fresh ones. Cancelling hides them.
+
+`GET /api/users/me/calendar-feed` returns `{ enabled, createdAt }`. `POST` creates a private feed link, replacing and revoking any previous one, and returns `{ enabled, createdAt, url, webcalUrl }` (201). This is the only time the URL is shown, because the server stores only a hash. `DELETE` revokes it. `GET /api/calendar/{token}.ics` (the `.ics` suffix is optional, and the token is the only credential) returns `text/calendar` with the owner's registered events from the last 30 days onwards. An unknown or revoked token returns 404. Shape: `calendarFeedStatusSchema`.
+
+`GET /api/events/{id}/conflicts` (signed in) returns `{ items }`, the caller's other registered events whose time overlaps this one: `{ id, title, date, endDate, timeZone, venue }`. Overlap compares UTC instants (`a.start < b.end && b.start < a.end`), so an event ending exactly when another starts is not a conflict, and time zones only affect display. It is a hint: registration is never blocked. Shape: `scheduleConflictListSchema`.
 
 ## Pagination and totals
 
@@ -65,8 +88,8 @@ Bookmark responses also include `bookmarkedEventIds`, independent of the display
 
 ## Failures and retries
 
-There are no database transactions. Each mutation is a sequence of atomic single-document writes in a fixed order (see [OPERATIONS.md](OPERATIONS.md)). A request that fails part-way returns a 5xx and leaves a state the worker repairs: seat counters and review totals are reconciled, and the worker finishes interrupted registration effects, cancellations, role notices, event-update emails, and event deletions (a deleting event is already hidden, and its reviews return 404). Notifications and email jobs are deduplicated by key, so retrying never sends one twice. `DELETE /api/events/{id}` returns 200 once the event is hidden, even if the cleanup is still pending. `PUT /api/events/{id}` and `PATCH /api/users/{id}` likewise return 200 once the change is saved, even if their emails are still pending. A lost HTTP response still requires the client to reload state before retrying; there is no general idempotency-key API in this phase.
+There are no database transactions. Each mutation is a sequence of atomic single-document writes in a fixed order (see [OPERATIONS.md](OPERATIONS.md)). A request that fails part-way returns a 5xx and leaves a state the worker repairs: seat counters and review totals are reconciled, and the worker finishes interrupted registration effects, cancellations, role notices, event-update emails, waitlist offers and accepts, and event deletions (a deleting event is already hidden, and its reviews return 404). Notifications and email jobs are deduplicated by key, so retrying never sends one twice. `DELETE /api/events/{id}` returns 200 once the event is hidden, even if the cleanup is still pending. `PUT /api/events/{id}` and `PATCH /api/users/{id}` likewise return 200 once the change is saved, even if their emails are still pending. A lost HTTP response still requires the client to reload state before retrying; there is no general idempotency-key API in this phase.
 
 ## Shared response contracts
 
-The shapes of event, registration, pagination, event-permission, and announcement responses are defined once as Zod schemas in `lib/contracts/index.ts`. The web types derive from them, `npm test` and the integration suite parse real responses with them, and the mobile app can copy that file (it depends only on `zod`) or `z.infer` its own types from it. Change the schema first when a response changes.
+The shapes of event, registration, pagination, event-permission, announcement, waitlist, schedule-conflict, and calendar-feed responses are defined once as Zod schemas in `lib/contracts/index.ts`. The web types derive from them, `npm test` and the integration suite parse real responses with them, and the mobile app can copy that file (it depends only on `zod`) or `z.infer` its own types from it. Change the schema first when a response changes.

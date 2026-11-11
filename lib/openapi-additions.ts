@@ -49,6 +49,19 @@ export const additionalPaths: Record<string, Record<string, unknown>> = {
     get: operation("Read your notification preferences"),
     put: operation("Save reminder and nonessential email preferences", true, { requestBody: body(object({ reminders: boolean, email: boolean })) }),
   },
+  "/api/events/{id}/waitlist": {
+    get: operation("Your waitlist entry (status, position, offer expiry) and the queue length"),
+    post: operation("Join the FIFO waitlist of a full event; students only. Repeating keeps your position", true, { responses: { "201": { description: "Joined (the response may already show an offer)" }, "200": { description: "Already on the waitlist" }, "400": { description: "Seats are available, already registered, or registration closed" }, "401": { description: "Authentication required" }, "403": { description: "Students only" }, "404": { description: "Event not found" } } }),
+    delete: operation("Leave the waitlist, or decline an open offer (the seat goes to the next student)"),
+  },
+  "/api/events/{id}/waitlist/accept": { post: operation("Accept your open seat offer; the held seat becomes a registration. Retrying returns 200", true, { responses: { "201": { description: "Registered" }, "200": { description: "Already accepted" }, "400": { description: "Offer expired or registration closed" }, "401": { description: "Authentication required" }, "403": { description: "Students only" }, "404": { description: "No open offer" } } }) },
+  "/api/events/{id}/conflicts": { get: operation("Your registered events that overlap this one (adjacent events do not count)") },
+  "/api/users/me/calendar-feed": {
+    get: operation("Whether your private calendar feed link exists"),
+    post: operation("Create or replace your private calendar feed link; the URL is shown only in this response", true, { responses: { "201": { description: "{ enabled, createdAt, url, webcalUrl }" }, "401": { description: "Authentication required" } } }),
+    delete: operation("Revoke your private calendar feed link"),
+  },
+  "/api/calendar/{token}": { get: operation("Private ICS feed of your registered events. The token (optionally with .ics) is the credential", false, { responses: { "200": { description: "Calendar feed", content: { "text/calendar": { schema: string } } }, "404": { description: "Unknown or revoked token" }, "429": { description: "Rate limit exceeded" } } }) },
   "/api/docs": { get: operation("Read this OpenAPI specification", false) },
 };
 for (const [path, methods] of Object.entries(additionalPaths)) {

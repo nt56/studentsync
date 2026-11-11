@@ -9,8 +9,9 @@ import Notification from "@/models/Notification";
 import Collaboration from "@/models/Collaboration";
 import Review from "@/models/Review";
 import Message from "@/models/Message";
+import WaitlistEntry from "@/models/WaitlistEntry";
 
-const models = { Registration, Bookmark, Notification, Collaboration, Review, Message };
+const models = { Registration, Bookmark, Notification, Collaboration, Review, Message, WaitlistEntry };
 export type AuditIssue = { model: string; id: string; problem: string; repair: "delete-orphan" | "sync-role" | "event-time" | "review-stats" | "seat-count" | "manual" };
 
 /** No mutations. Missing review/message authors are intentionally retained. */
@@ -20,7 +21,7 @@ export async function auditDatabase(): Promise<AuditIssue[]> {
     for await (const row of model.find().cursor()) {
       let missing = false;
       if (row.eventId && !await Event.exists({ _id: row.eventId })) missing = true;
-      const users = name === "Registration" ? [row.studentId] : name === "Collaboration" ? [row.requesterId, row.targetOrganizerId] : ["Bookmark", "Notification"].includes(name) ? [row.userId] : [];
+      const users = ["Registration", "WaitlistEntry"].includes(name) ? [row.studentId] : name === "Collaboration" ? [row.requesterId, row.targetOrganizerId] : ["Bookmark", "Notification"].includes(name) ? [row.userId] : [];
       for (const userId of users) if (userId && !await User.exists({ _id: userId })) missing = true;
       if (missing) issues.push({ model: name, id: row._id.toString(), problem: "Missing required event or user", repair: "delete-orphan" });
     }
@@ -37,7 +38,9 @@ export async function auditDatabase(): Promise<AuditIssue[]> {
     const [stats] = await Review.aggregate([{ $match: { eventId: event._id } }, { $group: { _id: null, count: { $sum: 1 }, rating: { $avg: "$rating" } } }]);
     if (event.reviewCount !== (stats?.count || 0) || event.averageRating !== Math.round((stats?.rating || 0) * 10) / 10) issues.push({ model: "Event", id: event._id.toString(), problem: "Cached review totals differ from reviews", repair: "review-stats" });
     const count = await Registration.countDocuments({ eventId: event._id });
-    if (event.registeredCount !== count) issues.push({ model: "Event", id: event._id.toString(), problem: `Seat counter ${event.registeredCount ?? "missing"} differs from ${count} registrations`, repair: "seat-count" });
+    const offers = await WaitlistEntry.countDocuments({ eventId: event._id, status: "offered" });
+    if ((event.heldCount ?? 0) !== offers) issues.push({ model: "Event", id: event._id.toString(), problem: `Held-seat counter ${event.heldCount ?? "missing"} differs from ${offers} open waitlist offers`, repair: "seat-count" });
+    else if (event.registeredCount !== count) issues.push({ model: "Event", id: event._id.toString(), problem: `Seat counter ${event.registeredCount ?? "missing"} differs from ${count} registrations`, repair: "seat-count" });
     if (count > event.capacity) issues.push({ model: "Event", id: event._id.toString(), problem: `${count} registrations exceed capacity ${event.capacity}; resolve with the organizer`, repair: "manual" });
   }
   return issues;
@@ -68,7 +71,8 @@ export async function repairIssues(approved: AuditIssue[]) {
     }
     if (issue.repair === "seat-count") {
       const count = await Registration.countDocuments({ eventId: issue.id });
-      await Event.updateOne({ _id: issue.id }, { $set: { registeredCount: count, seatsTouchedAt: new Date() } });
+      const offers = await WaitlistEntry.countDocuments({ eventId: issue.id, status: "offered" });
+      await Event.updateOne({ _id: issue.id }, { $set: { registeredCount: count, heldCount: offers, seatsTouchedAt: new Date() } });
     }
     repaired++;
   }

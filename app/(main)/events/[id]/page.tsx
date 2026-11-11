@@ -2,6 +2,9 @@
 
 import { EventStaff } from "@/components/events/EventStaff";
 import { EventAnnouncements } from "@/components/events/EventAnnouncements";
+import { WaitlistPanel } from "@/components/events/WaitlistPanel";
+import { ScheduleConflictHint } from "@/components/events/ScheduleConflictHint";
+import type { ScheduleConflict, WaitlistState } from "@/lib/contracts";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
@@ -73,6 +76,22 @@ export default function EventDetailPage() {
   const [reviewRefresh, setReviewRefresh] = useState(0);
   const [registrationId, setRegistrationId] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [waitlist, setWaitlist] = useState<WaitlistState | null>(null);
+  const [conflicts, setConflicts] = useState<ScheduleConflict[]>([]);
+  const isRegisteredHere = !!event?.isRegistered;
+
+  // Waitlist state and schedule-overlap hint, for students not yet registered.
+  useEffect(() => {
+    setWaitlist(null);
+    setConflicts([]);
+    if (!isAuthenticated || !id || user?.role !== "student" || isRegisteredHere) return;
+    let ignore = false;
+    eventService.getWaitlist(id).then((response) => { if (!ignore) setWaitlist(response.data as WaitlistState); }).catch(() => undefined);
+    eventService.getConflicts(id).then((response) => { if (!ignore) setConflicts((response.data as { items: ScheduleConflict[] }).items); }).catch(() => undefined);
+    return () => {
+      ignore = true;
+    };
+  }, [id, isAuthenticated, user?.role, isRegisteredHere]);
 
   // Fetch the student's own registrationId so we can show the QR code
   useEffect(() => {
@@ -125,6 +144,9 @@ export default function EventDetailPage() {
       dispatch(fetchEventById(id));
     } catch (err) {
       toast.error(typeof err === "string" ? err : "Failed to register");
+      // The event may have filled up or gained a queue: show the waitlist instead.
+      eventService.getWaitlist(id).then((response) => setWaitlist(response.data as WaitlistState)).catch(() => undefined);
+      dispatch(fetchEventById(id));
     }
   };
 
@@ -189,7 +211,16 @@ export default function EventDetailPage() {
   const isDraft = event.status === "draft";
   const capacity = event.capacity || 0;
   const count = event.registrationCount ?? 0;
-  const spotsLeft = capacity > 0 ? Math.max(0, capacity - count) : null;
+  // Seats held for waitlist offers are not available to new registrants.
+  const spotsLeft = capacity > 0 ? Math.max(0, capacity - count - (event.seatsHeld ?? 0)) : null;
+  const waitlistStatus = waitlist?.entry?.status;
+  const onWaitlist = waitlistStatus === "waiting" || waitlistStatus === "offered";
+  const showWaitlist =
+    user?.role === "student" &&
+    !!waitlist &&
+    !deadlinePassed &&
+    event.status === "upcoming" &&
+    (spotsLeft === 0 || onWaitlist || waitlist.waitingCount > 0);
   const fillPercent = capacity > 0 ? Math.min(100, Math.round((count / capacity) * 100)) : 0;
   const isNearlyFull = spotsLeft !== null && spotsLeft > 0 && spotsLeft <= 10;
 
@@ -652,8 +683,20 @@ export default function EventDetailPage() {
                   <Button className="w-full rounded-xl" disabled>
                     Draft Event (Not Published)
                   </Button>
+                ) : showWaitlist && waitlist ? (
+                  <div className="space-y-3">
+                    <ScheduleConflictHint conflicts={conflicts} />
+                    <WaitlistPanel
+                      eventId={id}
+                      timeZone={event.timeZone || "UTC"}
+                      state={waitlist}
+                      onChange={setWaitlist}
+                      onAccepted={() => dispatch(fetchEventById(id))}
+                    />
+                  </div>
                 ) : (
                   <div className="space-y-3">
+                    {!deadlinePassed && <ScheduleConflictHint conflicts={conflicts} />}
                     <Button
                       size="lg"
                       className="w-full rounded-xl h-12 text-sm font-bold shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 transition-all"
@@ -672,7 +715,7 @@ export default function EventDetailPage() {
                       ) : deadlinePassed ? (
                         "Registration Closed"
                       ) : spotsLeft !== null && spotsLeft <= 0 ? (
-                        "Event Full (Waitlist Open)"
+                        "Event Full"
                       ) : (
                         "Claim Your Free Pass"
                       )}

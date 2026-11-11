@@ -36,6 +36,31 @@ export const eventService = {
     return api.post(`/events/${id}/announcements`, data);
   },
 
+  /** GET /api/events/:id/waitlist — your entry and the queue length */
+  getWaitlist(id: string) {
+    return api.get(`/events/${id}/waitlist`);
+  },
+
+  /** POST /api/events/:id/waitlist — join (idempotent; keeps your position) */
+  joinWaitlist(id: string) {
+    return api.post(`/events/${id}/waitlist`);
+  },
+
+  /** DELETE /api/events/:id/waitlist — leave, or decline an open offer */
+  leaveWaitlist(id: string) {
+    return api.delete(`/events/${id}/waitlist`);
+  },
+
+  /** POST /api/events/:id/waitlist/accept — accept a held seat */
+  acceptWaitlistOffer(id: string) {
+    return api.post(`/events/${id}/waitlist/accept`);
+  },
+
+  /** GET /api/events/:id/conflicts — your registered events that overlap this one */
+  getConflicts(id: string) {
+    return api.get(`/events/${id}/conflicts`);
+  },
+
   /** Attendee CSV download link (the session cookie authenticates a plain link). */
   attendeeExportUrl(id: string) {
     return `/api/events/${id}/attendance/export`;

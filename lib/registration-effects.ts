@@ -86,7 +86,12 @@ export async function finishCancellation(registrationId: Types.ObjectId | string
     { $set: { dismissedAt: new Date(), isRead: true } },
   );
   const removed = await Registration.deleteOne({ _id: registration._id });
-  if (removed.deletedCount === 1) await releaseSeat(registration.eventId);
+  if (removed.deletedCount === 1) {
+    await releaseSeat(registration.eventId);
+    // The freed seat goes to the waitlist first; the worker retries if this fails.
+    const { promoteWaitlist } = await import("@/lib/waitlist");
+    await promoteWaitlist(registration.eventId).catch((error) => console.error("Waitlist promotion deferred to the worker:", error));
+  }
   // Existing sockets must lose access when membership is cancelled.
   globalThis.io?.in(`user:${registration.studentId}`).socketsLeave(`event:${registration.eventId}`);
 }

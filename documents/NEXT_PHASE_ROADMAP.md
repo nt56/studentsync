@@ -1,6 +1,6 @@
 # StudentSync: roadmap
 
-Updated November 5, 2026. This is a personal learning project, so the plan stays small. Each feature must solve a concrete problem for a **student**, **organizer**, or **admin**, and every phase ships one working user journey before the next starts. [OPERATIONS.md](OPERATIONS.md) describes how to run the app. [API_CONTRACT.md](API_CONTRACT.md) describes API behavior.
+Updated November 10, 2026. This is a personal learning project, so the plan stays small. Each feature must solve a concrete problem for a **student**, **organizer**, or **admin**, and every phase ships one working user journey before the next starts. [OPERATIONS.md](OPERATIONS.md) describes how to run the app. [API_CONTRACT.md](API_CONTRACT.md) describes API behavior.
 
 ## Project constraints
 
@@ -17,11 +17,12 @@ Updated November 5, 2026. This is a personal learning project, so the plan stays
 | Participation | Registration/cancellation, saved events, QR tickets, organizer check-in, attendance lists |
 | Community | Event chat, reviews/ratings, collaboration invitations, event staff (editor / volunteer) |
 | Organizer/admin | Event create/edit, dashboards, user roles, college verification, analytics |
-| Communication | Email outbox with retries, polled in-app notifications, persistent 48-hour reminders, preferences, ICS/Google Calendar links |
+| Waitlist and calendar | FIFO waitlist with 12-hour held offers, private calendar feed, schedule conflict hint |
+| Communication | Email outbox with retries, polled in-app notifications, persistent 24-hour (with email) and 1-hour reminders, preferences, ICS/Google Calendar links |
 | Quality | 15 unit/contract tests (including OpenAPI route coverage), an HTTP integration suite with seat races and fault injection on a plain `mongod`, shared Zod response contracts, and a CI workflow |
 | Mobile (separate repo) | Auth, events, bookmarks, tickets, chat, reviews, local reminders |
 
-**Not done yet:** contracts for the remaining responses (users, colleges, notifications, analytics), wiring the shared contracts into the mobile repo, the optional Phase 1 attendance certificate, and Phases 2–5.
+**Not done yet:** contracts for the remaining responses (users, colleges, notifications, analytics), wiring the shared contracts into the mobile repo, the optional Phase 1 attendance certificate, the Phase 2 mobile screens, and Phases 3–5.
 
 **Last verified:** November 5, 2026. `npm test` (15/15), `npm run test:integration` (22 sections, plain `mongod`, both in-memory and through `INTEGRATION_MONGODB_URI`), `npm run lint`, `npx tsc --noEmit`, and `npm run build` pass locally. The upgrade from `rs0` data files, `db:backfill-seats`, `worker --once`, and `db:audit` were run on a real `mongod` 7.0.14. Not exercised: the GitHub Actions workflow on GitHub (the file parses), the Compose stacks (`docker compose config` passes; the Docker daemon was off), and a real production database.
 
@@ -61,9 +62,11 @@ Updated November 5, 2026. This is a personal learning project, so the plan stays
 
 **Mobile follows:** students receive announcements through the existing notification polling. Certificate download goes on the ticket screen.
 
-## Phase 2 — Never miss a seat or a reminder
+## Phase 2 — Never miss a seat or a reminder (completed)
 
 **Problem:** students lose full events and forget the ones they joined.
+
+**Status:** waitlist, separate reminders, calendar feed, and conflict hint implemented November 10, 2026 (web + API; mobile follows). Decisions: an offer holds the seat for 12 hours, cut short at the registration deadline; students can join only when the event is full or a queue exists, and while anyone waits, direct registration is refused so freed seats go to the queue; raising capacity promotes the queue in order; the 24-hour reminder is in-app plus email, the 1-hour reminder in-app only; the feed lists registered events from the last 30 days onwards; the conflict hint never blocks registration. `npm test` (24/24), `npm run test:integration` (33 sections), lint, `tsc`, and `build` pass locally. [API_CONTRACT.md](API_CONTRACT.md) has the API details and [OPERATIONS.md](OPERATIONS.md) the write-safety notes.
 
 | Feature | Scope | Done when |
 | --- | --- | --- |

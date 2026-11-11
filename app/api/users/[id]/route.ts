@@ -1,4 +1,5 @@
 import { releaseSeat } from "@/lib/seats";
+import { removeStudentFromWaitlists } from "@/lib/waitlist";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import User from "@/models/User";
@@ -192,6 +193,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
     globalThis.io?.in(`user:${id}`).disconnectSockets(true);
 
+    // Held waitlist seats go to the next student before the entries are removed.
+    await removeStudentFromWaitlists(id);
     // Each seat is released only by the delete that actually removed its registration.
     const registrations = await Registration.find({ studentId: id }).select("_id eventId").lean<{ _id: mongoose.Types.ObjectId; eventId: mongoose.Types.ObjectId }[]>();
     for (const registration of registrations) {

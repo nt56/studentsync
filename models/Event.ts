@@ -4,6 +4,9 @@ const EventSchema = new Schema(
   {
     // Seats taken. Only changed by the atomic helpers in lib/seats.ts.
     registeredCount: { type: Number, default: 0, min: 0 },
+    // Seats held for open waitlist offers. Only changed by lib/seats.ts and lib/waitlist.ts.
+    // Free seats = capacity - registeredCount - heldCount.
+    heldCount: { type: Number, default: 0, min: 0 },
     // Last seat change; the reconciler only repairs counts that have been quiet.
     seatsTouchedAt: { type: Date },
     // Set before deletion starts; every user-facing query hides the event.

@@ -28,6 +28,8 @@ export interface IEvent {
   collegeId: Types.ObjectId;
   registrationDeadline: Date;
   capacity: number;
+  registeredCount?: number;
+  heldCount?: number;
   status: EventStatus;
   category: EventCategory;
   image?: string;
@@ -82,6 +84,7 @@ export function formatEventResponse(
       id.toString(),
     ),
     registrationCount,
+    seatsHeld: event.heldCount ?? 0,
     isRegistered,
     publishedAt: event.draft ? null : (event.publishedAt ?? event.createdAt).toISOString(),
     createdAt: event.createdAt.toISOString(),

@@ -29,6 +29,8 @@ import {
   Check,
   Trash2,
   Megaphone,
+  Hourglass,
+  TimerOff,
 } from "lucide-react";
 
 // ── Icon & colour per notification type ────────────────────────────────────
@@ -89,6 +91,16 @@ const typeConfig: Record<string, TypeConfig> = {
     Icon: Megaphone,
     bg: "bg-primary/10 ring-1 ring-primary/25",
     text: "text-primary",
+  },
+  waitlist_offer: {
+    Icon: Hourglass,
+    bg: "bg-primary/10 ring-1 ring-primary/25",
+    text: "text-primary",
+  },
+  waitlist_expired: {
+    Icon: TimerOff,
+    bg: "bg-muted ring-1 ring-border",
+    text: "text-muted-foreground",
   },
   role_changed: {
     Icon: Shield,

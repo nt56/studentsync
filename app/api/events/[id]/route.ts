@@ -1,7 +1,8 @@
 import { eventEnd } from "@/lib/event-time";
 import { canManageEvent, canViewEvent } from "@/lib/event-access";
 import { markEventDeleting, finalizeEventDeletion } from "@/lib/event-deletion";
-import { recountMissingSeatCount } from "@/lib/seats";
+import { recountMissingSeatCount, takenSeatsExpression } from "@/lib/seats";
+import { promoteWaitlist } from "@/lib/waitlist";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import Event, { liveEvent } from "@/models/Event";
@@ -166,14 +167,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Lowering capacity is conditional on the live seat counter: a registration
-    // that takes a seat concurrently makes this update match nothing, so
-    // capacity can never drop below the seats already taken.
+    // Lowering capacity is conditional on the live seat counters: a registration
+    // or waitlist offer that takes a seat concurrently makes this update match
+    // nothing, so capacity can never drop below the seats taken or held.
     const updatedEvent = await Event.findOneAndUpdate(
       {
         _id: id,
         ...liveEvent,
-        ...(validatedData.capacity !== undefined ? { registeredCount: { $lte: validatedData.capacity } } : {}),
+        ...(validatedData.capacity !== undefined ? { $expr: { $lte: [takenSeatsExpression, validatedData.capacity] } } : {}),
       },
       updateData,
       { returnDocument: "after", runValidators: true },
@@ -181,7 +182,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     if (!updatedEvent) {
       if (validatedData.capacity !== undefined && await Event.exists({ _id: id, ...liveEvent })) {
-        return ApiErrors.badRequest("Capacity cannot be lower than the number of registered attendees");
+        return ApiErrors.badRequest("Capacity cannot be lower than the number of registered attendees plus seats held for waitlist offers");
       }
       return ApiErrors.notFound("Event");
     }
@@ -190,6 +191,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const registrationCount = await Registration.countDocuments({
       eventId: updatedEvent._id,
     });
+
+    // New seats go to the waitlist in queue order; the worker retries if this fails.
+    if (validatedData.capacity !== undefined && validatedData.capacity > event.capacity) {
+      await promoteWaitlist(updatedEvent._id).catch((error) => console.error("Waitlist promotion deferred to the worker:", error));
+    }
 
     // The edit is committed; if queueing fails the worker finishes it from the marker.
     try {

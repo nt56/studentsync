@@ -338,6 +338,60 @@ export async function sendAnnouncementEmail(
   });
 }
 
+// ─── Waitlist offer (a seat is held for the student) ─────────────────────────
+
+export async function sendWaitlistOfferEmail(
+  email: string,
+  name: string,
+  event: EventEmailData,
+  acceptBy: string,
+  dedupeKey: string,
+): Promise<void> {
+  const content = `
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#1e293b;">A seat opened up</h1>
+    <p style="margin:0 0 24px;font-size:15px;color:#475569;line-height:1.6;">
+      Hi <strong>${esc(name)}</strong>, a seat for <strong>${esc(event.title)}</strong> is being held for you.
+    </p>
+    ${eventCard(event, [["Accept by", esc(acceptBy)]])}
+    <p style="margin:0 0 24px;font-size:14px;color:#64748b;line-height:1.6;">
+      If you do not accept in time, the seat goes to the next student on the waitlist.
+    </p>
+    ${btn("Accept Your Seat", `${appUrl()}/events/${event.id}`)}
+  `;
+
+  await sendEmail({
+    dedupeKey,
+    to: { email, name },
+    subject: `Seat available — ${event.title}`,
+    htmlContent: buildEmail(content),
+  });
+}
+
+// ─── Event reminder (24 hours before) ────────────────────────────────────────
+
+export async function sendEventReminderEmail(
+  email: string,
+  name: string,
+  event: EventEmailData,
+  dedupeKey: string,
+): Promise<void> {
+  const content = `
+    <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#1e293b;">See you tomorrow</h1>
+    <p style="margin:0 0 24px;font-size:15px;color:#475569;line-height:1.6;">
+      Hi <strong>${esc(name)}</strong>, <strong>${esc(event.title)}</strong> starts in about 24 hours.
+    </p>
+    ${eventCard(event)}
+    ${btn("View Event & QR Code", `${appUrl()}/events/${event.id}`)}
+  `;
+
+  await sendEmail({
+    dedupeKey,
+    to: { email, name },
+    subject: `Tomorrow — ${event.title}`,
+    htmlContent: buildEmail(content),
+  });
+}
+
 // ─── Event cancelled (sent to each registered student) ───────────────────────
 
 export async function sendEventCancelledEmail(

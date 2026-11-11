@@ -14,7 +14,8 @@ export function EventCard({ event }: { event: EventItem }) {
   const validDate = eventDate && !Number.isNaN(eventDate.getTime());
   const capacity = event.capacity || 0;
   const count = event.registrationCount;
-  const remaining = count == null ? null : Math.max(0, capacity - count);
+  // Seats held for waitlist offers are not available to new registrants.
+  const remaining = count == null ? null : Math.max(0, capacity - count - (event.seatsHeld ?? 0));
   const fillPercentage = capacity > 0 && count != null ? Math.min(100, Math.max(0, (count / capacity) * 100)) : 0;
   const isNearlyFull = remaining != null && remaining > 0 && remaining <= 10;
 

@@ -1,6 +1,8 @@
 "use client";
 
 import { NotificationPreferences } from "@/components/notifications/NotificationPreferences";
+import { CalendarFeedSettings } from "@/components/settings/CalendarFeedSettings";
+import { useAppSelector } from "@/store/hooks";
 import { useTheme } from "next-themes";
 import { useSyncExternalStore } from "react";
 import { Sun, Moon, Monitor, Settings2, CheckCircle2 } from "lucide-react";
@@ -11,6 +13,7 @@ const subscribe = () => () => { };
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
   const mounted = useSyncExternalStore(subscribe, () => true, () => false);
+  const role = useAppSelector((s) => s.auth.user?.role);
 
   const themeOptions = [
     {
@@ -137,6 +140,9 @@ export default function SettingsPage() {
 
       {/* Notifications */}
       <NotificationPreferences />
+
+      {/* Only students register, so only they have events to subscribe to. */}
+      {role === "student" && <CalendarFeedSettings />}
     </div>
   );
 }
