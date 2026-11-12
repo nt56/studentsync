@@ -66,8 +66,8 @@ export const eventService = {
     return `/api/events/${id}/attendance/export`;
   },
 
-  /** DELETE /api/events/:id — organizer(owner)/admin */
-  deleteEvent(id: string) {
-    return api.delete(`/events/${id}`);
+  /** DELETE /api/events/:id — organizer(owner)/admin. Admins must give a reason. */
+  deleteEvent(id: string, reason?: string) {
+    return api.delete(`/events/${id}`, reason ? { data: { reason } } : undefined);
   },
 };

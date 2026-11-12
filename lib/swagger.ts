@@ -170,12 +170,20 @@ const swaggerSpec = {
       },
       UpdateUserRoleInput: {
         type: "object",
-        required: ["role"],
+        required: ["role", "reason"],
         properties: {
           role: {
             type: "string",
             enum: ["student", "organizer", "admin"],
           },
+          reason: { type: "string", minLength: 3, maxLength: 500, description: "Written to the audit log before the change" },
+        },
+      },
+      AdminReasonInput: {
+        type: "object",
+        required: ["reason"],
+        properties: {
+          reason: { type: "string", minLength: 3, maxLength: 500, description: "Written to the audit log before the change" },
         },
       },
 
@@ -186,7 +194,10 @@ const swaggerSpec = {
           id: { type: "string", example: "665f1a2b3c4d5e6f7a8b9c0d" },
           name: { type: "string", example: "MIT" },
           location: { type: "string", example: "Cambridge, MA" },
-          isVerified: { type: "boolean", example: true },
+          isVerified: { type: "boolean", example: true, description: "True exactly when status is verified" },
+          status: { type: "string", enum: ["pending", "verified", "rejected"] },
+          decision: { type: "object", nullable: true, description: "Admin listings only: the latest decision", properties: { status: { type: "string", enum: ["verified", "rejected"] }, reason: { type: "string" }, at: { type: "string", format: "date-time" } } },
+          submittedBy: { type: "string", nullable: true, description: "Admin listings only" },
           createdAt: { type: "string", format: "date-time" },
           updatedAt: { type: "string", format: "date-time" },
         },
@@ -1378,8 +1389,13 @@ const swaggerSpec = {
         tags: ["Users"],
         summary: "Delete user (Admin)",
         description:
-          "Delete a user by ID. **Admin only.** Cannot delete yourself.",
+          "Delete a user by ID. **Admin only.** Cannot delete yourself. Requires `{ reason }`, audited before anything is removed.",
         security: [{ cookieAuth: [] }],
+        requestBody: {
+          required: true,
+          description: "Admins must send { reason }; it is written to the audit log first.",
+          content: { "application/json": { schema: { $ref: "#/components/schemas/AdminReasonInput" } } },
+        },
         parameters: [
           {
             name: "id",
@@ -1728,8 +1744,13 @@ const swaggerSpec = {
       delete: {
         tags: ["Colleges"],
         summary: "Delete college (Admin)",
-        description: "Delete a college by ID. **Admin only.**",
+        description: "Delete a college by ID. **Admin only.** Requires `{ reason }` (audited). Refused while events or users reference it.",
         security: [{ cookieAuth: [] }],
+        requestBody: {
+          required: true,
+          description: "Admins must send { reason }; it is written to the audit log first.",
+          content: { "application/json": { schema: { $ref: "#/components/schemas/AdminReasonInput" } } },
+        },
         parameters: [
           {
             name: "id",
@@ -2148,8 +2169,13 @@ const swaggerSpec = {
         tags: ["Events"],
         summary: "Delete event (Owner/Admin)",
         description:
-          "Delete an event and all its registrations. Only the event organizer or an admin can delete.",
+          "Delete an event and all its registrations. Only the event organizer or an admin can delete. Admins must send `{ reason }` (audited); owners send nothing.",
         security: [{ cookieAuth: [] }],
+        requestBody: {
+          required: false,
+          description: "Admins must send { reason }; it is written to the audit log first.",
+          content: { "application/json": { schema: { $ref: "#/components/schemas/AdminReasonInput" } } },
+        },
         parameters: [
           {
             name: "id",
@@ -2727,8 +2753,13 @@ const swaggerSpec = {
         tags: ["Chat"],
         summary: "Delete a message (Organizer/Admin)",
         description:
-          "Soft-deletes a message (`isDeleted: true`). **Organizers** can only delete messages from events they own. **Admins** can delete any message. After deletion the server emits a `message-deleted` Socket.IO event to the room.",
+          "Soft-deletes a message (`isDeleted: true`). **Organizers** can only delete messages from events they own. **Admins** can delete any message and must send `{ reason }` (audited). After deletion the server emits a `message-deleted` Socket.IO event to the room.",
         security: [{ cookieAuth: [] }],
+        requestBody: {
+          required: false,
+          description: "Admins must send { reason }; it is written to the audit log first.",
+          content: { "application/json": { schema: { $ref: "#/components/schemas/AdminReasonInput" } } },
+        },
         parameters: [
           {
             name: "id",

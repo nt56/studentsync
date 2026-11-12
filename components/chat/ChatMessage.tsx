@@ -3,12 +3,15 @@
 import { format } from "date-fns";
 import { Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ReportButton } from "@/components/common/ReportButton";
 import type { ChatMessage as ChatMsg } from "@/services/chatService";
 
 interface ChatMessageProps {
   message: ChatMsg;
   isOwn: boolean;
   canDelete: boolean;
+  /** Everyone but admins (who delete directly) can report other people's messages. */
+  canReport?: boolean;
   onDelete: (id: string) => void;
 }
 
@@ -16,6 +19,7 @@ export function ChatMessage({
   message,
   isOwn,
   canDelete,
+  canReport = false,
   onDelete,
 }: ChatMessageProps) {
   const sender = message.senderId;
@@ -45,7 +49,7 @@ export function ChatMessage({
           <button
             type="button"
             onClick={() => onDelete(message._id)}
-            className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all shrink-0"
+            className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 p-1.5 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all shrink-0"
             aria-label="Delete message"
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -92,6 +96,14 @@ export function ChatMessage({
             </span>
           </div>
         </div>
+
+        {canReport && !isOwn && !canDelete && (
+          <ReportButton
+            targetType="message"
+            targetId={message._id}
+            className="shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+          />
+        )}
 
         {canDelete && isOwn && (
           <button

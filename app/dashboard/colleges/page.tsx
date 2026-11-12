@@ -1,20 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
   fetchColleges,
   createCollege,
   updateCollege,
   deleteCollege,
+  decideCollege,
+  type College,
 } from "@/store/slices/collegesSlice";
-import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { ReasonDialog } from "@/components/common/ReasonDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { TableRowSkeleton } from "@/components/common/Skeletons";
 import { ListPagination } from "@/components/common/ListPagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -23,318 +25,229 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Search,
-  Building2,
-  Plus,
-  Pencil,
-  Trash2,
-  CheckCircle2,
-  Clock,
-  Loader2,
-  MapPin,
-  Calendar,
-} from "lucide-react";
+import { Search, Building2, Plus, Pencil, Trash2, Check, X, History, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import type { CollegeStatus } from "@/lib/contracts";
+
+const TABS: { value: CollegeStatus; label: string }[] = [
+  { value: "pending", label: "Waiting for review" },
+  { value: "verified", label: "Verified" },
+  { value: "rejected", label: "Rejected" },
+];
+
+type Decision = { college: College; decision: "approve" | "reject" };
 
 export default function CollegeManagementPage() {
   const dispatch = useAppDispatch();
+  const { items: colleges, pagination, isLoading, error } = useAppSelector((s) => s.colleges);
+  const [status, setStatus] = useState<CollegeStatus>("pending");
   const [page, setPage] = useState(1);
-  const { items: colleges, pagination, isLoading } = useAppSelector(
-    (s) => s.colleges,
-  );
   const [search, setSearch] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
+  const [decisionTarget, setDecisionTarget] = useState<Decision | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<College | null>(null);
 
-  // Form state
+  // Add / edit form
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formName, setFormName] = useState("");
   const [formLocation, setFormLocation] = useState("");
-  const [formIsVerified, setFormIsVerified] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    dispatch(fetchColleges({ page: String(page), limit: "10", search }))
-      .unwrap()
-      .then((result) => {
-        if (
-          result.pagination &&
-          page > Math.max(1, result.pagination.totalPages)
-        ) {
-          setPage(Math.max(1, result.pagination.totalPages));
-        }
-      })
-      .catch(() => { });
-  }, [dispatch, page, search]);
+  const load = useCallback(async () => {
+    try {
+      const result = await dispatch(fetchColleges({ page: String(page), limit: "10", search, status })).unwrap();
+      if (result.pagination && page > Math.max(1, result.pagination.totalPages)) {
+        setPage(Math.max(1, result.pagination.totalPages));
+      }
+    } catch {
+      // The error state below explains it.
+    }
+  }, [dispatch, page, search, status]);
+
+  useEffect(() => { load(); }, [load]);
 
   const openCreate = () => {
     setEditingId(null);
     setFormName("");
     setFormLocation("");
-    setFormIsVerified(false);
     setFormOpen(true);
   };
 
-  const openEdit = (college: {
-    id?: string;
-    _id?: string;
-    name: string;
-    location?: string;
-    isVerified?: boolean;
-  }) => {
+  const openEdit = (college: College) => {
     setEditingId(college.id || college._id || null);
     setFormName(college.name);
     setFormLocation(college.location || "");
-    setFormIsVerified(college.isVerified || false);
     setFormOpen(true);
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     if (!formName.trim()) {
       toast.error("College name is required");
       return;
     }
     setSubmitting(true);
     try {
-      const data = {
-        name: formName.trim(),
-        location: formLocation.trim() || undefined,
-        ...(editingId ? { isVerified: formIsVerified } : {}),
-      };
+      const data = { name: formName.trim(), location: formLocation.trim() || undefined };
       if (editingId) {
         await dispatch(updateCollege({ id: editingId, data })).unwrap();
-        toast.success("College updated successfully");
+        toast.success("College updated");
       } else {
         await dispatch(createCollege(data)).unwrap();
-        toast.success("College registered successfully");
+        toast.success("College added as verified");
       }
-      dispatch(fetchColleges({ page: String(page), limit: "10", search }));
       setFormOpen(false);
-    } catch {
-      toast.error("Operation failed");
+      load();
+    } catch (err) {
+      toast.error(typeof err === "string" ? err : "Could not save the college");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    setDeleting(true);
+  const handleDecision = async (reason: string) => {
+    if (!decisionTarget) return;
+    const id = decisionTarget.college.id || decisionTarget.college._id!;
     try {
-      await dispatch(deleteCollege(deleteTarget)).unwrap();
-      toast.success("College deleted successfully");
-      const result = await dispatch(
-        fetchColleges({ page: String(page), limit: "10", search }),
-      ).unwrap();
-      if (
-        result.pagination &&
-        page > Math.max(1, result.pagination.totalPages)
-      ) {
-        setPage(Math.max(1, result.pagination.totalPages));
-      }
-    } catch {
-      toast.error("Failed to delete college");
-    } finally {
-      setDeleting(false);
-      setDeleteTarget(null);
+      await dispatch(decideCollege({ id, decision: decisionTarget.decision, reason })).unwrap();
+      toast.success(decisionTarget.decision === "approve" ? "College approved" : "College rejected");
+      load();
+    } catch (err) {
+      toast.error(typeof err === "string" ? err : "Could not save the decision");
+      throw err;
     }
   };
 
+  const handleDelete = async (reason: string) => {
+    if (!deleteTarget) return;
+    try {
+      await dispatch(deleteCollege({ id: deleteTarget.id || deleteTarget._id!, reason })).unwrap();
+      toast.success("College deleted");
+      load();
+    } catch (err) {
+      toast.error(typeof err === "string" ? err : "Could not delete the college");
+      throw err;
+    }
+  };
+
+  const decisionName = decisionTarget?.college.name ?? "";
+
   return (
-    <div className="space-y-8">
-      {/* Hero Header */}
-      <div className="relative overflow-hidden rounded-3xl border border-border/80 bg-gradient-to-br from-cyan-500/10 via-card/90 to-card p-6 backdrop-blur-xl shadow-xs sm:p-8">
-        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-cyan-500/15 blur-3xl" />
-
-        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-600 dark:text-cyan-400">
-              <Building2 className="h-3.5 w-3.5" />
-              <span>Campus Directory</span>
-              <span className="h-1 w-1 rounded-full bg-cyan-500" />
-              <span className="text-muted-foreground font-normal">Accredited Nodes</span>
-            </div>
-
-            <h1 className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl lg:text-4xl">
-              Institutions & Colleges
-            </h1>
-
-            <p className="max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-              Add new academic partner campuses, verify institutional domains, and manage student affiliation tags.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Button
-              onClick={openCreate}
-              className="h-11 gap-2 rounded-xl bg-primary px-5 font-semibold text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Add College</span>
-            </Button>
-          </div>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-1">
+          <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">Colleges</h1>
+          <p className="text-sm text-muted-foreground">Review suggested colleges. Every decision needs a reason, which the submitter sees.</p>
         </div>
+        <Button onClick={openCreate} className="gap-2">
+          <Plus className="h-4 w-4" aria-hidden />
+          Add college
+        </Button>
       </div>
 
-      {/* Search & Counter Strip */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full max-w-md">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div role="tablist" aria-label="College status" className="inline-flex rounded-lg border border-border bg-muted/40 p-1">
+          {TABS.map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              role="tab"
+              aria-selected={status === tab.value}
+              onClick={() => { setStatus(tab.value); setPage(1); }}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                status === tab.value ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <div className="relative w-full sm:max-w-xs">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <Input
-            className="h-11 rounded-xl border-border/80 bg-card/80 pl-10 pr-4 text-foreground placeholder:text-muted-foreground focus-visible:ring-primary/20 backdrop-blur-xl"
-            aria-label="Search all colleges"
-            placeholder="Search by college name or city..."
+            className="pl-9"
+            aria-label="Search colleges"
+            placeholder="Search by name"
             value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           />
         </div>
-
-        <div className="text-xs font-medium text-muted-foreground">
-          Showing {colleges.length} of {pagination?.total ?? colleges.length} colleges
-        </div>
       </div>
 
-      {/* Colleges Table */}
-      <div className="rounded-2xl border border-border/80 bg-card/85 shadow-xs backdrop-blur-xl overflow-hidden">
+      <div className="surface-card overflow-hidden">
         {isLoading ? (
-          <div
-            className="overflow-x-auto"
-            tabIndex={0}
-            role="region"
-            aria-label="Colleges table"
-          >
-            <table className="w-full text-left border-collapse">
-              <caption className="sr-only">Colleges loading</caption>
-              <tbody className="divide-y divide-border/60">
-                <TableRowSkeleton cols={5} />
-                <TableRowSkeleton cols={5} />
-              </tbody>
-            </table>
+          <table className="w-full"><tbody><TableRowSkeleton cols={4} /><TableRowSkeleton cols={4} /></tbody></table>
+        ) : error ? (
+          <div className="flex flex-col items-center gap-3 p-10 text-center">
+            <p className="text-sm text-muted-foreground">{error}</p>
+            <Button variant="outline" onClick={load}>Try again</Button>
           </div>
         ) : colleges.length === 0 ? (
-          <div className="p-12">
+          <div className="p-10">
             <EmptyState
               icon={Building2}
-              title="No colleges found"
-              description={
-                search
-                  ? "No educational institutions match your search query."
-                  : "Add your first partner institution to start onboarding students."
-              }
-              actionLabel={!search ? "Register First College" : undefined}
-              onAction={!search ? openCreate : undefined}
+              title={search ? "No colleges match" : status === "pending" ? "Nothing to review" : `No ${status} colleges`}
+              description={search ? "Try a different name." : status === "pending" ? "Suggested colleges appear here." : "Decisions you make appear here."}
             />
           </div>
         ) : (
-          <div
-            className="overflow-x-auto"
-            tabIndex={0}
-            role="region"
-            aria-label="Colleges table"
-          >
-            <table className="w-full text-left border-collapse">
-              <caption className="sr-only">Colleges on current page</caption>
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Colleges">
+            <table className="w-full border-collapse text-left text-sm">
+              <caption className="sr-only">{TABS.find((tab) => tab.value === status)?.label} colleges</caption>
               <thead>
-                <tr className="border-b border-border/70 bg-muted/30 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  <th scope="col" className="px-6 py-3.5">
-                    Institution Name
-                  </th>
-                  <th scope="col" className="px-6 py-3.5">
-                    Campus Location
-                  </th>
-                  <th scope="col" className="px-6 py-3.5">
-                    Verification Status
-                  </th>
-                  <th scope="col" className="px-6 py-3.5">
-                    Registered On
-                  </th>
-                  <th scope="col" className="px-6 py-3.5 text-right">
-                    Actions
-                  </th>
+                <tr className="border-b border-border text-xs font-medium text-muted-foreground">
+                  <th scope="col" className="px-4 py-3">College</th>
+                  <th scope="col" className="px-4 py-3">{status === "pending" ? "Added" : "Decision"}</th>
+                  <th scope="col" className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border/60">
+              <tbody className="divide-y divide-border">
                 {colleges.map((college) => {
-                  const cid = college.id || college._id;
+                  const cid = college.id || college._id!;
                   return (
-                    <tr
-                      key={cid}
-                      className="group transition-colors duration-150 hover:bg-muted/40"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">
-                            <Building2 className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <p className="font-display text-sm font-bold text-foreground">
-                              {college.name}
-                            </p>
-                            <p className="text-[11px] text-muted-foreground">
-                              ID: {cid?.slice(-6)}
-                            </p>
-                          </div>
-                        </div>
+                    <tr key={cid} className="align-top">
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-foreground">{college.name}</p>
+                        <p className="text-xs text-muted-foreground">{college.location || "No location"}{college.submittedBy ? " · Suggested by a user" : ""}</p>
                       </td>
-
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <MapPin className="h-3.5 w-3.5 text-muted-foreground/70" />
-                          <span>{college.location || "Campus Location TBA"}</span>
-                        </div>
-                      </td>
-
-                      <td className="px-6 py-4">
-                        {college.isVerified ? (
-                          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            Verified Campus
-                          </span>
+                      <td className="max-w-sm px-4 py-3 text-muted-foreground">
+                        {status === "pending" || !college.decision ? (
+                          college.createdAt ? format(new Date(college.createdAt), "MMM d, yyyy") : "—"
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-300">
-                            <Clock className="h-3.5 w-3.5" />
-                            Pending Audit
-                          </span>
+                          <>
+                            <p className="text-foreground">{college.decision.reason}</p>
+                            <p className="text-xs">{format(new Date(college.decision.at), "MMM d, yyyy")}</p>
+                          </>
                         )}
                       </td>
-
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <Calendar className="h-3.5 w-3.5 text-muted-foreground/70" />
-                          <span>
-                            {college.createdAt
-                              ? format(new Date(college.createdAt), "MMM dd, yyyy")
-                              : "—"}
-                          </span>
-                        </div>
-                      </td>
-
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            aria-label={`Edit ${college.name}`}
-                            title="Edit college"
-                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/80 bg-secondary/50 text-muted-foreground transition-all duration-200 hover:border-primary/40 hover:bg-primary/10 hover:text-primary"
-                            onClick={() => openEdit(college)}
-                          >
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap items-center justify-end gap-1.5">
+                          {status !== "verified" && (
+                            <Button size="sm" onClick={() => setDecisionTarget({ college, decision: "approve" })} className="gap-1.5">
+                              <Check className="h-4 w-4" aria-hidden />
+                              Approve
+                            </Button>
+                          )}
+                          {status !== "rejected" && (
+                            <Button size="sm" variant="outline" onClick={() => setDecisionTarget({ college, decision: "reject" })} className="gap-1.5">
+                              <X className="h-4 w-4" aria-hidden />
+                              Reject
+                            </Button>
+                          )}
+                          <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEdit(college)} aria-label={`Edit ${college.name}`} title="Edit">
                             <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={`Delete ${college.name}`}
-                            title="Delete college"
-                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/80 bg-secondary/50 text-muted-foreground transition-all duration-200 hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
-                            onClick={() => setDeleteTarget(cid!)}
-                          >
+                          </Button>
+                          <Button asChild size="icon" variant="ghost" className="h-8 w-8" title="Decision history">
+                            <Link href={`/dashboard/audit-log?targetType=college&targetId=${cid}`} aria-label={`Decision history for ${college.name}`}>
+                              <History className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 hover:text-destructive" onClick={() => setDeleteTarget(college)} aria-label={`Delete ${college.name}`} title="Delete">
                             <Trash2 className="h-4 w-4" />
-                          </button>
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -345,121 +258,62 @@ export default function CollegeManagementPage() {
           </div>
         )}
 
-        {/* Pagination */}
         {pagination && pagination.totalPages > 1 && (
-          <div className="border-t border-border/80 px-6 py-4">
-            <ListPagination
-              page={page}
-              pagination={pagination}
-              onPageChange={setPage}
-              disabled={isLoading}
-            />
+          <div className="border-t border-border px-4 py-3">
+            <ListPagination page={page} pagination={pagination} onPageChange={setPage} disabled={isLoading} />
           </div>
         )}
       </div>
 
-      {/* Add / Edit Dialog */}
-      <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="rounded-2xl border border-border/80 bg-card p-6 shadow-xl backdrop-blur-xl sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="font-display text-lg font-bold text-foreground">
-              {editingId ? "Update College Details" : "Register Partner College"}
-            </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">
-              Configure the educational institution profile and accreditation status.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-3">
+      <Dialog open={formOpen} onOpenChange={(open) => !submitting && setFormOpen(open)}>
+        <DialogContent className="rounded-xl sm:max-w-md">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle className="font-display text-lg font-semibold">{editingId ? "Edit college" : "Add college"}</DialogTitle>
+              <DialogDescription>
+                {editingId ? "Change the name or location. Use Approve or Reject to change verification." : "Colleges you add are verified straight away."}
+              </DialogDescription>
+            </DialogHeader>
             <div className="space-y-1.5">
-              <label
-                htmlFor="college-name"
-                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
-              >
-                College / University Name *
-              </label>
-              <Input
-                id="college-name"
-                placeholder="e.g. Stanford School of Engineering"
-                className="h-11 rounded-xl border-border/80 bg-background/60 text-foreground focus-visible:ring-primary/20"
-                value={formName}
-                onChange={(e) => setFormName(e.target.value)}
-              />
+              <label htmlFor="college-name" className="text-sm font-medium">Name</label>
+              <Input id="college-name" value={formName} onChange={(e) => setFormName(e.target.value)} required minLength={3} maxLength={200} />
             </div>
-
             <div className="space-y-1.5">
-              <label
-                htmlFor="college-location"
-                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
-              >
-                City / Region
-              </label>
-              <Input
-                id="college-location"
-                placeholder="e.g. Stanford, California"
-                className="h-11 rounded-xl border-border/80 bg-background/60 text-foreground focus-visible:ring-primary/20"
-                value={formLocation}
-                onChange={(e) => setFormLocation(e.target.value)}
-              />
+              <label htmlFor="college-location" className="text-sm font-medium">City or region <span className="font-normal text-muted-foreground">(optional)</span></label>
+              <Input id="college-location" value={formLocation} onChange={(e) => setFormLocation(e.target.value)} maxLength={300} />
             </div>
-
-            {editingId && (
-              <div className="flex items-center justify-between rounded-xl border border-border/80 bg-secondary/30 p-3.5">
-                <div>
-                  <label className="font-display text-sm font-semibold text-foreground">
-                    Accreditation Verification
-                  </label>
-                  <p className="text-xs text-muted-foreground">
-                    Mark institution as platform-verified
-                  </p>
-                </div>
-                <Switch
-                  aria-label="Verified college"
-                  checked={formIsVerified}
-                  onCheckedChange={setFormIsVerified}
-                />
-              </div>
-            )}
-          </div>
-
-          <DialogFooter className="gap-2 sm:gap-0 pt-2">
-            <Button
-              variant="outline"
-              onClick={() => setFormOpen(false)}
-              className="rounded-xl border-border/80 hover:bg-muted"
-            >
-              Cancel
-            </Button>
-            <Button
-              className="rounded-xl bg-primary px-5 font-semibold text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90"
-              onClick={handleSubmit}
-              disabled={submitting}
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : editingId ? (
-                "Update Profile"
-              ) : (
-                "Register College"
-              )}
-            </Button>
-          </DialogFooter>
+            <DialogFooter className="gap-2">
+              <Button type="button" variant="outline" onClick={() => setFormOpen(false)} disabled={submitting}>Cancel</Button>
+              <Button type="submit" disabled={submitting}>
+                {submitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
+                {editingId ? "Save" : "Add college"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation */}
-      <ConfirmDialog
+      <ReasonDialog
+        open={!!decisionTarget}
+        onOpenChange={(open) => !open && setDecisionTarget(null)}
+        title={decisionTarget?.decision === "approve" ? `Approve ${decisionName}` : `Reject ${decisionName}`}
+        description={decisionTarget?.decision === "approve"
+          ? "It becomes a verified college."
+          : "It is hidden from college pickers. Existing events and profiles keep it."}
+        hint="The submitter sees this reason. It is also recorded in the audit log."
+        confirmLabel={decisionTarget?.decision === "approve" ? "Approve" : "Reject"}
+        variant={decisionTarget?.decision === "reject" ? "danger" : "default"}
+        onConfirm={handleDecision}
+      />
+
+      <ReasonDialog
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title="Remove College Institution"
-        description="Are you sure you want to permanently delete this college record? Linked student profiles and past event affiliations may be impacted."
-        confirmLabel="Delete Institution"
-        onConfirm={handleDelete}
-        isLoading={deleting}
+        title={`Delete ${deleteTarget?.name ?? "college"}`}
+        description="Only possible when no events or users use it. To keep a record, reject it instead."
+        confirmLabel="Delete"
         variant="danger"
+        onConfirm={handleDelete}
       />
     </div>
   );

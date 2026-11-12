@@ -32,6 +32,9 @@ import {
   Megaphone,
   Hourglass,
   TimerOff,
+  Flag,
+  Building2,
+  EyeOff,
 } from "lucide-react";
 
 // ── Icon & colour per notification type ────────────────────────────────────
@@ -107,6 +110,21 @@ const typeConfig: Record<string, TypeConfig> = {
     Icon: SearchCheck,
     bg: "bg-primary/10 ring-1 ring-primary/25",
     text: "text-primary",
+  },
+  report_resolved: {
+    Icon: Flag,
+    bg: "bg-muted ring-1 ring-border",
+    text: "text-foreground",
+  },
+  college_decision: {
+    Icon: Building2,
+    bg: "bg-primary/10 ring-1 ring-primary/25",
+    text: "text-primary",
+  },
+  event_hidden: {
+    Icon: EyeOff,
+    bg: "bg-red-500/10 dark:bg-red-500/15 ring-1 ring-red-500/25",
+    text: "text-red-600 dark:text-red-400",
   },
   role_changed: {
     Icon: Shield,

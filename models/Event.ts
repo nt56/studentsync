@@ -19,6 +19,10 @@ const EventSchema = new Schema(
     // so `{ draft: { $ne: true } }` treats every older event as published.
     draft: { type: Boolean },
     publishedAt: { type: Date },
+    // Set when an admin removes the event after a report: it goes back to
+    // `draft: true` (hidden from everyone but owner, staff and admins) and can
+    // no longer be published.
+    hidden: { _id: false, type: { at: Date, reason: String, by: { type: Schema.Types.ObjectId, ref: "User" } } },
     // Recent announcement timestamps (newest last); the daily cap is claimed against it.
     announcementLog: { type: [Date], default: undefined },
     endDate: { type: Date },

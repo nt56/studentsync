@@ -7,7 +7,8 @@ import {
   updateUserRole,
   deleteUser,
 } from "@/store/slices/usersSlice";
-import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import Link from "next/link";
+import { ReasonDialog } from "@/components/common/ReasonDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { TableRowSkeleton } from "@/components/common/Skeletons";
 import { ListPagination } from "@/components/common/ListPagination";
@@ -19,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Users, Trash2, ShieldCheck, Mail, Calendar } from "lucide-react";
+import { Search, Users, Trash2, ShieldCheck, Mail, Calendar, History } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -30,8 +31,9 @@ export default function UserManagementPage() {
     (s) => s.users,
   );
   const [search, setSearch] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  // Role changes are audited with a reason, so the select only proposes one.
+  const [roleTarget, setRoleTarget] = useState<{ id: string; name: string; role: string } | null>(null);
 
   useEffect(() => {
     dispatch(fetchUsers({ page: String(page), limit: "10", search }))
@@ -47,21 +49,22 @@ export default function UserManagementPage() {
       .catch(() => {});
   }, [dispatch, page, search]);
 
-  const handleRoleChange = async (userId: string, role: string) => {
+  const handleRoleChange = async (reason: string) => {
+    if (!roleTarget) return;
     try {
-      await dispatch(updateUserRole({ id: userId, role })).unwrap();
+      await dispatch(updateUserRole({ id: roleTarget.id, role: roleTarget.role, reason })).unwrap();
       toast.success("User role updated successfully");
       dispatch(fetchUsers({ page: String(page), limit: "10", search }));
-    } catch {
-      toast.error("Failed to update user role");
+    } catch (error) {
+      toast.error(typeof error === "string" ? error : "Failed to update user role");
+      throw error;
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = async (reason: string) => {
     if (!deleteTarget) return;
-    setDeleting(true);
     try {
-      await dispatch(deleteUser(deleteTarget)).unwrap();
+      await dispatch(deleteUser({ id: deleteTarget.id, reason })).unwrap();
       toast.success("User removed successfully");
       const result = await dispatch(
         fetchUsers({ page: String(page), limit: "10", search }),
@@ -72,11 +75,9 @@ export default function UserManagementPage() {
       ) {
         setPage(Math.max(1, result.pagination.totalPages));
       }
-    } catch {
-      toast.error("Failed to delete user");
-    } finally {
-      setDeleting(false);
-      setDeleteTarget(null);
+    } catch (error) {
+      toast.error(typeof error === "string" ? error : "Failed to delete user");
+      throw error;
     }
   };
 
@@ -219,7 +220,7 @@ export default function UserManagementPage() {
                       <td className="px-6 py-4">
                         <Select
                           value={user.role}
-                          onValueChange={(val) => handleRoleChange(uid!, val)}
+                          onValueChange={(val) => val !== user.role && setRoleTarget({ id: uid!, name: `${user.firstName} ${user.lastName}`, role: val })}
                         >
                           <SelectTrigger
                             aria-label={`Role for ${user.firstName} ${user.lastName}`}
@@ -247,15 +248,25 @@ export default function UserManagementPage() {
                       </td>
 
                       <td className="px-6 py-4 text-right">
-                        <button
-                          type="button"
-                          title="Delete user"
-                          aria-label={`Delete ${user.firstName} ${user.lastName}`}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/80 bg-secondary/50 text-muted-foreground transition-all duration-200 hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive ml-auto"
-                          onClick={() => setDeleteTarget(uid!)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Link
+                            href={`/dashboard/audit-log?targetType=user&targetId=${uid}`}
+                            title="Admin history"
+                            aria-label={`Admin history for ${user.firstName} ${user.lastName}`}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/80 bg-secondary/50 text-muted-foreground transition-colors hover:text-foreground"
+                          >
+                            <History className="h-4 w-4" />
+                          </Link>
+                          <button
+                            type="button"
+                            title="Delete user"
+                            aria-label={`Delete ${user.firstName} ${user.lastName}`}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/80 bg-secondary/50 text-muted-foreground transition-all duration-200 hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+                            onClick={() => setDeleteTarget({ id: uid!, name: `${user.firstName} ${user.lastName}` })}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -279,15 +290,23 @@ export default function UserManagementPage() {
       </div>
 
       {/* Delete Dialog */}
-      <ConfirmDialog
+      <ReasonDialog
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
-        title="Revoke & Delete User Account"
-        description="Are you sure you want to permanently remove this user account? All event registrations and permissions will be deleted. This cannot be undone."
+        title={`Delete ${deleteTarget?.name ?? "user"}`}
+        description="Their sign-in, registrations, saved events, and notifications are removed. This cannot be undone."
         confirmLabel="Delete User"
         onConfirm={handleDelete}
-        isLoading={deleting}
         variant="danger"
+      />
+
+      <ReasonDialog
+        open={!!roleTarget}
+        onOpenChange={(open) => !open && setRoleTarget(null)}
+        title={`Make ${roleTarget?.name ?? "this user"} ${roleTarget?.role === "admin" ? "an administrator" : `a ${roleTarget?.role ?? ""}`}`}
+        description="They are signed out of live chat and told about the change."
+        confirmLabel="Change role"
+        onConfirm={handleRoleChange}
       />
     </div>
   );

@@ -1,3 +1,5 @@
+import { writeAudit } from "@/lib/audit";
+import { adminReasonSchema, readOptionalJson } from "@/lib/validators/admin.schema";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import College from "@/models/College";
@@ -69,6 +71,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     await connectDB();
 
     const body = await request.json();
+    if (body && typeof body === "object" && "isVerified" in body) {
+      return ApiErrors.badRequest("Approve or reject through POST /api/colleges/:id/decision with a reason");
+    }
 
     // Validate request body
     const validatedData = updateCollegeSchema.parse(body);
@@ -95,7 +100,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     return successResponse(
-      formatCollegeResponse(updatedCollege),
+      formatCollegeResponse(updatedCollege, { forAdmin: true }),
       "College updated successfully",
     );
   } catch (error) {
@@ -128,14 +133,21 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     await connectDB();
 
+    const parsed = adminReasonSchema.safeParse(await readOptionalJson(request));
+    if (!parsed.success) return ApiErrors.validationError(formatZodErrors(parsed.error));
+
+    const college = await College.findById(id).select("name").lean<{ name: string } | null>();
+    if (!college) {
+      return ApiErrors.notFound("College");
+    }
     if (await Event.exists({ $or: [{ collegeId: id }, { partnerCollegeIds: id }] }) || await User.exists({ collegeId: id })) {
       return ApiErrors.badRequest("Reassign this college’s events and users before deleting it");
     }
-    const result = await College.findByIdAndDelete(id);
-
-    if (!result) {
-      return ApiErrors.notFound("College");
-    }
+    await writeAudit({
+      actor: authResult, action: "college.deleted",
+      target: { type: "college", id, label: college.name }, reason: parsed.data.reason,
+    });
+    await College.deleteOne({ _id: id });
 
     return successResponse(null, "College deleted successfully");
   } catch (error) {

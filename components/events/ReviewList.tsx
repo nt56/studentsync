@@ -9,6 +9,9 @@ import StarRating from "./StarRating";
 import { toast } from "sonner";
 import api from "@/services/api";
 import { useAppSelector } from "@/store/hooks";
+import { ReasonDialog } from "@/components/common/ReasonDialog";
+import { ReportButton } from "@/components/common/ReportButton";
+import { errorMessage } from "@/services/moderationService";
 
 interface Review {
   id: string;
@@ -27,6 +30,8 @@ export default function ReviewList({ eventId, refresh }: ReviewListProps) {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const currentUser = useAppSelector((s) => s.auth.user);
+  // An admin removing someone else's review gives an audited reason.
+  const [adminDeleteId, setAdminDeleteId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -44,13 +49,14 @@ export default function ReviewList({ eventId, refresh }: ReviewListProps) {
     load();
   }, [load, refresh]);
 
-  async function handleDelete(reviewId: string) {
+  async function handleDelete(reviewId: string, reason?: string) {
     try {
-      await api.delete(`/reviews/${reviewId}`);
+      await api.delete(`/reviews/${reviewId}`, reason ? { data: { reason } } : undefined);
       toast.success("Review deleted successfully.");
       setReviews((prev) => prev.filter((r) => r.id !== reviewId));
-    } catch {
-      toast.error("Failed to delete review.");
+    } catch (error) {
+      toast.error(errorMessage(error, "Failed to delete review."));
+      throw error;
     }
   }
 
@@ -81,9 +87,10 @@ export default function ReviewList({ eventId, refresh }: ReviewListProps) {
   return (
     <div className="space-y-3.5">
       {reviews.map((review) => {
-        const canDelete =
-          currentUser?.role === "admin" ||
-          (currentUser && review.student.id === currentUser.id);
+        const isAuthor = !!currentUser && review.student.id === currentUser.id;
+        const isAdmin = currentUser?.role === "admin";
+        const canDelete = isAdmin || isAuthor;
+        const canReport = !!currentUser && !isAuthor && !isAdmin;
 
         const initials = review.student.name.charAt(0).toUpperCase() || "S";
 
@@ -113,13 +120,15 @@ export default function ReviewList({ eventId, refresh }: ReviewListProps) {
 
               <div className="flex items-center gap-2">
                 <StarRating value={review.rating} readonly size="sm" />
+                {canReport && <ReportButton targetType="review" targetId={review.id} />}
                 {canDelete && (
                   <Button
                     size="icon"
                     variant="ghost"
                     className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                    onClick={() => handleDelete(review.id)}
+                    onClick={() => (isAuthor ? handleDelete(review.id).catch(() => {}) : setAdminDeleteId(review.id))}
                     title="Delete review"
+                    aria-label="Delete review"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
@@ -135,6 +144,15 @@ export default function ReviewList({ eventId, refresh }: ReviewListProps) {
           </div>
         );
       })}
+      <ReasonDialog
+        open={!!adminDeleteId}
+        onOpenChange={(open) => !open && setAdminDeleteId(null)}
+        title="Delete review"
+        description="The review is removed and the event rating is recalculated."
+        confirmLabel="Delete review"
+        variant="danger"
+        onConfirm={(reason) => handleDelete(adminDeleteId!, reason)}
+      />
     </div>
   );
 }

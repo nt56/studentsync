@@ -72,7 +72,7 @@ export default function OrganizerDashboard() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      await dispatch(deleteEvent(deleteTarget)).unwrap();
+      await dispatch(deleteEvent({ id: deleteTarget })).unwrap();
       toast.success("Event deleted successfully");
       if (user?.id) {
         const result = await dispatch(

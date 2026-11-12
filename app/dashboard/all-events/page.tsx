@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchEvents, deleteEvent } from "@/store/slices/eventsSlice";
 import { EventStatusBadge, CategoryBadge } from "@/components/common/Badges";
-import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { ReasonDialog } from "@/components/common/ReasonDialog";
 import { EmptyState } from "@/components/common/EmptyState";
 import { TableRowSkeleton } from "@/components/common/Skeletons";
 import { ListPagination } from "@/components/common/ListPagination";
@@ -32,7 +32,6 @@ export default function AllEventsPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const params: Record<string, string> = {
@@ -44,11 +43,11 @@ export default function AllEventsPage() {
     dispatch(fetchEvents(params));
   }, [dispatch, page, search]);
 
-  const handleDelete = async () => {
+  // Admin deletions are audited with a reason.
+  const handleDelete = async (reason: string) => {
     if (!deleteTarget) return;
-    setDeleting(true);
     try {
-      await dispatch(deleteEvent(deleteTarget)).unwrap();
+      await dispatch(deleteEvent({ id: deleteTarget, reason })).unwrap();
       toast.success("Event permanently deleted");
       const params: Record<string, string> = {
         page: String(page),
@@ -57,11 +56,9 @@ export default function AllEventsPage() {
       };
       if (search) params.search = search;
       dispatch(fetchEvents(params));
-    } catch {
-      toast.error("Failed to delete event");
-    } finally {
-      setDeleting(false);
-      setDeleteTarget(null);
+    } catch (error) {
+      toast.error(typeof error === "string" ? error : "Failed to delete event");
+      throw error;
     }
   };
 
@@ -261,14 +258,13 @@ export default function AllEventsPage() {
       </div>
 
       {/* Delete Confirmation */}
-      <ConfirmDialog
+      <ReasonDialog
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
         title="Permanently Remove Event"
-        description="Are you sure you want to moderate and delete this event? All attendee registrations and tickets will be permanently revoked."
+        description="All registrations, tickets, chat, and reviews for this event are removed, and attendees are told it was cancelled."
         confirmLabel="Delete Event"
         onConfirm={handleDelete}
-        isLoading={deleting}
         variant="danger"
       />
     </div>

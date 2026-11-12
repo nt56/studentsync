@@ -318,21 +318,21 @@ try {
   console.log("PASS durable email failure and retry");
 
   // Role change: Better Auth and the app profile agree, and a repeat stays quiet.
-  assert.equal((await request(`/users/${stranger.user._id}`, admin.cookie, "PATCH", { role: "student" })).status, 200);
+  assert.equal((await request(`/users/${stranger.user._id}`, admin.cookie, "PATCH", { role: "student", reason: "Integration test" })).status, 200);
   assert.equal((await User.findById(stranger.user._id))!.role, "student");
   assert.equal((await mongoose.connection.collection("user").findOne({ _id: stranger.identity }))!.role, "student");
   const roleNotifications = await Notification.countDocuments({ userId: stranger.user._id, type: "role_changed" });
-  assert.equal((await request(`/users/${stranger.user._id}`, admin.cookie, "PATCH", { role: "student" })).status, 200);
+  assert.equal((await request(`/users/${stranger.user._id}`, admin.cookie, "PATCH", { role: "student", reason: "Integration test" })).status, 200);
   assert.equal(await Notification.countDocuments({ userId: stranger.user._id, type: "role_changed" }), roleNotifications, "repeating a role change must not notify again");
   // Simulated crash after the identity write, before the profile write: audit sees it, a retry fixes it.
   await mongoose.connection.collection("user").updateOne({ _id: stranger.identity }, { $set: { role: "organizer" } });
   const { auditDatabase, repairIssues } = await import("../lib/data-audit");
   assert.ok((await auditDatabase()).some((issue) => issue.id === stranger.user._id.toString() && issue.repair === "sync-role"));
-  assert.equal((await request(`/users/${stranger.user._id}`, admin.cookie, "PATCH", { role: "student" })).status, 200);
+  assert.equal((await request(`/users/${stranger.user._id}`, admin.cookie, "PATCH", { role: "student", reason: "Integration test" })).status, 200);
   assert.equal((await mongoose.connection.collection("user").findOne({ _id: stranger.identity }))!.role, "student");
   // A crash after the profile write must not lose the announcement.
   await rejectOutbox();
-  assert.equal((await request(`/users/${crowd[26].user._id}`, admin.cookie, "PATCH", { role: "organizer" })).status, 200);
+  assert.equal((await request(`/users/${crowd[26].user._id}`, admin.cookie, "PATCH", { role: "organizer", reason: "Integration test" })).status, 200);
   await acceptOutbox();
   assert.equal((await User.findById(crowd[26].user._id).lean())!.pendingRoleNotice!.role, "organizer");
   assert.ok(await recoverNotices({ graceMs: 0 }) >= 1);
@@ -404,7 +404,7 @@ try {
   const memberEvent = await Event.create({ ...eventData, title: "Member event", capacity: 3 });
   assert.equal((await request("/registrations", winner.cookie, "POST", { eventId: memberEvent._id.toString() })).status, 201);
   assert.equal((await Event.findById(memberEvent._id))!.registeredCount, 1);
-  assert.equal((await request(`/users/${winner.user._id}`, admin.cookie, "DELETE")).status, 200);
+  assert.equal((await request(`/users/${winner.user._id}`, admin.cookie, "DELETE", { reason: "Integration test" })).status, 200);
   assert.equal((await Event.findById(memberEvent._id))!.registeredCount, 0);
   assert.equal(await mongoose.connection.collection("user").countDocuments({ _id: winner.identity }), 0);
   assert.equal(await mongoose.connection.collection("session").countDocuments({ userId: winner.identity }), 0);
@@ -780,6 +780,200 @@ try {
   assert.equal((await request(`${searches}/${comps.id}`, alerter.cookie, "DELETE")).status, 200);
   assert.equal(await SavedSearch.countDocuments({ userId: alerter.user._id }), 1);
   console.log("PASS saved-search alerts: drafts skipped, one alert per event per search, no backlog, deduplicated across workers");
+
+  // --- Phase 4: audit log for role and account actions -----------------------
+  const { default: AuditLog } = await import("../models/AuditLog");
+  const { default: Report } = await import("../models/Report");
+  const { recoverModeration } = await import("../lib/moderation");
+  const auditCount = (filter: Record<string, unknown>) => AuditLog.countDocuments(filter);
+  const promoted = await fixture("student");
+  assert.equal((await request(`/users/${promoted.user._id}`, admin.cookie, "PATCH", { role: "organizer" })).status, 400, "a role change needs a reason");
+  assert.equal((await User.findById(promoted.user._id))!.role, "student");
+  assert.equal(await auditCount({ "target.id": promoted.user._id }), 0, "a refused change writes no entry");
+  assert.equal((await request(`/users/${promoted.user._id}`, admin.cookie, "PATCH", { role: "organizer", reason: "Runs the robotics club" })).status, 200);
+  const roleEntry = (await AuditLog.findOne({ action: "user.role_changed", "target.id": promoted.user._id }).lean())!;
+  assert.deepEqual([roleEntry.reason, roleEntry.details.from, roleEntry.details.to, roleEntry.actorId.toString()], ["Runs the robotics club", "student", "organizer", admin.user._id.toString()]);
+  assert.equal((await request(`/users/${promoted.user._id}`, admin.cookie, "PATCH", { role: "organizer", reason: "Repeat" })).status, 200);
+  assert.equal(await auditCount({ action: "user.role_changed", "target.id": promoted.user._id }), 1, "repeating a completed change adds no entry");
+  const audited = contracts.apiSuccessSchema(contracts.auditListSchema).parse(await request(`/admin/audit-log?targetType=user&targetId=${promoted.user._id}`, admin.cookie));
+  assert.equal(audited.data.items.length, 1);
+  assert.equal((await request("/admin/audit-log", owner.cookie)).status, 403);
+  assert.equal((await request("/admin/audit-log")).status, 401);
+  for (const method of ["PATCH", "PUT", "DELETE", "POST"]) {
+    assert.equal((await fetch(`${base}/api/admin/audit-log`, { method, headers: { cookie: admin.cookie, Origin: base } })).status, 405, `no API ${method}s audit entries`);
+  }
+  const leaving = await fixture("student");
+  assert.equal((await request(`/users/${leaving.user._id}`, admin.cookie, "DELETE")).status, 400, "deleting an account needs a reason");
+  assert.ok(await User.exists({ _id: leaving.user._id }));
+  assert.equal((await request(`/users/${leaving.user._id}`, admin.cookie, "DELETE", { reason: "Requested by the student" })).status, 200);
+  const deletedEntry = (await AuditLog.findOne({ action: "user.deleted", "target.id": leaving.user._id }).lean())!;
+  assert.equal(deletedEntry.target.label, leaving.user.email, "the entry outlives the account");
+  console.log("PASS role changes and account deletions need a reason and are audited first");
+
+  // --- Phase 4: admin deletions are audited, organizer self-service is not -------
+  const adminDoomed = await Event.create({ ...eventData, title: "Admin removes this", capacity: 5 });
+  assert.equal((await request(`/events/${adminDoomed._id}`, admin.cookie, "DELETE")).status, 400);
+  assert.equal((await request(`/events/${adminDoomed._id}`, admin.cookie, "DELETE", { reason: "Duplicate listing" })).status, 200);
+  assert.equal(await auditCount({ action: "event.deleted", "target.id": adminDoomed._id, reason: "Duplicate listing" }), 1);
+  const ownDoomed = await Event.create({ ...eventData, title: "Owner removes this", capacity: 5 });
+  assert.equal((await request(`/events/${ownDoomed._id}`, owner.cookie, "DELETE")).status, 200, "owners need no reason");
+  assert.equal(await auditCount({ "target.id": ownDoomed._id }), 0);
+  const chatEvent = await Event.create({ ...eventData, title: "Moderated chat", capacity: 10 });
+  const [talker, listener, bystander] = await Promise.all([fixture("student"), fixture("student"), fixture("student")]);
+  for (const member of [talker, listener]) assert.equal((await request("/registrations", member.cookie, "POST", { eventId: chatEvent._id.toString() })).status, 201);
+  const rude = await Message.create({ eventId: chatEvent._id, senderId: talker.user._id, content: "Buy followers at spam.example" });
+  const rude2 = await Message.create({ eventId: chatEvent._id, senderId: talker.user._id, content: "Second spam" });
+  assert.equal((await request(`/messages/${rude2._id}`, admin.cookie, "DELETE")).status, 400);
+  assert.equal((await request(`/messages/${rude2._id}`, admin.cookie, "DELETE", { reason: "Spam" })).status, 200);
+  assert.equal(await auditCount({ action: "message.deleted", "target.id": rude2._id }), 1);
+  console.log("PASS admin deletions need a reason and are audited; owner deletions are not");
+
+  // --- Phase 4: content reports --------------------------------------------------
+  const reportMessage = (who: { cookie: string }, extra: Record<string, unknown> = {}) =>
+    request("/reports", who.cookie, "POST", { targetType: "message", targetId: rude._id.toString(), reason: "spam", ...extra });
+  const firstReport = await reportMessage(listener, { details: "Link spam" });
+  assert.equal(firstReport.status, 201, JSON.stringify(firstReport));
+  contracts.apiSuccessSchema(contracts.reportSchema).parse(firstReport);
+  const again = await Promise.all([reportMessage(listener), reportMessage(listener)]);
+  assert.deepEqual(again.map((r) => [r.status, r.data.id]), [[200, firstReport.data.id], [200, firstReport.data.id]], "one report per user and target");
+  assert.equal(await Report.countDocuments({ targetId: rude._id, reporterId: listener.user._id }), 1);
+  assert.equal((await reportMessage(talker)).status, 400, "you cannot report your own content");
+  assert.equal((await reportMessage(bystander)).status, 404, "people outside the chat cannot see the message");
+  assert.equal((await reportMessage(owner)).status, 201, "the event owner can report too");
+  assert.equal((await request("/reports", listener.cookie, "POST", { targetType: "message", targetId: rude._id.toString(), reason: "nope" })).status, 400);
+  assert.equal((await request("/reports", "", "POST", { targetType: "message", targetId: rude._id.toString(), reason: "spam" })).status, 401);
+  assert.equal((await request("/reports?status=open", listener.cookie)).status, 403, "the queue is admin only");
+  const queue = contracts.apiSuccessSchema(contracts.adminReportListSchema).parse(await request("/reports?status=open&targetType=message", admin.cookie));
+  const queuedReport = queue.data.items.find((item) => item.id === firstReport.data.id)!;
+  assert.equal(queuedReport.openForTarget, 2);
+  assert.equal(queuedReport.snapshot.text, "Buy followers at spam.example");
+  assert.equal((await request(`/reports/${firstReport.data.id}`, listener.cookie, "PATCH", { action: "remove", reason: "Spam" })).status, 403);
+  assert.equal((await request(`/reports/${firstReport.data.id}`, admin.cookie, "PATCH", { action: "remove" })).status, 400, "resolving needs a reason");
+  const resolutions = await Promise.all([1, 2].map(() => request(`/reports/${firstReport.data.id}`, admin.cookie, "PATCH", { action: "remove", reason: "Advertising is not allowed" })));
+  assert.deepEqual(resolutions.map((r) => r.status), [200, 200], JSON.stringify(resolutions));
+  assert.equal(await Report.countDocuments({ targetId: rude._id, status: "removed" }), 2, "every open report on the message is resolved");
+  assert.equal((await Message.findById(rude._id))!.isDeleted, true);
+  assert.equal(await auditCount({ action: "report.resolved", "details.targetId": rude._id.toString() }), 1, "one resolution, one entry");
+  assert.equal(await auditCount({ action: "message.deleted", "target.id": rude._id }), 1);
+  for (const reporter of [listener, owner]) {
+    assert.equal(await Notification.countDocuments({ userId: reporter.user._id, type: "report_resolved" }), 1, "each reporter hears back once");
+  }
+  assert.equal(await Report.countDocuments({ "resolution.pending": true }), 0);
+  console.log("PASS reports: deduplicated per user and target, resolved together, reporters notified, audited");
+
+  // Review report → dismissed, then removed by a second reporter's report.
+  const reviewed = await Event.create({ ...eventData, title: "Reviewed event", capacity: 10 });
+  const harsh = await Review.create({ eventId: reviewed._id, studentId: talker.user._id, rating: 1, comment: "Unfair rant" });
+  await (await import("../lib/review-stats")).refreshReviewStats(reviewed._id);
+  const reviewReport = await request("/reports", listener.cookie, "POST", { targetType: "review", targetId: harsh._id.toString(), reason: "harassment" });
+  assert.equal(reviewReport.status, 201);
+  assert.equal((await request(`/reports/${reviewReport.data.id}`, admin.cookie, "PATCH", { action: "dismiss", reason: "Negative but allowed" })).status, 200);
+  assert.ok(await Review.exists({ _id: harsh._id }), "dismissing leaves the content");
+  assert.equal(await Notification.countDocuments({ dedupeKey: `report-resolved:${reviewReport.data.id}` }), 1);
+  const secondLook = await request("/reports", bystander.cookie, "POST", { targetType: "review", targetId: harsh._id.toString(), reason: "harassment" });
+  assert.equal(secondLook.status, 201, "a new reporter can still report dismissed content");
+  assert.equal((await request(`/reports/${secondLook.data.id}`, admin.cookie, "PATCH", { action: "remove", reason: "Personal attack" })).status, 200);
+  assert.equal(await Review.exists({ _id: harsh._id }), null);
+  assert.equal((await Event.findById(reviewed._id))!.reviewCount, 0, "ratings are recalculated");
+
+  // Event report → hidden as an unpublishable draft; the organizer is told why.
+  const shady = await Event.create({ ...eventData, title: "Shady giveaway", capacity: 10, publishedAt: new Date() });
+  const eventReport = await request("/reports", listener.cookie, "POST", { targetType: "event", targetId: shady._id.toString(), reason: "misinformation" });
+  assert.equal(eventReport.status, 201);
+  assert.equal((await request("/reports", owner.cookie, "POST", { targetType: "event", targetId: shady._id.toString(), reason: "spam" })).status, 400, "the organizer cannot report their own event");
+  assert.equal((await request(`/reports/${eventReport.data.id}`, admin.cookie, "PATCH", { action: "remove", reason: "Fake prize scheme" })).status, 200);
+  const hiddenEvent = (await Event.findById(shady._id).lean())!;
+  assert.equal(hiddenEvent.draft, true);
+  assert.equal(hiddenEvent.hidden.reason, "Fake prize scheme");
+  assert.equal((await request(`/events/${shady._id}`)).status, 404, "hidden from the public");
+  assert.equal((await request(`/events/${shady._id}`, owner.cookie)).status, 200, "the owner still sees it");
+  assert.equal((await request(`/events/${shady._id}/publish`, owner.cookie, "POST")).status, 400, "and cannot publish it again");
+  assert.equal(await Notification.countDocuments({ userId: owner.user._id, type: "event_hidden", eventId: shady._id }), 1);
+  assert.equal(await auditCount({ action: "event.hidden", "target.id": shady._id }), 1);
+  assert.equal((await request("/reports", bystander.cookie, "POST", { targetType: "event", targetId: shady._id.toString(), reason: "spam" })).status, 404, "a hidden event cannot be reported");
+
+  // A resolution interrupted after its claim is finished by the worker.
+  const lateMessage = await Message.create({ eventId: chatEvent._id, senderId: talker.user._id, content: "Late spam" });
+  const lateReport = await request("/reports", listener.cookie, "POST", { targetType: "message", targetId: lateMessage._id.toString(), reason: "spam" });
+  const crashKey = randomUUID();
+  await Report.updateOne({ _id: lateReport.data.id }, { $set: { status: "removed", resolution: { key: crashKey, action: "remove", reason: "Spam (crashed)", by: admin.user._id, byEmail: admin.user.email, at: new Date(), pending: true } } });
+  assert.equal(await recoverModeration({ graceMs: 60_000 }), 0, "a fresh claim is left to its own request");
+  assert.equal(await recoverModeration({ graceMs: 0 }), 1);
+  assert.equal((await Message.findById(lateMessage._id))!.isDeleted, true);
+  assert.equal(await auditCount({ key: `report:${crashKey}` }), 1);
+  assert.equal(await Notification.countDocuments({ dedupeKey: `report-resolved:${lateReport.data.id}` }), 1);
+  assert.equal(await recoverModeration({ graceMs: 0 }), 0, "recovery is idempotent");
+  console.log("PASS report removal for reviews and events; interrupted resolutions heal in the worker");
+
+  // --- Phase 4: college verification workflow ------------------------------------
+  const suggester = await fixture("organizer");
+  const suggested = await request("/colleges", suggester.cookie, "POST", { name: "Suggested Institute", location: "North" });
+  assert.equal(suggested.status, 201);
+  assert.equal(suggested.data.status, "pending");
+  const collegeId = suggested.data.id;
+  assert.equal((await College.findById(collegeId).lean())!.submittedBy.toString(), suggester.user._id.toString());
+  assert.equal((await request(`/colleges/${collegeId}`, admin.cookie, "PUT", { isVerified: true })).status, 400, "verification needs the decision endpoint");
+  assert.equal((await request(`/colleges/${collegeId}/decision`, admin.cookie, "POST", { decision: "reject" })).status, 400, "a decision needs a reason");
+  assert.equal((await request(`/colleges/${collegeId}/decision`, suggester.cookie, "POST", { decision: "approve", reason: "Mine" })).status, 403);
+  assert.equal((await request("/colleges?status=pending", suggester.cookie)).status, 403, "status listings are admin only");
+  const pendingList = await request("/colleges?status=pending&limit=100", admin.cookie);
+  assert.ok(pendingList.data.items.some((item: { id: string }) => item.id === collegeId));
+  const rejections = await Promise.all([1, 2, 3].map(() => request(`/colleges/${collegeId}/decision`, admin.cookie, "POST", { decision: "reject", reason: "Not an accredited college" })));
+  assert.deepEqual(rejections.map((r) => r.status), [200, 200, 200]);
+  assert.equal(rejections.filter((r) => r.message === "College rejected").length, 1, "parallel decisions: exactly one wins");
+  contracts.apiSuccessSchema(contracts.collegeResponseSchema).parse(rejections[0]);
+  assert.equal(await auditCount({ action: "college.rejected", "target.id": collegeId }), 1);
+  assert.equal(await Notification.countDocuments({ userId: suggester.user._id, type: "college_decision" }), 1, "the submitter hears once");
+  assert.equal((await request("/colleges?limit=100")).data.items.some((item: { id: string }) => item.id === collegeId), false, "rejected colleges leave the public list");
+  const rejectedList = await request("/colleges?status=rejected&limit=100", admin.cookie);
+  const rejectedRow = rejectedList.data.items.find((item: { id: string }) => item.id === collegeId);
+  assert.equal(rejectedRow.decision.reason, "Not an accredited college", "every decision shows its reason");
+  assert.match((await request("/colleges", suggester.cookie, "POST", { name: "suggested institute" })).message, /not approved/);
+  assert.equal((await request(`/colleges/${collegeId}/decision`, admin.cookie, "POST", { decision: "approve", reason: "Accreditation confirmed" })).message, "College approved");
+  const approved = (await College.findById(collegeId).lean())!;
+  assert.deepEqual([approved.status, approved.isVerified, approved.decision.pending], ["verified", true, undefined]);
+  assert.equal(await Notification.countDocuments({ userId: suggester.user._id, type: "college_decision" }), 2);
+  assert.equal(await auditCount({ "target.id": new mongoose.Types.ObjectId(collegeId), action: { $in: ["college.verified", "college.rejected"] } }), 2);
+  // Older colleges have no status: isVerified decides, and approving one works.
+  const legacyCollege = await College.collection.insertOne({ name: "Legacy Unverified", isVerified: false, createdAt: new Date(), updatedAt: new Date() });
+  assert.ok((await request("/colleges?status=pending&limit=100", admin.cookie)).data.items.some((item: { id: string; status: string }) => item.id === legacyCollege.insertedId.toString() && item.status === "pending"));
+  assert.equal((await request(`/colleges/${legacyCollege.insertedId}/decision`, admin.cookie, "POST", { decision: "approve", reason: "Known campus" })).message, "College approved");
+  assert.equal((await request(`/colleges/${legacyCollege.insertedId}`, admin.cookie, "DELETE")).status, 400, "deleting needs a reason");
+  assert.equal((await request(`/colleges/${legacyCollege.insertedId}`, admin.cookie, "DELETE", { reason: "Merged into another" })).status, 200);
+  assert.equal(await auditCount({ action: "college.deleted", "target.id": legacyCollege.insertedId }), 1);
+  // A decision interrupted before its follow-ups is finished by the worker.
+  const crashedCollege = await College.create({ name: "Crashed Decision College", status: "rejected", isVerified: false, submittedBy: suggester.user._id, decision: { key: randomUUID(), status: "rejected", reason: "Crash test", by: admin.user._id, byEmail: admin.user.email, at: new Date(Date.now() - 120_000), pending: true } });
+  assert.ok(await recoverModeration() >= 1);
+  assert.equal(await auditCount({ action: "college.rejected", "target.id": crashedCollege._id }), 1);
+  assert.equal(await Notification.countDocuments({ userId: suggester.user._id, type: "college_decision" }), 3);
+  console.log("PASS college decisions need a reason, notify the submitter once, are audited, and heal after a crash");
+
+  // --- Phase 4: delivery health ---------------------------------------------------
+  const failedJob = await Outbox.create({ to: { email: "bounce@example.test", name: "Bounce" }, subject: "Delivery fixture", htmlContent: "<p>secret link</p>", status: "failed", attempts: 8, lastError: "Email provider returned HTTP 401" });
+  const sentJob = await Outbox.create({ to: { email: "ok@example.test", name: "Ok" }, subject: "Sent fixture", htmlContent: "x", status: "sent", finishedAt: new Date() });
+  assert.equal((await request("/admin/outbox", owner.cookie)).status, 403);
+  const health = contracts.apiSuccessSchema(contracts.deliveryHealthSchema).parse(await request("/admin/outbox?status=failed&limit=100", admin.cookie));
+  const failedRow = health.data.items.find((item) => item.id === failedJob._id.toString())!;
+  assert.equal(failedRow.lastError, "Email provider returned HTTP 401");
+  assert.ok(health.data.counts.failed >= 1);
+  assert.equal(JSON.stringify(health).includes("secret link"), false, "email bodies are never returned");
+  assert.equal((await request(`/admin/outbox/${sentJob._id}/retry`, admin.cookie, "POST")).status, 409, "a sent email is never resent");
+  const retried = await request(`/admin/outbox/${failedJob._id}/retry`, admin.cookie, "POST");
+  assert.equal(retried.status, 200);
+  const requeued = (await Outbox.findById(failedJob._id).lean())!;
+  assert.deepEqual([requeued.status, requeued.attempts, requeued.htmlContent], ["pending", 0, "<p>secret link</p>"]);
+  assert.ok(requeued.availableAt.getTime() <= Date.now());
+  assert.equal(await auditCount({ action: "email.retried", "target.id": failedJob._id }), 1);
+  await Outbox.updateMany({ _id: failedJob._id }, { $set: { status: "failed" } });
+  const otherFailed = await Outbox.create({ to: { email: "bounce2@example.test", name: "B" }, subject: "Second failure", htmlContent: "x", status: "failed", attempts: 8 });
+  const bulk = await request("/admin/outbox/retry-failed", admin.cookie, "POST");
+  assert.ok(bulk.data.retried >= 2);
+  assert.equal(await Outbox.countDocuments({ _id: { $in: [failedJob._id, otherFailed._id] }, status: "pending" }), 2);
+  assert.equal((await request("/admin/outbox/retry-failed", admin.cookie, "POST")).data.retried, 0, "nothing left to retry");
+  // The suite has queued many other emails by now; drain the queue.
+  while (await processOutbox(async () => {}, 1000) === 1000) { /* next batch */ }
+  assert.equal((await Outbox.findById(failedJob._id).lean())!.status, "sent", "a retried email is delivered by the normal worker");
+  console.log("PASS delivery health lists failures with lastError and retries them safely");
 } catch (error) {
   console.error(serverLog.slice(-18000));
   throw error;

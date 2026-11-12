@@ -33,7 +33,8 @@ export const chatService = {
     });
   },
 
-  deleteMessage(messageId: string) {
-    return api.delete(`/messages/${messageId}`);
+  /** Admins must give a reason (audited); event staff send none. */
+  deleteMessage(messageId: string, reason?: string) {
+    return api.delete(`/messages/${messageId}`, reason ? { data: { reason } } : undefined);
   },
 };

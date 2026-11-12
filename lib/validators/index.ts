@@ -6,3 +6,4 @@ export * from "./college.schema";
 export * from "./user.schema";
 export * from "./utils";
 export * from "./discovery.schema";
+export * from "./admin.schema";

@@ -18,6 +18,9 @@ import Bookmark from "@/models/Bookmark";
 import Notification from "@/models/Notification";
 import Collaboration from "@/models/Collaboration";
 import Outbox from "@/models/Outbox";
+import Report from "@/models/Report";
+import { writeAudit } from "@/lib/audit";
+import { adminReasonSchema, readOptionalJson } from "@/lib/validators/admin.schema";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -67,7 +70,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 /**
  * PATCH /api/users/:id
- * Update user role (admin only)
+ * Update user role (admin only). Body: { role, reason }. The audit entry is
+ * written before anything changes.
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
@@ -98,12 +102,27 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return ApiErrors.notFound("User");
     }
 
+    // Audit first: a role change can never exist without its entry. Repeating an
+    // already-completed change writes nothing. A retry after a crash part-way
+    // may add a second entry for the same change.
+    const identities = mongoose.connection.collection("user");
+    if (!await identities.findOne({ email: existing.email }, { projection: { _id: 1 } })) {
+      return ApiErrors.badRequest("Login identity is missing. Run the data audit before changing this role.");
+    }
+    if (existing.role !== validatedData.role) {
+      await writeAudit({
+        actor: authResult, action: "user.role_changed",
+        target: { type: "user", id, label: existing.email },
+        reason: validatedData.reason, details: { from: existing.role, to: validatedData.role },
+      });
+    }
+
     // Fixed write order, safe to repeat after a crash:
     //   1. Better Auth identity (display role in the session)
     //   2. application profile (the role every permission check reads)
     // A crash after step 1 leaves the profile - and so every privilege - unchanged;
     // repeating the request completes it, and `db:audit` flags any mismatch.
-    const identityUpdate = await mongoose.connection.collection("user").updateOne(
+    const identityUpdate = await identities.updateOne(
       { email: existing.email },
       { $set: { role: validatedData.role } },
     );
@@ -147,7 +166,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
 /**
  * DELETE /api/users/:id
- * Delete a user (admin only)
+ * Delete a user (admin only). Body: { reason }. Audited before anything is removed.
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
@@ -168,6 +187,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return ApiErrors.badRequest("You cannot delete your own account");
     }
 
+    const parsed = adminReasonSchema.safeParse(await readOptionalJson(request));
+    if (!parsed.success) return ApiErrors.validationError(formatZodErrors(parsed.error));
+
     await connectDB();
 
     const result = await User.findById(id);
@@ -179,6 +201,14 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     if (await Event.exists({ organizerId: id })) {
       return ApiErrors.badRequest("Reassign or remove this user’s events before deleting their account");
     }
+
+    // Audit first. The profile is removed last, so a retry after a crash finds it
+    // again and finishes the steps below (adding a second entry).
+    await writeAudit({
+      actor: authResult, action: "user.deleted",
+      target: { type: "user", id, label: result.email },
+      reason: parsed.data.reason, details: { role: result.role },
+    });
 
     // Ordered so a crash is safe to repeat: the login identity goes first (nobody
     // can sign in or be re-provisioned), the profile goes last, so a retry still
@@ -206,6 +236,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     await Notification.deleteMany({ userId: id });
     await Outbox.deleteMany({ "to.email": result.email, status: { $in: ["pending", "failed"] } });
     await Collaboration.deleteMany({ $or: [{ requesterId: id }, { targetOrganizerId: id }] });
+    // Their reports go with them; resolved ones live on in the audit log.
+    await Report.deleteMany({ reporterId: id });
     await User.findByIdAndDelete(id);
 
     return successResponse(null, "User deleted successfully");

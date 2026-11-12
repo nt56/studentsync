@@ -16,9 +16,9 @@ export const userService = {
     return api.put("/users", data);
   },
 
-  /** PATCH /api/users/:id — admin only: update role */
-  updateUserRole(id: string, role: string) {
-    return api.patch(`/users/${id}`, { role });
+  /** PATCH /api/users/:id — admin only: update role. The reason is audited first. */
+  updateUserRole(id: string, role: string, reason: string) {
+    return api.patch(`/users/${id}`, { role, reason });
   },
 
   /** PUT /api/users/:id — admin only: full update */
@@ -26,9 +26,9 @@ export const userService = {
     return api.put(`/users/${id}`, data);
   },
 
-  /** DELETE /api/users/:id — admin only */
-  deleteUser(id: string) {
-    return api.delete(`/users/${id}`);
+  /** DELETE /api/users/:id — admin only, with an audited reason */
+  deleteUser(id: string, reason: string) {
+    return api.delete(`/users/${id}`, { data: { reason } });
   },
 
   /** GET /api/users/me/calendar-feed — whether a private feed link exists */

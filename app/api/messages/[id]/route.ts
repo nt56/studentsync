@@ -1,3 +1,6 @@
+import { writeAudit } from "@/lib/audit";
+import { adminReasonSchema, readOptionalJson } from "@/lib/validators/admin.schema";
+import { formatZodErrors } from "@/lib/validators/utils";
 import { canManageEvent } from "@/lib/event-access";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
@@ -11,7 +14,7 @@ import { successResponse, ApiErrors } from "@/lib/api-response";
  * Soft-delete a message. Admins can delete any; organizers can delete from their own events only.
  */
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
@@ -31,6 +34,18 @@ export async function DELETE(
 
     const event = await Event.findOne({ _id: message.eventId, ...liveEvent });
     if (!event || !canManageEvent(event, authResult.mongoUserId, authResult.userRole, "moderate")) return ApiErrors.forbidden();
+
+    // Admins give a reason, audited before the change. Event staff moderating
+    // their own chat are not audited.
+    if (authResult.userRole === "admin") {
+      const parsed = adminReasonSchema.safeParse(await readOptionalJson(request));
+      if (!parsed.success) return ApiErrors.validationError(formatZodErrors(parsed.error));
+      await writeAudit({
+        actor: authResult, action: "message.deleted",
+        target: { type: "message", id: message._id, label: message.content.slice(0, 80) },
+        reason: parsed.data.reason, details: { eventId: message.eventId.toString() },
+      });
+    }
 
     message.isDeleted = true;
     await message.save();

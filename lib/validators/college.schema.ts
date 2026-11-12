@@ -19,11 +19,10 @@ export const createCollegeSchema = z.object({
 });
 
 /**
- * Schema for updating a college
+ * Schema for updating a college's details. Verification is not editable here:
+ * it goes through POST /api/colleges/:id/decision, which needs a reason.
  */
-export const updateCollegeSchema = createCollegeSchema.partial().extend({
-  isVerified: z.boolean().optional(),
-});
+export const updateCollegeSchema = createCollegeSchema.partial();
 
 /**
  * Schema for college query parameters
@@ -36,6 +35,8 @@ export const collegeQuerySchema = z.object({
     .string()
     .transform((val) => val === "true")
     .optional(),
+  // Admin only: "rejected" lists colleges hidden from everyone else.
+  status: z.enum(["pending", "verified", "rejected"]).optional(),
 });
 
 export type CreateCollegeInput = z.infer<typeof createCollegeSchema>;

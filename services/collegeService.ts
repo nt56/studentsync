@@ -21,8 +21,13 @@ export const collegeService = {
     return api.put(`/colleges/${id}`, data);
   },
 
-  /** DELETE /api/colleges/:id — admin only */
-  deleteCollege(id: string) {
-    return api.delete(`/colleges/${id}`);
+  /** DELETE /api/colleges/:id — admin only, with an audited reason */
+  deleteCollege(id: string, reason: string) {
+    return api.delete(`/colleges/${id}`, { data: { reason } });
+  },
+
+  /** POST /api/colleges/:id/decision — admin approves or rejects with a reason */
+  decideCollege(id: string, decision: "approve" | "reject", reason: string) {
+    return api.post(`/colleges/${id}/decision`, { decision, reason });
   },
 };

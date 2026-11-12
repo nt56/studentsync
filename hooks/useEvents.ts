@@ -39,7 +39,8 @@ export function useEvents() {
   );
 
   const remove = useCallback(
-    (id: string) => dispatch(deleteEvent(id)),
+    // Admins must pass a reason (audited); owners pass none.
+    (id: string, reason?: string) => dispatch(deleteEvent({ id, reason })),
     [dispatch],
   );
 

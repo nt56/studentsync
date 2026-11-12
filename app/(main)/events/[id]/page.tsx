@@ -24,6 +24,7 @@ import { ChatPanel } from "@/components/chat/ChatPanel";
 import AddToCalendar from "@/components/events/AddToCalendar";
 import { BookmarkButton } from "@/components/events/BookmarkButton";
 import { ShareButton } from "@/components/events/ShareButton";
+import { ReportButton } from "@/components/common/ReportButton";
 import StarRating from "@/components/events/StarRating";
 import ReviewForm from "@/components/events/ReviewForm";
 import ReviewList from "@/components/events/ReviewList";
@@ -290,6 +291,14 @@ export default function EventDetailPage() {
                 title={event.title}
                 description={event.description}
                 className="size-9 rounded-xl border border-border/80 bg-card/80 backdrop-blur-md shadow-2xs hover:bg-secondary text-muted-foreground hover:text-primary"
+              />
+            )}
+            {/* Reporting is for participants; the event team and admins act directly. */}
+            {isAuthenticated && !isDraft && user?.role !== "admin" && !event.permissions?.includes("edit") && (
+              <ReportButton
+                targetType="event"
+                targetId={id}
+                className="flex size-9 items-center justify-center rounded-xl border border-border/80 bg-card/80 shadow-2xs"
               />
             )}
           </div>

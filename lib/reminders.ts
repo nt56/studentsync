@@ -42,7 +42,8 @@ export async function invalidateStaleReminders(eventId: Types.ObjectId | string,
 export async function materializeReminders(userId?: string) {
   await connectDB();
   const now = Date.now();
-  const events = Event.find({ ...liveEvent, date: { $gt: new Date(now), $lte: new Date(now + REMINDERS[0].lead) } }).cursor();
+  // Drafts include events an admin hid after a report: their registrants get no reminders.
+  const events = Event.find({ ...liveEvent, draft: { $ne: true }, date: { $gt: new Date(now), $lte: new Date(now + REMINDERS[0].lead) } }).cursor();
   for await (const event of events) {
     const start: Date = event.date;
     if (!userId) await invalidateStaleReminders(event._id, start);
@@ -57,7 +58,7 @@ export async function materializeReminders(userId?: string) {
         .select("firstName lastName email").lean<{ _id: Types.ObjectId; firstName: string; lastName: string; email: string } | null>();
       if (!student) continue;
       // Re-read the event: a reschedule changes the date, and with it the key.
-      const current = await Event.findOne({ _id: event._id, ...liveEvent, date: start });
+      const current = await Event.findOne({ _id: event._id, ...liveEvent, draft: { $ne: true }, date: start });
       if (!current) continue;
       const timeZone = current.timeZone && validTimeZone(current.timeZone) ? current.timeZone : "UTC";
       const when = new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short", timeZone }).format(current.date);

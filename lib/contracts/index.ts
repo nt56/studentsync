@@ -194,6 +194,104 @@ export const savedSearchSchema = z.object({
 });
 export const savedSearchListSchema = z.object({ items: z.array(savedSearchSchema), limit: z.number().int().min(1) });
 
+// ── Admin oversight (Phase 4) ───────────────────────────────────────────────
+
+/** Every admin decision carries a reason of this length. */
+export const REASON_MIN = 3;
+export const REASON_MAX = 500;
+
+export const AUDIT_ACTIONS = [
+  "user.role_changed", "user.deleted",
+  "event.deleted", "event.hidden", "review.deleted", "message.deleted",
+  "college.verified", "college.rejected", "college.deleted",
+  "report.resolved", "email.retried",
+] as const;
+export const AUDIT_TARGETS = ["user", "event", "review", "message", "college", "report", "email"] as const;
+export const auditEntrySchema = z.object({
+  id: z.string(),
+  action: z.enum(AUDIT_ACTIONS),
+  actor: z.object({ id: z.string(), email: z.string() }),
+  target: z.object({ type: z.enum(AUDIT_TARGETS), id: z.string(), label: z.string() }),
+  reason: z.string().nullable(),
+  details: z.record(z.string(), z.unknown()).nullable(),
+  at: isoDate,
+});
+export const auditListSchema = paginatedSchema(auditEntrySchema);
+
+export const COLLEGE_STATUSES = ["pending", "verified", "rejected"] as const;
+export const collegeStatusSchema = z.enum(COLLEGE_STATUSES);
+export const collegeResponseSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  location: z.string().optional(),
+  isVerified: z.boolean(),
+  status: collegeStatusSchema,
+  /** The latest approve/reject decision. Only returned to admins. */
+  decision: z.object({ status: collegeStatusSchema, reason: z.string(), at: isoDate }).nullable().optional(),
+  submittedBy: z.string().nullable().optional(),
+  createdAt: isoDate,
+  updatedAt: isoDate,
+});
+
+export const REPORT_TARGETS = ["message", "review", "event"] as const;
+export const REPORT_REASONS = ["spam", "harassment", "inappropriate", "misinformation", "other"] as const;
+export const REPORT_REASON_LABELS: Record<(typeof REPORT_REASONS)[number], string> = {
+  spam: "Spam or advertising",
+  harassment: "Harassment or hate",
+  inappropriate: "Inappropriate content",
+  misinformation: "False or misleading",
+  other: "Something else",
+};
+export const REPORT_STATUSES = ["open", "dismissed", "removed"] as const;
+export const reportSchema = z.object({
+  id: z.string(),
+  targetType: z.enum(REPORT_TARGETS),
+  targetId: z.string(),
+  eventId: z.string(),
+  reason: z.enum(REPORT_REASONS),
+  details: z.string(),
+  status: z.enum(REPORT_STATUSES),
+  createdAt: isoDate,
+});
+/** Admin queue rows add the reporter, a snapshot of the content, and the open count for the target. */
+export const adminReportSchema = reportSchema.extend({
+  reporter: z.object({ id: z.string(), name: z.string() }).nullable(),
+  snapshot: z.object({ text: z.string(), authorName: z.string().nullable(), eventTitle: z.string() }),
+  openForTarget: z.number().int().min(0),
+  resolution: z.object({ reason: z.string(), at: isoDate }).nullable(),
+});
+export const adminReportListSchema = paginatedSchema(adminReportSchema);
+
+export const OUTBOX_STATUSES = ["pending", "processing", "sent", "failed", "skipped"] as const;
+export const outboxJobSchema = z.object({
+  id: z.string(),
+  to: z.string(),
+  subject: z.string(),
+  status: z.enum(OUTBOX_STATUSES),
+  essential: z.boolean(),
+  attempts: z.number().int().min(0),
+  lastError: z.string().nullable(),
+  availableAt: isoDate,
+  createdAt: isoDate,
+  updatedAt: isoDate,
+});
+export const deliveryHealthSchema = paginatedSchema(outboxJobSchema).extend({
+  counts: z.object({ pending: z.number(), processing: z.number(), failed: z.number() }),
+  providerConfigured: z.boolean(),
+});
+
+export type AuditEntry = z.infer<typeof auditEntrySchema>;
+export type AuditAction = (typeof AUDIT_ACTIONS)[number];
+export type AuditTarget = (typeof AUDIT_TARGETS)[number];
+export type CollegeStatus = z.infer<typeof collegeStatusSchema>;
+export type CollegeResponse = z.infer<typeof collegeResponseSchema>;
+export type ReportTarget = (typeof REPORT_TARGETS)[number];
+export type ReportReason = (typeof REPORT_REASONS)[number];
+export type ReportResponse = z.infer<typeof reportSchema>;
+export type AdminReport = z.infer<typeof adminReportSchema>;
+export type OutboxJob = z.infer<typeof outboxJobSchema>;
+export type DeliveryHealth = z.infer<typeof deliveryHealthSchema>;
+
 export type SavedSearchFilters = z.infer<typeof savedSearchFiltersSchema>;
 export type SavedSearch = z.infer<typeof savedSearchSchema>;
 export type Recommendation = z.infer<typeof recommendationSchema>;

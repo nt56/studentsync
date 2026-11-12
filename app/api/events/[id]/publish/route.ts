@@ -32,6 +32,9 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     if (!event || !canViewEvent(event, authResult.mongoUserId, authResult.userRole)) return ApiErrors.notFound("Event");
     if (!canManageEvent(event, authResult.mongoUserId, authResult.userRole, "edit")) return ApiErrors.forbidden();
 
+    if (event.hidden?.at) {
+      return ApiErrors.badRequest(`An administrator hid this event after a report, so it cannot be published. Reason: ${event.hidden.reason}`);
+    }
     if (event.draft) {
       // Dates are cleared when duplicating, but an old draft can still go stale.
       if (new Date(event.registrationDeadline) <= new Date()) {
@@ -39,6 +42,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       }
       const outcome = await publishDraft(id);
       if (outcome === "missing") return ApiErrors.notFound("Event");
+      if (outcome === "hidden") return ApiErrors.badRequest("An administrator hid this event after a report, so it cannot be published");
       // The event is public now; a failed admin notice must not fail the request.
       if (outcome === "published") await notifyEventPublished(event);
     }

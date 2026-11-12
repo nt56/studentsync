@@ -17,6 +17,7 @@ import {
 import { useEventChat } from "@/hooks/useSocket";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
+import { ReasonDialog } from "@/components/common/ReasonDialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -41,6 +42,8 @@ export function ChatPanel({
   );
   const authUser = useAppSelector((s) => s.auth.user);
   const [isOpen, setIsOpen] = useState(false);
+  // Admin deletions are audited, so they ask for a reason first.
+  const [adminDeleteId, setAdminDeleteId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const canSend = isRegistered || isOwner || userRole === "admin";
@@ -81,14 +84,29 @@ export function ChatPanel({
 
   const handleDelete = useCallback(
     async (messageId: string) => {
+      if (userRole === "admin") {
+        setAdminDeleteId(messageId);
+        return;
+      }
       try {
-        await dispatch(deleteMessage(messageId)).unwrap();
+        await dispatch(deleteMessage({ messageId })).unwrap();
       } catch {
         toast.error("Failed to delete message");
       }
     },
-    [dispatch],
+    [dispatch, userRole],
   );
+
+  const deleteWithReason = async (reason: string) => {
+    if (!adminDeleteId) return;
+    try {
+      await dispatch(deleteMessage({ messageId: adminDeleteId, reason })).unwrap();
+      toast.success("Message deleted");
+    } catch (err) {
+      toast.error(typeof err === "string" ? err : "Failed to delete message");
+      throw err;
+    }
+  };
 
   const handleTyping = useCallback(() => {
     emitTyping(userName);
@@ -211,6 +229,7 @@ export function ChatPanel({
                   message={msg}
                   isOwn={msg.senderId?._id === userMongoId}
                   canDelete={canDelete}
+                  canReport={userRole !== "admin"}
                   onDelete={handleDelete}
                 />
               ))
@@ -246,6 +265,15 @@ export function ChatPanel({
           />
         </div>
       )}
+      <ReasonDialog
+        open={!!adminDeleteId}
+        onOpenChange={(open) => !open && setAdminDeleteId(null)}
+        title="Delete message"
+        description="The message is hidden for everyone in this chat."
+        confirmLabel="Delete message"
+        variant="danger"
+        onConfirm={deleteWithReason}
+      />
     </div>
   );
 }

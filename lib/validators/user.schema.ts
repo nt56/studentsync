@@ -1,3 +1,4 @@
+import { reasonSchema } from "./admin.schema";
 import { z } from "zod";
 
 /**
@@ -35,6 +36,8 @@ export const updateUserSchema = z.object({
  */
 export const updateUserRoleSchema = z.object({
   role: z.enum(["student", "organizer", "admin"]),
+  // Written to the audit log before the change.
+  reason: reasonSchema,
 });
 
 /**

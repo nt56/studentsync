@@ -35,6 +35,9 @@ import {
   Sparkles,
   ShieldCheck,
   Award,
+  Flag,
+  ScrollText,
+  MailWarning,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -98,6 +101,9 @@ const navItems: NavItem[] = [
     icon: GraduationCap,
     roles: ["admin"],
   },
+  { label: "Reports", href: "/dashboard/reports", icon: Flag, roles: ["admin"] },
+  { label: "Email Delivery", href: "/dashboard/delivery", icon: MailWarning, roles: ["admin"] },
+  { label: "Audit Log", href: "/dashboard/audit-log", icon: ScrollText, roles: ["admin"] },
 ];
 
 const bottomItems: NavItem[] = [

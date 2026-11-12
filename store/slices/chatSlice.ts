@@ -57,12 +57,13 @@ export const sendMessage = createAsyncThunk(
 
 export const deleteMessage = createAsyncThunk(
   "chat/deleteMessage",
-  async (messageId: string, { rejectWithValue }) => {
+  async ({ messageId, reason }: { messageId: string; reason?: string }, { rejectWithValue }) => {
     try {
-      await chatService.deleteMessage(messageId);
+      await chatService.deleteMessage(messageId, reason);
       return messageId;
-    } catch {
-      return rejectWithValue("Failed to delete message");
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      return rejectWithValue(err.response?.data?.message || "Failed to delete message");
     }
   },
 );

@@ -16,6 +16,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import AdminAnalyticsSection from "@/components/dashboard/analytics/AdminAnalyticsSection";
+import { AdminAttention } from "@/components/dashboard/AdminAttention";
 
 export default function AdminDashboard() {
   const dispatch = useAppDispatch();
@@ -102,6 +103,8 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
+
+      <AdminAttention />
 
       {/* Quick Management Hub Cards */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">

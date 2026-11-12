@@ -1,3 +1,6 @@
+import { writeAudit } from "@/lib/audit";
+import { adminReasonSchema, readOptionalJson } from "@/lib/validators/admin.schema";
+import { formatZodErrors } from "@/lib/validators/utils";
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
 import { refreshReviewStats } from "@/lib/review-stats";
@@ -14,7 +17,7 @@ interface RouteParams {
  * DELETE /api/reviews/:reviewId
  * Delete a review — owner (student) or admin only
  */
-export async function DELETE(_req: NextRequest, { params }: RouteParams) {
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { reviewId } = await params;
 
@@ -37,6 +40,17 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
 
     if (!isOwner && !isAdmin) {
       return ApiErrors.forbidden();
+    }
+
+    // An admin removing someone else's review gives a reason, audited first.
+    if (!isOwner) {
+      const parsed = adminReasonSchema.safeParse(await readOptionalJson(request));
+      if (!parsed.success) return ApiErrors.validationError(formatZodErrors(parsed.error));
+      await writeAudit({
+        actor: authResult, action: "review.deleted",
+        target: { type: "review", id: review._id, label: (review.comment || `${review.rating}★ rating`).slice(0, 80) },
+        reason: parsed.data.reason, details: { eventId: review.eventId.toString(), studentId: review.studentId.toString() },
+      });
     }
 
     const eventId = review.eventId.toString();

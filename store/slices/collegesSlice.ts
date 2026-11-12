@@ -8,6 +8,10 @@ export interface College {
   location?: string;
   website?: string;
   isVerified: boolean;
+  status?: "pending" | "verified" | "rejected";
+  /** Admin listings only: the latest approve/reject decision. */
+  decision?: { status: "verified" | "rejected"; reason: string; at: string } | null;
+  submittedBy?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -99,15 +103,29 @@ export const updateCollege = createAsyncThunk(
 
 export const deleteCollege = createAsyncThunk(
   "colleges/deleteCollege",
-  async (id: string, { rejectWithValue }) => {
+  async ({ id, reason }: { id: string; reason: string }, { rejectWithValue }) => {
     try {
-      await collegeService.deleteCollege(id);
+      await collegeService.deleteCollege(id, reason);
       return id;
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
       return rejectWithValue(
         err.response?.data?.message || "Failed to delete college",
       );
+    }
+  },
+);
+
+/** Approve or reject with a reason; the submitter is notified and the decision audited. */
+export const decideCollege = createAsyncThunk(
+  "colleges/decideCollege",
+  async ({ id, decision, reason }: { id: string; decision: "approve" | "reject"; reason: string }, { rejectWithValue }) => {
+    try {
+      const response = await collegeService.decideCollege(id, decision, reason);
+      return response.data as College;
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } } };
+      return rejectWithValue(err.response?.data?.message || "Failed to save the decision");
     }
   },
 );

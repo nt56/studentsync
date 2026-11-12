@@ -137,9 +137,9 @@ export const publishEvent = createAsyncThunk(
 
 export const deleteEvent = createAsyncThunk(
   "events/deleteEvent",
-  async (id: string, { rejectWithValue }) => {
+  async ({ id, reason }: { id: string; reason?: string }, { rejectWithValue }) => {
     try {
-      await eventService.deleteEvent(id);
+      await eventService.deleteEvent(id, reason);
       return id;
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };

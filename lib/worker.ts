@@ -8,6 +8,7 @@ import { reconcileSeats } from "@/lib/seats";
 import { recoverAnnouncements } from "@/lib/announcements";
 import { processWaitlists } from "@/lib/waitlist";
 import { processSavedSearchAlerts } from "@/lib/saved-search-alerts";
+import { recoverModeration } from "@/lib/moderation";
 
 const RECONCILE_EVERY_MS = 5 * 60_000;
 let lastReconcile = 0;
@@ -27,6 +28,7 @@ export async function runWorkerPass({ forceReconcile = false }: { forceReconcile
     ["Event deletion recovery", () => purgeDeletingEvents()],
     ["Waitlist worker", () => processWaitlists()],
     ["Saved-search alerts", () => processSavedSearchAlerts()],
+    ["Moderation follow-up recovery", () => recoverModeration()],
     ["Email worker", () => processOutbox()],
   ];
   if (forceReconcile || Date.now() - lastReconcile >= RECONCILE_EVERY_MS) {

@@ -74,9 +74,9 @@ export const getUserById = createAsyncThunk(
 
 export const updateUserRole = createAsyncThunk(
   "users/updateUserRole",
-  async ({ id, role }: { id: string; role: string }, { rejectWithValue }) => {
+  async ({ id, role, reason }: { id: string; role: string; reason: string }, { rejectWithValue }) => {
     try {
-      const response = await userService.updateUserRole(id, role);
+      const response = await userService.updateUserRole(id, role, reason);
       return response.data;
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };
@@ -107,9 +107,9 @@ export const toggleUserBan = createAsyncThunk(
 
 export const deleteUser = createAsyncThunk(
   "users/deleteUser",
-  async (id: string, { rejectWithValue }) => {
+  async ({ id, reason }: { id: string; reason: string }, { rejectWithValue }) => {
     try {
-      await userService.deleteUser(id);
+      await userService.deleteUser(id, reason);
       return id;
     } catch (error: unknown) {
       const err = error as { response?: { data?: { message?: string } } };

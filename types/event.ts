@@ -15,6 +15,8 @@ export interface IEvent {
   timeZone?: string;
   staff?: { userId: Types.ObjectId; role: "editor" | "volunteer" }[];
   draft?: boolean;
+  // Set when an admin hid the event after a report (it stays a draft).
+  hidden?: { at: Date; reason: string };
   publishedAt?: Date;
   venue: string;
   organizerId: Types.ObjectId;

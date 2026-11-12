@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db";
-import College from "@/models/College";
-import { requireAuth } from "@/lib/auth-guard";
+import College, { visibleCollege } from "@/models/College";
+import { requireAuth, requireAdmin } from "@/lib/auth-guard";
 import { successResponse, ApiErrors } from "@/lib/api-response";
 import { escapeRegex } from "@/lib/utils";
 import {
@@ -19,7 +19,8 @@ import { ZodError } from "zod";
 /**
  * GET /api/colleges
  * Get all colleges with filtering and pagination
- * Public endpoint
+ * Public endpoint. Rejected colleges are hidden; admins list them (and see each
+ * decision) with `status=pending|verified|rejected`.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -31,15 +32,23 @@ export async function GET(request: NextRequest) {
       limit: searchParams.get("limit") || "20",
       search: searchParams.get("search") || undefined,
       isVerified: searchParams.get("isVerified") || undefined,
+      status: searchParams.get("status") || undefined,
     };
 
     // Validate query parameters
     const validatedQuery = collegeQuerySchema.parse(queryParams);
-    const { page, limit, search, isVerified } = validatedQuery;
+    const { page, limit, search, isVerified, status } = validatedQuery;
+    if (status) {
+      const authResult = await requireAdmin();
+      if (!authResult.success) return authResult.response;
+    }
 
     // Build filter
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const filter: any = {};
+    const filter: any = status === "rejected" ? { status: "rejected" } : { ...visibleCollege };
+    // Older colleges have no `status`; `isVerified` is kept in step with it.
+    if (status === "verified") filter.isVerified = true;
+    if (status === "pending") filter.isVerified = false;
 
     if (search) {
       filter.name = { $regex: escapeRegex(search), $options: "i" };
@@ -59,7 +68,7 @@ export async function GET(request: NextRequest) {
       .limit(limit)
       .lean<ICollege[]>();
 
-    const formattedColleges = colleges.map(formatCollegeResponse);
+    const formattedColleges = colleges.map((college) => formatCollegeResponse(college, { forAdmin: !!status }));
 
     return successResponse(
       createPaginatedResponse(formattedColleges, page, limit, total),
@@ -98,7 +107,9 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingCollege) {
-      return ApiErrors.badRequest("A college with this name already exists");
+      return ApiErrors.badRequest(existingCollege.status === "rejected"
+        ? "A college with this name was reviewed and not approved"
+        : "A college with this name already exists");
     }
 
     // Only admins create pre-verified colleges; everyone else's submission is
@@ -109,6 +120,9 @@ export async function POST(request: NextRequest) {
     const college = await College.create({
       ...validatedData,
       isVerified,
+      status: isVerified ? "verified" : "pending",
+      // The submitter hears about the approve/reject decision.
+      ...(isVerified ? {} : { submittedBy: authResult.mongoUserId }),
     });
 
     return successResponse(

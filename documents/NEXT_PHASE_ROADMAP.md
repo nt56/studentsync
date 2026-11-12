@@ -1,6 +1,6 @@
 # StudentSync: roadmap
 
-Updated November 11, 2026. This is a personal learning project, so the plan stays small. Each feature must solve a concrete problem for a **student**, **organizer**, or **admin**, and every phase ships one working user journey before the next starts. [OPERATIONS.md](OPERATIONS.md) describes how to run the app. [API_CONTRACT.md](API_CONTRACT.md) describes API behavior.
+Updated November 12, 2026. This is a personal learning project, so the plan stays small. Each feature must solve a concrete problem for a **student**, **organizer**, or **admin**, and every phase ships one working user journey before the next starts. [OPERATIONS.md](OPERATIONS.md) describes how to run the app. [API_CONTRACT.md](API_CONTRACT.md) describes API behavior.
 
 ## Project constraints
 
@@ -17,12 +17,13 @@ Updated November 11, 2026. This is a personal learning project, so the plan stay
 | Participation | Registration/cancellation, saved events, QR tickets, organizer check-in, attendance lists |
 | Community | Event chat, reviews/ratings, collaboration invitations, event staff (editor / volunteer) |
 | Organizer/admin | Event create/edit, dashboards, user roles, college verification, analytics |
+| Admin oversight | Append-only audit log with reasons, content reports and a moderation queue, college approve/reject with notified reasons, email delivery health with retry |
 | Waitlist and calendar | FIFO waitlist with 12-hour held offers, private calendar feed, schedule conflict hint |
 | Communication | Email outbox with retries, polled in-app notifications, persistent 24-hour (with email) and 1-hour reminders, preferences, ICS/Google Calendar links |
-| Quality | 29 unit/contract tests (including OpenAPI route coverage), an HTTP integration suite with seat races and fault injection on a plain `mongod`, shared Zod response contracts, and a CI workflow |
+| Quality | 36 unit/contract tests (including OpenAPI route coverage), an HTTP integration suite with seat races and fault injection on a plain `mongod`, shared Zod response contracts, and a CI workflow |
 | Mobile (separate repo) | Auth, events, bookmarks, tickets, chat, reviews, local reminders |
 
-**Not done yet:** contracts for the remaining responses (users, colleges, notifications, analytics), wiring the shared contracts into the mobile repo, the optional Phase 1 attendance certificate, the Phase 2 and Phase 3 mobile screens, and Phases 4–5.
+**Not done yet:** contracts for the remaining responses (users, colleges, notifications, analytics), wiring the shared contracts into the mobile repo, the optional Phase 1 attendance certificate, the Phase 2 and Phase 3 mobile screens, and Phase 5.
 
 **Last verified:** November 5, 2026. `npm test` (15/15), `npm run test:integration` (22 sections, plain `mongod`, both in-memory and through `INTEGRATION_MONGODB_URI`), `npm run lint`, `npx tsc --noEmit`, and `npm run build` pass locally. The upgrade from `rs0` data files, `db:backfill-seats`, `worker --once`, and `db:audit` were run on a real `mongod` 7.0.14. Not exercised: the GitHub Actions workflow on GitHub (the file parses), the Compose stacks (`docker compose config` passes; the Docker daemon was off), and a real production database.
 
@@ -95,9 +96,18 @@ Updated November 11, 2026. This is a personal learning project, so the plan stay
 
 **Mobile follows:** the same URL-style parameters as deep links, an interests picker, and saved searches.
 
-## Phase 4 — Admin oversight
+## Phase 4 — Admin oversight (completed)
 
 **Problem:** admins cannot see what happened or fix delivery problems without editing the database.
+
+**Status:** audit log, content reports, college verification workflow, and delivery health implemented November 12, 2026 (web + API; admin stays web-only). Decisions:
+
+- Admin actions need a reason (3–500 characters). Organizers deleting their own events or moderating their own chat, and students deleting their own reviews, need none and are not audited. Only admin actions are logged, plus email retries (without a reason).
+- Rejecting a college keeps it with `status: "rejected"` and its reason. It is hidden from pickers, and existing events and profiles keep it. Approve and reject both need a reason, and the submitter (recorded from now on) is notified in-app.
+- Resolving a report either dismisses it or removes the content. Removal soft-deletes a message, deletes a review, or hides an event as a draft that cannot be republished, with no full deletion. Resolving one report resolves every open report on the same content, and each reporter is notified.
+- The admin dashboard shows open reports, colleges to review, and failed emails. The Colleges, Users, and All Events pages ask for reasons, and the Colleges page was flattened to the current UI direction.
+
+`npm test` (36/36), `npm run test:integration` (42 sections), lint, `tsc`, and `build` pass locally. The new UI was not exercised in a browser. [API_CONTRACT.md](API_CONTRACT.md) has the API details and [OPERATIONS.md](OPERATIONS.md) the write-safety notes.
 
 | Feature | Scope | Done when |
 | --- | --- | --- |

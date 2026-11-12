@@ -1,3 +1,5 @@
+import { writeAudit } from "@/lib/audit";
+import { adminReasonSchema, readOptionalJson } from "@/lib/validators/admin.schema";
 import { eventEnd } from "@/lib/event-time";
 import { canManageEvent, canViewEvent } from "@/lib/event-access";
 import { markEventDeleting, finalizeEventDeletion } from "@/lib/event-deletion";
@@ -254,6 +256,18 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       !canManageEvent(event, authResult.mongoUserId, authResult.userRole, "delete")
     ) {
       return ApiErrors.forbidden();
+    }
+
+    // Admins must give a reason, recorded before the event is marked for deletion.
+    // Organizers deleting their own events are not audited.
+    if (authResult.userRole === "admin") {
+      const parsed = adminReasonSchema.safeParse(await readOptionalJson(request));
+      if (!parsed.success) return ApiErrors.validationError(formatZodErrors(parsed.error));
+      await writeAudit({
+        actor: authResult, action: "event.deleted",
+        target: { type: "event", id, label: event.title },
+        reason: parsed.data.reason, details: { organizerId: event.organizerId.toString() },
+      });
     }
 
     if (!await markEventDeleting(id)) {

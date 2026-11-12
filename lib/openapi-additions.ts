@@ -40,7 +40,7 @@ export const additionalPaths: Record<string, Record<string, unknown>> = {
     get: operation("List event reviews", false, { responses: { "200": { description: "Reviews" }, "404": { description: "Event is being deleted" } } }),
     post: operation("Registered student reviews a completed event", true, { requestBody: body(object({ rating: { type: "integer", minimum: 1, maximum: 5 }, comment: { type: "string", maxLength: 500 } }, ["rating"])), responses: { "201": { description: "Review created" }, "400": { description: "Invalid review or unfinished event" }, "403": { description: "Registration required" }, "409": { description: "Already reviewed" } } }),
   },
-  "/api/reviews/{reviewId}": { delete: operation("Delete a review and recalculate ratings; author or admin") },
+  "/api/reviews/{reviewId}": { delete: operation("Delete a review and recalculate ratings; author or admin. An admin must send { reason } (audited)", true, { requestBody: { required: false, content: { "application/json": { schema: object({ reason: { type: "string", minLength: 3, maxLength: 500 } }) } } } }) },
   "/api/events/{id}/staff": {
     get: operation("List event staff; owner or admin"),
     put: operation("Add, update or remove staff by email; owner or admin", true, { requestBody: body(object({ email: { type: "string", format: "email" }, role: { type: "string", enum: ["editor", "volunteer", "remove"] } })) }),
@@ -74,6 +74,28 @@ export const additionalPaths: Record<string, Record<string, unknown>> = {
   "/api/users/me/saved-searches/{id}": {
     patch: operation("Rename a saved search or switch its alerts (turning on starts from now)", true, { requestBody: body(object({ name: string, alerts: boolean }, [])) }),
     delete: operation("Delete a saved search"),
+  },
+  "/api/colleges/{id}/decision": {
+    post: operation("Admin approves or rejects a college with a reason; the submitter is notified and the decision audited. Repeating the current decision returns 200 and changes nothing", true, { requestBody: body(object({ decision: { type: "string", enum: ["approve", "reject"] }, reason: { type: "string", minLength: 3, maxLength: 500 } })) }),
+  },
+  "/api/reports": {
+    get: operation("Admin moderation queue (oldest open first). Rows include the reporter, a content snapshot, and the open count for the target", true, { parameters: [...page, { name: "status", in: "query", schema: { type: "string", enum: ["open", "dismissed", "removed"], default: "open" } }, { name: "targetType", in: "query", schema: { type: "string", enum: ["message", "review", "event"] } }] }),
+    post: operation("Report a chat message, review, or event you can see. One report per user and target", true, { requestBody: body(object({ targetType: { type: "string", enum: ["message", "review", "event"] }, targetId: string, reason: { type: "string", enum: ["spam", "harassment", "inappropriate", "misinformation", "other"] }, details: { type: "string", maxLength: 500 } }, ["targetType", "targetId", "reason"])), responses: { "201": { description: "Report created" }, "200": { description: "You already reported this; the first report is returned" }, "400": { description: "Invalid input or your own content" }, "401": { description: "Authentication required" }, "404": { description: "Content not found or not visible to you" }, "429": { description: "Rate limit exceeded" } } }),
+  },
+  "/api/reports/{id}": {
+    patch: operation("Admin resolves every open report on the same content: dismiss, or remove (message soft-deleted, review deleted, event hidden as an unpublishable draft). Reporters are notified; audited", true, { requestBody: body(object({ action: { type: "string", enum: ["dismiss", "remove"] }, reason: { type: "string", minLength: 3, maxLength: 500 } })) }),
+  },
+  "/api/admin/audit-log": {
+    get: operation("Admin only. Append-only audit log, newest first; no API edits or deletes entries", true, { parameters: [...page, ...["action", "targetType", "targetId", "actorId"].map((name) => ({ name, in: "query", schema: string }))] }),
+  },
+  "/api/admin/outbox": {
+    get: operation("Admin only. Email delivery health: counts per status and a page of jobs with lastError (bodies are never returned)", true, { parameters: [...page, { name: "status", in: "query", schema: { type: "string", enum: ["failed", "pending", "processing"], default: "failed" } }] }),
+  },
+  "/api/admin/outbox/{id}/retry": {
+    post: operation("Admin only. Requeue one failed or waiting email now with a fresh attempt budget (audited)", true, { responses: { "200": { description: "Requeued" }, "401": { description: "Authentication required" }, "403": { description: "Admin only" }, "404": { description: "Job not found" }, "409": { description: "Job is being sent or already finished" } } }),
+  },
+  "/api/admin/outbox/retry-failed": {
+    post: operation("Admin only. Requeue every failed email (audited)"),
   },
   "/api/docs": { get: operation("Read this OpenAPI specification", false) },
 };

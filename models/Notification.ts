@@ -11,6 +11,10 @@ export type NotificationType =
   | "waitlist_offer"
   | "waitlist_expired"
   | "saved_search_match"
+  // Moderation
+  | "report_resolved"
+  | "college_decision"
+  | "event_hidden"
   // Organizer
   | "new_registration"
   | "registration_cancelled"
@@ -42,6 +46,9 @@ const NotificationSchema = new Schema(
         "waitlist_offer",
         "waitlist_expired",
         "saved_search_match",
+        "report_resolved",
+        "college_decision",
+        "event_hidden",
         "new_registration",
         "registration_cancelled",
         "new_user",
