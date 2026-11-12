@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { connectDB } from "@/lib/db";
 import Outbox from "@/models/Outbox";
 import User from "@/models/User";
+import { deliverPushJob, expoPushTransport, receiptCheckTime, type PushTransport } from "@/lib/push";
 
 export interface EmailJob {
   to: { email: string; name: string };
@@ -44,8 +45,13 @@ export async function deliverEmail(job: EmailJob) {
 }
 
 /** Atomic leases allow multiple workers and recover work after a process crash.
- * Delivery is at least once: a crash after provider acceptance may send twice. */
-export async function processOutbox(deliver: (job: EmailJob) => Promise<void> = deliverEmail, batchSize = 20) {
+ * Delivery is at least once: a crash after provider acceptance may send twice.
+ * Handles both channels: email jobs go to `deliver`, push jobs to `push`. */
+export async function processOutbox(
+  deliver: (job: EmailJob) => Promise<void> = deliverEmail,
+  batchSize = 20,
+  { push = expoPushTransport }: { push?: PushTransport } = {},
+) {
   await connectDB();
   let processed = 0;
   for (; processed < batchSize; processed++) {
@@ -61,6 +67,16 @@ export async function processOutbox(deliver: (job: EmailJob) => Promise<void> = 
     if (!job) break;
     const owned = { _id: job._id, leaseToken };
     try {
+      if (job.channel === "push") {
+        const outcome = await deliverPushJob(job.toObject(), push);
+        await Outbox.updateOne(owned, "skipped" in outcome
+          ? { $set: { status: "skipped", skipReason: outcome.skipped, finishedAt: new Date() }, $unset: { leaseToken: 1, leaseUntil: 1, lastError: 1 } }
+          : {
+            $set: { status: "sent", finishedAt: new Date(), receipts: outcome.receipts, receiptsPending: true, receiptCheckAt: receiptCheckTime() },
+            $unset: { leaseToken: 1, leaseUntil: 1, lastError: 1 },
+          });
+        continue;
+      }
       const user = await User.findOne({ email: job.to.email }).select("notificationPreferences").lean();
       const skipped = !job.essential && user?.notificationPreferences?.email === false;
       if (!skipped) await deliver(job.toObject() as EmailJob);

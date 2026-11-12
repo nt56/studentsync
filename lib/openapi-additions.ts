@@ -26,9 +26,15 @@ export const additionalPaths: Record<string, Record<string, unknown>> = {
   "/api/analytics/admin": { get: operation("Platform totals and trends; admin only") },
   "/api/analytics/organizer": { get: operation("Totals across all owned events; organizer or admin") },
   "/api/analytics/student": { get: operation("Totals across all personal registrations") },
-  "/api/registrations/check-in": { post: operation("Check in once; event owner, editor, volunteer or admin", true, { requestBody: body(object({ token: string })), responses: { "200": { description: "Checked in" }, "400": { description: "Invalid/expired QR token" }, "401": { description: "Authentication required" }, "403": { description: "Not event staff" }, "409": { description: "Already checked in" }, "429": { description: "Rate limit exceeded" } } }) },
-  "/api/registrations/{id}/qr": { get: operation("Get a registration QR ticket; ticket owner or admin") },
-  "/api/events/{id}/attendance": { get: operation("Attendance totals and attendee rows; event staff or admin") },
+  "/api/registrations/check-in": { post: operation("Check in once by scanned QR `token` or by `registrationId` (attendee search); event owner, editor, volunteer or admin. The result names the attendee", true, { requestBody: body({ oneOf: [object({ token: string }), object({ registrationId: string })] }), responses: { "200": { description: "Checked in; data.attendee.name" }, "400": { description: "Invalid/expired QR token or missing input" }, "401": { description: "Authentication required" }, "403": { description: "Not event staff" }, "404": { description: "Registration cancelled or not found" }, "409": { description: "Already checked in" }, "429": { description: "Rate limit exceeded" } } }) },
+  "/api/registrations/{id}/qr": { get: operation("Get a registration QR ticket (PNG data URL plus the raw token and its expiry); ticket owner or admin") },
+  "/api/registrations/tickets": { get: operation("Your complete offline ticket set: one signed token per live registration, valid until 6 hours after the event ends. A held ticket missing from the set was revoked") },
+  "/api/events/{id}/attendance": { get: operation("Event-wide totals plus attendee rows; event staff (including volunteers) or admin. With search/page/limit, a page of matches and pagination", true, { parameters: [{ name: "search", in: "query", schema: { type: "string", maxLength: 100 } }, { name: "page", in: "query", schema: { type: "integer", minimum: 1 } }, { name: "limit", in: "query", schema: { type: "integer", minimum: 1, maximum: 200 } }] }) },
+  "/api/devices": {
+    post: operation("Register this app install's Expo push token for the signed-in user (bound to the current session). Repeating refreshes it; a token from another account moves to the caller", true, { requestBody: body(object({ token: { type: "string", pattern: "^Expo(nent)?PushToken.+$" }, platform: { type: "string", enum: ["ios", "android"] } })), responses: { "201": { description: "Registered" }, "200": { description: "Already registered; refreshed" }, "400": { description: "Not an Expo push token" }, "401": { description: "Authentication required" } } }),
+  },
+  "/api/devices/{id}": { delete: operation("Revoke one of your devices; it receives no further pushes. Repeating returns 200") },
+  "/api/auth/google-native": { post: operation("Native mobile Google sign-in with an ID token from the Google SDK. Sets the session cookie like /api/auth/login; new accounts are students", false, { requestBody: body(object({ idToken: string, nonce: string }, ["idToken"])), responses: { "200": { description: "Signed in" }, "400": { description: "Invalid input" }, "401": { description: "Token rejected" }, "409": { description: "An unlinked password account uses this email" }, "429": { description: "Rate limit exceeded" }, "503": { description: "Google sign-in is not configured" } } }) },
   "/api/events/{id}/attendance/export": { get: operation("Stream an attendee CSV (name, email, registration time, check-in); owner, editor or admin", true, { responses: { "200": { description: "UTF-8 CSV with BOM; formula-like cells are prefixed with an apostrophe", content: { "text/csv": { schema: string } } }, "401": { description: "Authentication required" }, "403": { description: "Volunteers and other organizers" }, "404": { description: "Event not found" }, "429": { description: "Rate limit exceeded" } } }) },
   "/api/events/{id}/publish": { post: operation("Publish a draft (one-way); owner, editor or admin. Repeating returns 200", true, { responses: { "200": { description: "Published event" }, "400": { description: "Registration deadline has passed" }, "401": { description: "Authentication required" }, "403": { description: "Edit permission required" }, "404": { description: "Event not found or not visible" } } }) },
   "/api/events/{id}/announcements": {
@@ -47,7 +53,7 @@ export const additionalPaths: Record<string, Record<string, unknown>> = {
   },
   "/api/users/preferences": {
     get: operation("Read your notification preferences"),
-    put: operation("Save reminder and nonessential email preferences", true, { requestBody: body(object({ reminders: boolean, email: boolean })) }),
+    put: operation("Save reminder, nonessential email, and mobile push preferences (push optional: omitted keeps the stored value)", true, { requestBody: body(object({ reminders: boolean, email: boolean, push: boolean }, ["reminders", "email"])) }),
   },
   "/api/events/{id}/waitlist": {
     get: operation("Your waitlist entry (status, position, offer expiry) and the queue length"),
@@ -89,7 +95,7 @@ export const additionalPaths: Record<string, Record<string, unknown>> = {
     get: operation("Admin only. Append-only audit log, newest first; no API edits or deletes entries", true, { parameters: [...page, ...["action", "targetType", "targetId", "actorId"].map((name) => ({ name, in: "query", schema: string }))] }),
   },
   "/api/admin/outbox": {
-    get: operation("Admin only. Email delivery health: counts per status and a page of jobs with lastError (bodies are never returned)", true, { parameters: [...page, { name: "status", in: "query", schema: { type: "string", enum: ["failed", "pending", "processing"], default: "failed" } }] }),
+    get: operation("Admin only. Delivery health for email and push jobs (each row has `channel`): counts per status and a page of jobs with lastError (bodies are never returned)", true, { parameters: [...page, { name: "status", in: "query", schema: { type: "string", enum: ["failed", "pending", "processing"], default: "failed" } }] }),
   },
   "/api/admin/outbox/{id}/retry": {
     post: operation("Admin only. Requeue one failed or waiting email now with a fresh attempt budget (audited)", true, { responses: { "200": { description: "Requeued" }, "401": { description: "Authentication required" }, "403": { description: "Admin only" }, "404": { description: "Job not found" }, "409": { description: "Job is being sent or already finished" } } }),

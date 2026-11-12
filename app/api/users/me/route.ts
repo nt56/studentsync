@@ -5,7 +5,11 @@ import "@/models/College"; // register schema so populate("collegeId") works
 import Registration from "@/models/Registration";
 import Event, { liveEvent } from "@/models/Event";
 import { requireAuth } from "@/lib/auth-guard";
-import { successResponse, ApiErrors } from "@/lib/api-response";
+import { NextRequest } from "next/server";
+import { successResponse, ApiErrors, errorResponse, formatZodErrors } from "@/lib/api-response";
+import { deleteAccountSchema } from "@/lib/validators/mobile.schema";
+import { requestAccountDeletion } from "@/lib/account-deletion";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { formatUserResponse, IUser } from "@/types";
 
 /**
@@ -101,6 +105,55 @@ export async function POST() {
     );
   } catch (error) {
     console.error("POST /api/users/me/sync error:", error);
+    return ApiErrors.internalError();
+  }
+}
+
+const AUTH_COOKIES = ["better-auth.session_token", "better-auth.session_data", "better-auth.dont_remember"];
+
+/**
+ * DELETE /api/users/me
+ * Delete your own account. Body: { confirmation } — your email, retyped.
+ * Refused for admins (another admin removes them) and while you own events
+ * that have not ended (delete them or ask an admin first; listed in
+ * `errors.events`). Personal data is removed and the profile anonymized; see
+ * lib/account-deletion.ts. The session cookies are cleared in the response.
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    const authResult = await requireAuth();
+    if (!authResult.success) return authResult.response;
+    if (!authResult.mongoUserId) return ApiErrors.unauthorized();
+
+    const limited = await enforceRateLimit(request, `account-delete:${authResult.mongoUserId}`, { limit: 5, windowSec: 3600 });
+    if (limited) return limited;
+
+    const parsed = deleteAccountSchema.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) return ApiErrors.validationError(formatZodErrors(parsed.error));
+    if (parsed.data.confirmation.toLowerCase() !== authResult.userEmail.toLowerCase()) {
+      return errorResponse("Type your account email exactly to confirm.", 400, { confirmation: ["Does not match your email"] });
+    }
+
+    const result = await requestAccountDeletion(authResult.mongoUserId);
+    if (!result.ok) {
+      if (result.reason === "admin") return errorResponse("Admin accounts cannot be deleted here. Ask another admin to remove the account.", 403);
+      if (result.reason === "owns-events") {
+        return errorResponse("You still own events that have not ended. Delete them, or ask an admin to reassign them, first.", 409, {
+          events: (result.events ?? []).map((event) => `${event.title} (${event.date})`),
+        });
+      }
+      return ApiErrors.unauthorized();
+    }
+
+    const response = successResponse(null, "Your account has been deleted");
+    const secure = request.nextUrl.protocol === "https:";
+    for (const name of AUTH_COOKIES) {
+      response.cookies.set(name, "", { maxAge: 0, path: "/" });
+      if (secure) response.cookies.set(`__Secure-${name}`, "", { maxAge: 0, path: "/", secure: true });
+    }
+    return response;
+  } catch (error) {
+    console.error("DELETE /api/users/me error:", error);
     return ApiErrors.internalError();
   }
 }

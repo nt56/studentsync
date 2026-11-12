@@ -1222,6 +1222,22 @@ const swaggerSpec = {
           },
         },
       },
+      delete: {
+        tags: ["Users"],
+        summary: "Delete your own account",
+        description:
+          "Body { confirmation } must equal your email. Refused for admins (403) and while you own events that have not ended (409, listed in errors.events). Removes the login identity, sessions, devices, upcoming registrations, and personal records, then anonymizes the profile. Clears the session cookies. Rate limited to 5 per hour.",
+        security: [{ cookieAuth: [] }],
+        requestBody: { required: true, content: { "application/json": { schema: { type: "object", properties: { confirmation: { type: "string", format: "email" } }, required: ["confirmation"] } } } },
+        responses: {
+          "200": { description: "Account deleted" },
+          "400": { description: "Confirmation does not match your email" },
+          "401": { description: "Authentication required" },
+          "403": { description: "Admin accounts are removed by another admin" },
+          "409": { description: "You own events that have not ended" },
+          "429": { description: "Rate limit exceeded" },
+        },
+      },
     },
 
     "/api/users/{id}": {
@@ -2591,7 +2607,7 @@ const swaggerSpec = {
         tags: ["Chat"],
         summary: "Get message history",
         description:
-          "Returns 50 messages by default (1–100 allowed), ordered oldest-first. Supports cursor-based pagination via `before` (ISO timestamp). Requires a registered participant, event staff, or admin. Socket connections require a session and room authorization as well.",
+          "Returns 50 messages by default (1–100 allowed), ordered oldest-first. Supports cursor-based pagination: pass `nextCursor.before` (ISO timestamp) and `nextCursor.beforeId` from the previous page; the (createdAt, id) cursor never skips messages that share a timestamp. `before` alone still works. Requires a registered participant, event staff, or admin. Socket connections require a session and room authorization as well.",
         security: [{ cookieAuth: [] }],
         parameters: [
           {
@@ -2607,6 +2623,8 @@ const swaggerSpec = {
             schema: { type: "integer", default: 50, minimum: 1, maximum: 100 },
             description: "Max messages to return",
           },
+          { name: "before", in: "query", schema: { type: "string", format: "date-time" }, description: "Return messages older than this (nextCursor.before)" },
+          { name: "beforeId", in: "query", schema: { type: "string" }, description: "Tie-breaker id with `before` (nextCursor.beforeId)" },
           {
             name: "before",
             in: "query",
@@ -2822,7 +2840,7 @@ const swaggerSpec = {
         tags: ["Notifications"],
         summary: "List notifications",
         description:
-          "Returns non-dismissed stored notifications sorted newest-first. Reminders are deduplicated and persisted. unreadCount and total cover all non-dismissed records, independently of limit.",
+          "Returns non-dismissed stored notifications sorted newest-first. Reminders are deduplicated and persisted. unreadCount and total cover all non-dismissed records, independently of limit. For the next page pass `nextCursor` (the last item's id) as `before`; `hasMore` says whether one exists.",
         security: [{ cookieAuth: [] }],
         parameters: [
           {
@@ -2830,6 +2848,7 @@ const swaggerSpec = {
             in: "query",
             schema: { type: "integer", default: 30, maximum: 50 },
           },
+          { name: "before", in: "query", schema: { type: "string" }, description: "Cursor: the id of the last notification already shown" },
         ],
         responses: {
           "200": {

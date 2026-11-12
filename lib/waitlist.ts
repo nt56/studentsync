@@ -9,6 +9,7 @@ import { createNotification, isDuplicateKeyError } from "@/lib/notifications";
 import { queueRegistrationEffects } from "@/lib/registration-effects";
 import { sendWaitlistOfferEmail } from "@/lib/email";
 import { validTimeZone } from "@/lib/event-time";
+import { enqueuePush } from "@/lib/push";
 
 /**
  * Standalone-safe waitlist (no transactions).
@@ -168,6 +169,12 @@ export async function queueOfferNotice(entryId: Id): Promise<void> {
       await sendWaitlistOfferEmail(student.email, `${student.firstName} ${student.lastName}`, {
         id: event._id.toString(), title: event.title, date: event.date, endDate: event.endDate, timeZone: event.timeZone, venue: event.venue,
       }, deadline, `${key}:email`);
+      await enqueuePush({
+        dedupeKey: `${key}:push`, userId: student._id, to: { email: student.email, name: `${student.firstName} ${student.lastName}` },
+        kind: "waitlist_offer", title: "A seat opened up for you",
+        body: `Accept your seat for "${event.title}" before ${deadline}.`, url: `/events/${event._id}`,
+        eventId: event._id, entryId: entry._id, offeredAt: entry.offeredAt, expiresAt: entry.expiresAt,
+      });
       await createNotification({
         dedupeKey: key, userId: student._id, eventId: event._id, type: "waitlist_offer",
         title: "A seat opened up for you",

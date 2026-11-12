@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
 
     // Build filter
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const filter: any = {};
+    const filter: any = { deletedAt: { $exists: false } };
 
     if (role) {
       filter.role = role;

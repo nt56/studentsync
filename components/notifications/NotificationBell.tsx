@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
   fetchNotifications,
+  fetchOlderNotifications,
   markNotificationRead,
   markAllNotificationsRead,
   deleteNotification,
@@ -247,7 +248,7 @@ function NotificationRow({
 export function NotificationBell() {
   const dispatch = useAppDispatch();
   const router = useRouter();
-  const { items, unreadCount, isLoading } = useAppSelector(
+  const { items, unreadCount, isLoading, nextCursor, isLoadingOlder } = useAppSelector(
     (s) => s.notifications,
   );
   const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
@@ -406,10 +407,20 @@ export function NotificationBell() {
         {/* Footer */}
         {items.length > 0 && (
           <div className="px-4 py-2 border-t border-border/80 bg-secondary/30">
-            <p className="text-[10px] text-muted-foreground text-center">
-              Showing last {items.length} notification
-              {items.length !== 1 ? "s" : ""}
-            </p>
+            {nextCursor ? (
+              <button
+                type="button"
+                onClick={() => dispatch(fetchOlderNotifications(nextCursor))}
+                disabled={isLoadingOlder}
+                className="w-full rounded-lg py-1 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-60"
+              >
+                {isLoadingOlder ? "Loading…" : "Load older notifications"}
+              </button>
+            ) : (
+              <p className="text-[10px] text-muted-foreground text-center">
+                Showing all {items.length} notification{items.length !== 1 ? "s" : ""}
+              </p>
+            )}
           </div>
         )}
       </PopoverContent>

@@ -6,6 +6,7 @@ import {
   sendPasswordResetEmail,
   sendVerificationEmail,
 } from "@/lib/email";
+import { verifyGoogleIdToken } from "@/lib/google-id-token";
 
 // ===========================
 // CACHED MONGODB CLIENT
@@ -138,6 +139,9 @@ export const auth = betterAuth({
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      // Native mobile sign-in sends a Google ID token. Accept the web client ID
+      // plus GOOGLE_NATIVE_CLIENT_IDS (iOS/Android) as audiences.
+      verifyIdToken: (token, nonce) => verifyGoogleIdToken(token, nonce),
     },
     github: {
       clientId: process.env.GITHUB_CLIENT_ID!,

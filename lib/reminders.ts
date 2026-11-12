@@ -7,6 +7,7 @@ import Notification from "@/models/Notification";
 import { validTimeZone } from "@/lib/event-time";
 import { isDuplicateKeyError } from "@/lib/notifications";
 import { sendEventReminderEmail } from "@/lib/email";
+import { enqueuePush } from "@/lib/push";
 
 const HOUR = 3600_000;
 
@@ -62,18 +63,25 @@ export async function materializeReminders(userId?: string) {
       if (!current) continue;
       const timeZone = current.timeZone && validTimeZone(current.timeZone) ? current.timeZone : "UTC";
       const when = new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short", timeZone }).format(current.date);
-      // The email goes first: the notification is the "done" marker, so a crash
-      // between the two retries the (deduplicated) email instead of losing it.
+      // Email and push go first: the notification is the "done" marker, so a crash
+      // between them retries the (deduplicated) email and push instead of losing them.
       if (due.email) {
         await sendEventReminderEmail(student.email, `${student.firstName} ${student.lastName}`, {
           id: current._id.toString(), title: current.title, date: current.date,
           endDate: current.endDate, timeZone: current.timeZone, venue: current.venue,
         }, `${dedupeKey}:email`);
       }
+      const message = `${current.title} · ${when} (${timeZone}) · ${current.venue}`;
+      // Push is re-checked at send time: a reschedule or cancellation sends nothing.
+      await enqueuePush({
+        dedupeKey: `${dedupeKey}:push`, userId: registration.studentId, to: { email: student.email, name: `${student.firstName} ${student.lastName}` },
+        kind: "event_reminder", title: due.title, body: message, url: `/events/${event._id}`,
+        eventId: event._id, scheduledFor: start, expiresAt: start,
+      });
       try {
         await Notification.updateOne({ dedupeKey }, { $setOnInsert: {
           userId: registration.studentId, type: "event_reminder", title: due.title,
-          message: `${current.title} · ${when} (${timeZone}) · ${current.venue}`,
+          message,
           link: `/events/${event._id}`, eventId: event._id, scheduledFor: start,
         } }, { upsert: true });
       } catch (error) {

@@ -16,13 +16,19 @@ export interface ChatMessage {
   createdAt: string;
 }
 
+export type ChatCursor = { before: string; beforeId: string };
+
 export const chatService = {
-  fetchMessages(eventId: string, params?: { limit?: number; before?: string }) {
+  /** Oldest first. Pass a page's `nextCursor` back to load the messages before it. */
+  fetchMessages(eventId: string, params?: { limit?: number; cursor?: ChatCursor | null }) {
     const query = new URLSearchParams();
     if (params?.limit) query.set("limit", String(params.limit));
-    if (params?.before) query.set("before", params.before);
+    if (params?.cursor) {
+      query.set("before", params.cursor.before);
+      query.set("beforeId", params.cursor.beforeId);
+    }
     const qs = query.toString();
-    return api.get<{ messages: ChatMessage[]; hasMore: boolean }>(
+    return api.get<{ messages: ChatMessage[]; hasMore: boolean; nextCursor: ChatCursor | null }>(
       `/events/${eventId}/messages${qs ? `?${qs}` : ""}`,
     );
   },

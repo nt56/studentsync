@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
-import { chatService, type ChatMessage } from "@/services/chatService";
+import { chatService, type ChatMessage, type ChatCursor } from "@/services/chatService";
 
 interface ChatState {
   messages: ChatMessage[];
@@ -8,6 +8,8 @@ interface ChatState {
   error: string | null;
   typingUsers: string[];
   hasMore: boolean;
+  nextCursor: ChatCursor | null;
+  isLoadingOlder: boolean;
 }
 
 const initialState: ChatState = {
@@ -17,20 +19,22 @@ const initialState: ChatState = {
   error: null,
   typingUsers: [],
   hasMore: false,
+  nextCursor: null,
+  isLoadingOlder: false,
 };
 
 export const fetchMessages = createAsyncThunk(
   "chat/fetchMessages",
   async (
-    { eventId, before }: { eventId: string; before?: string },
+    { eventId, cursor }: { eventId: string; cursor?: ChatCursor | null },
     { rejectWithValue },
   ) => {
     try {
       const response = await chatService.fetchMessages(eventId, {
         limit: 50,
-        before,
+        cursor,
       });
-      return response.data as { messages: ChatMessage[]; hasMore: boolean };
+      return response.data as { messages: ChatMessage[]; hasMore: boolean; nextCursor: ChatCursor | null };
     } catch {
       return rejectWithValue("Failed to load messages");
     }
@@ -77,6 +81,8 @@ const chatSlice = createSlice({
       state.typingUsers = [];
       state.error = null;
       state.hasMore = false;
+      state.nextCursor = null;
+      state.isLoadingOlder = false;
     },
     socketMessageReceived(state, action: PayloadAction<ChatMessage>) {
       const exists = state.messages.some((m) => m._id === action.payload._id);
@@ -101,22 +107,28 @@ const chatSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchMessages.pending, (state) => {
-        state.isLoading = true;
+      .addCase(fetchMessages.pending, (state, action) => {
+        if (action.meta.arg.cursor) state.isLoadingOlder = true;
+        else state.isLoading = true;
         state.error = null;
       })
       .addCase(fetchMessages.fulfilled, (state, action) => {
-        state.isLoading = false;
-        const { messages: newMsgs, hasMore } = action.payload;
-        if (action.meta.arg.before) {
-          state.messages = [...newMsgs, ...state.messages];
+        const { messages: newMsgs, hasMore, nextCursor } = action.payload;
+        if (action.meta.arg.cursor) {
+          // Older page: prepend, skipping any message a socket already delivered.
+          const known = new Set(state.messages.map((message) => message._id));
+          state.messages = [...newMsgs.filter((message) => !known.has(message._id)), ...state.messages];
         } else {
           state.messages = newMsgs;
         }
+        state.isLoading = false;
+        state.isLoadingOlder = false;
         state.hasMore = hasMore;
+        state.nextCursor = nextCursor ?? null;
       })
       .addCase(fetchMessages.rejected, (state, action) => {
         state.isLoading = false;
+        state.isLoadingOlder = false;
         state.error = action.payload as string;
       });
 

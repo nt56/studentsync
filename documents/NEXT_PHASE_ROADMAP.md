@@ -19,11 +19,12 @@ Updated November 12, 2026. This is a personal learning project, so the plan stay
 | Organizer/admin | Event create/edit, dashboards, user roles, college verification, analytics |
 | Admin oversight | Append-only audit log with reasons, content reports and a moderation queue, college approve/reject with notified reasons, email delivery health with retry |
 | Waitlist and calendar | FIFO waitlist with 12-hour held offers, private calendar feed, schedule conflict hint |
-| Communication | Email outbox with retries, polled in-app notifications, persistent 24-hour (with email) and 1-hour reminders, preferences, ICS/Google Calendar links |
+| Communication | Email and Expo push outbox with retries and receipts, polled in-app notifications, persistent 24-hour (with email) and 1-hour reminders, preferences, ICS/Google Calendar links |
+| Mobile-facing backend | Device tokens bound to sessions, offline ticket sync with backend expiry and revocation, attendee search and manual check-in for door staff, self-service account deletion, privacy/support pages, native Google ID-token sign-in |
 | Quality | 36 unit/contract tests (including OpenAPI route coverage), an HTTP integration suite with seat races and fault injection on a plain `mongod`, shared Zod response contracts, and a CI workflow |
 | Mobile (separate repo) | Auth, events, bookmarks, tickets, chat, reviews, local reminders |
 
-**Not done yet:** contracts for the remaining responses (users, colleges, notifications, analytics), wiring the shared contracts into the mobile repo, the optional Phase 1 attendance certificate, the Phase 2 and Phase 3 mobile screens, and Phase 5.
+**Not done yet:** contracts for the remaining responses (users and analytics), wiring the shared contracts into the mobile repo, the optional Phase 1 attendance certificate, the Phase 2 and Phase 3 mobile screens, and the Phase 5 mobile screens (push registration, offline ticket storage, organizer route group, native Google button, account deletion screen).
 
 **Last verified:** November 5, 2026. `npm test` (15/15), `npm run test:integration` (22 sections, plain `mongod`, both in-memory and through `INTEGRATION_MONGODB_URI`), `npm run lint`, `npx tsc --noEmit`, and `npm run build` pass locally. The upgrade from `rs0` data files, `db:backfill-seats`, `worker --once`, and `db:audit` were run on a real `mongod` 7.0.14. Not exercised: the GitHub Actions workflow on GitHub (the file parses), the Compose stacks (`docker compose config` passes; the Docker daemon was off), and a real production database.
 
@@ -118,7 +119,17 @@ Updated November 12, 2026. This is a personal learning project, so the plan stay
 
 **Mobile:** none. Admin stays on the web.
 
-## Phase 5 — Mobile-facing backend and organizer mobile
+## Phase 5 — Mobile-facing backend and organizer mobile (backend and web completed)
+
+**Status:** backend and web implemented November 12, 2026. The mobile screens follow in `student-synch-mobile`. Decisions:
+
+- **Push** goes through the Expo Push Service as a `push` channel on the existing outbox, with the same leases, retries, dedupe keys and health page. It covers the 24-hour and 1-hour reminders, waitlist offers, and announcements. A job is queued only for users with a device and is re-checked just before sending: expiry, push and reminder preferences, event deleted, hidden or rescheduled, registration gone, offer closed. Devices are tied to the Better Auth session that registered them. Sign-out deletes them, and delivery drops any whose session has ended. `DeviceNotRegistered` on a ticket or receipt prunes the token. There is a new `push` preference, and leaving it out of a `PUT` keeps the stored value.
+- **Offline tickets** are the signed check-in JWTs, expiring 6 hours after the event ends. Revocation is the registration itself: check-in refuses cancelled rows at once, and `GET /api/registrations/tickets` returns the full set, so a missing ticket is revoked on the next sync. A reschedule re-signs the ticket.
+- **Organizer mobile backend** reuses the check-in route, which now also accepts `{ registrationId }` from an attendee search. Attendance gains `search`/`page`/`limit` and always returns event-wide totals. Volunteers can do both but cannot edit the event.
+- **Account deletion** needs the user's email retyped. It is refused for admins and while the user owns events that have not ended. Personal data is removed and the profile anonymized ("Deleted user"), so past events and attendance stay consistent. A marker set first, plus a worker pass, finishes interrupted deletions.
+- **Native Google** is a `POST /api/auth/google-native` ID-token endpoint. The verifier accepts `GOOGLE_CLIENT_ID` plus `GOOGLE_NATIVE_CLIENT_IDS` as audiences. **Privacy and support** are public `/privacy` and `/support` pages, with `NEXT_PUBLIC_SUPPORT_EMAIL`.
+
+`npm test` (45/45), `npm run test:integration` (48 sections), lint, `tsc`, and `build` pass locally. Also added for the mobile app: `(createdAt, id)` cursors for notifications and chat (with "load older" on the web), web attendee search with manual check-in, and a screen-to-endpoint map in [API_CONTRACT.md](API_CONTRACT.md). Not exercised: real delivery through Expo (the tests use a fake transport), a real Google ID token (signature checks are unit-tested with a local key), and the new pages in a browser. [API_CONTRACT.md](API_CONTRACT.md) has the API details and [OPERATIONS.md](OPERATIONS.md) the write-safety notes.
 
 | Feature | Scope | Done when |
 | --- | --- | --- |
@@ -126,6 +137,8 @@ Updated November 12, 2026. This is a personal learning project, so the plan stay
 | Offline tickets | Backend decides token expiry and revocation. | Cancelling a registration revokes the offline ticket the next time it syncs. |
 | Organizer mobile | QR check-in, attendee search, and attendance counts using the existing check-in route and per-event staff permissions. | A volunteer can check in people without editing the event. |
 | Store-readiness | Self-service account deletion, privacy and support links, and native Google sign-in. | Deleting an account removes or anonymizes personal data. Event owners are handled explicitly. |
+
+**Mobile follows:** register the Expo push token after sign-in (`POST /api/devices`) and handle `data.url` taps. Store the ticket bundle per account, show the last sync time, and clear it on sign-out. Add an organizer and staff route group (assigned events, search, scan, counts, an explicit offline error). Add the native Google button (`@react-native-google-signin/google-signin`, which needs a dev-client rebuild and the client IDs). Add the account deletion screen and links to `/privacy` and `/support`.
 
 ## Parking lot — only if a real need appears
 

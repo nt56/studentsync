@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       Outbox.countDocuments({ status: "processing" }),
       Outbox.countDocuments({ status: "failed" }),
       Outbox.find({ status: query.status })
-        .select("to subject status essential attempts lastError availableAt createdAt updatedAt")
+        .select("channel to subject status essential attempts lastError availableAt createdAt updatedAt")
         .sort(query.status === "failed" ? { updatedAt: -1, _id: -1 } : { availableAt: 1, _id: 1 })
         .skip((query.page - 1) * query.limit).limit(query.limit).lean(),
     ]);

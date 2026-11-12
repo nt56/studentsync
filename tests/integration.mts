@@ -306,7 +306,7 @@ try {
   assert.equal((await request("/notifications", winner.cookie)).data.items.some((item: { id: string }) => item.id === reminder.id), false);
   console.log("PASS reminder read/dismiss persistence");
   assert.equal((await request("/users/preferences", winner.cookie, "PUT", { email: false, reminders: false })).status, 200);
-  assert.deepEqual((await request("/users/preferences", winner.cookie)).data, { email: false, reminders: false });
+  assert.deepEqual((await request("/users/preferences", winner.cookie)).data, { email: false, reminders: false, push: true }, "push defaults to on and is kept when omitted");
   await request("/users/preferences", winner.cookie, "PUT", { email: true, reminders: true });
   const { processOutbox } = await import("../lib/outbox");
   const queued = await Outbox.create({ to: { email: winner.user.email, name: "Winner" }, subject: "Retry fixture", htmlContent: "Test" });
@@ -974,6 +974,239 @@ try {
   while (await processOutbox(async () => {}, 1000) === 1000) { /* next batch */ }
   assert.equal((await Outbox.findById(failedJob._id).lean())!.status, "sent", "a retried email is delivered by the normal worker");
   console.log("PASS delivery health lists failures with lastError and retries them safely");
+
+  // --- Phase 5: device tokens --------------------------------------------------------
+  const { default: DeviceToken } = await import("../models/DeviceToken");
+  const { processPushReceipts } = await import("../lib/push");
+  const pushStudent = await fixture("student");
+  const phone = "ExponentPushToken[integration-phone-1]";
+  assert.equal((await request("/devices", "", "POST", { token: phone, platform: "android" })).status, 401);
+  assert.equal((await request("/devices", pushStudent.cookie, "POST", { token: "not-a-token", platform: "android" })).status, 400);
+  const registered = await request("/devices", pushStudent.cookie, "POST", { token: phone, platform: "android" });
+  assert.equal(registered.status, 201);
+  contracts.apiSuccessSchema(contracts.deviceSchema).parse(registered);
+  assert.equal((await request("/devices", pushStudent.cookie, "POST", { token: phone, platform: "android" })).status, 200, "repeating refreshes");
+  const parallelDevices = await Promise.all([1, 2, 3].map((n) => request("/devices", pushStudent.cookie, "POST", { token: `ExpoPushToken[parallel-${n}]`, platform: "ios" })));
+  assert.deepEqual(parallelDevices.map((r) => r.status), [201, 201, 201]);
+  await DeviceToken.deleteMany({ token: /parallel-/ });
+  // Same phone, another account: the token moves.
+  const switcher = await fixture("student");
+  const switchedPhone = "ExpoPushToken[shared-phone]";
+  await request("/devices", pushStudent.cookie, "POST", { token: switchedPhone, platform: "ios" });
+  const moved = await request("/devices", switcher.cookie, "POST", { token: switchedPhone, platform: "ios" });
+  assert.equal((await DeviceToken.findOne({ token: switchedPhone }).lean())!.userId.toString(), switcher.user._id.toString());
+  assert.equal(await DeviceToken.countDocuments({ token: switchedPhone }), 1);
+  assert.equal((await request(`/devices/${moved.data.id}`, pushStudent.cookie, "DELETE")).status, 404, "another user's device");
+  assert.equal((await request(`/devices/${moved.data.id}`, switcher.cookie, "DELETE")).status, 200);
+  assert.equal((await request(`/devices/${moved.data.id}`, switcher.cookie, "DELETE")).status, 200, "revoking twice is fine");
+  assert.equal(await DeviceToken.countDocuments({ token: switchedPhone }), 0);
+  console.log("PASS device tokens register, refresh, move between accounts, and revoke");
+
+  // --- Phase 5: push channel ---------------------------------------------------------
+  const sent: { to: string; title: string; data: { kind: string } }[] = [];
+  let ticketSeq = 0;
+  const receiptsById: Record<string, { status: "ok" } | { status: "error"; details: { error: string } }> = {};
+  const fakePush = {
+    async send(messages: { to: string; title: string; data: { kind: string } }[]) {
+      sent.push(...messages);
+      return messages.map(() => ({ status: "ok" as const, id: `ticket-${++ticketSeq}` }));
+    },
+    async getReceipts(ids: string[]) { return Object.fromEntries(ids.filter((id) => receiptsById[id]).map((id) => [id, receiptsById[id]])); },
+  };
+  const drain = async () => { while (await processOutbox(async () => {}, 1000, { push: fakePush }) === 1000) { /* next batch */ } };
+  await drain();
+  sent.length = 0;
+  const soon = { ...eventData, title: "Push soon", capacity: 5, date: new Date(Date.now() + 30 * 60_000), endDate: new Date(Date.now() + 90 * 60_000), registrationDeadline: new Date(Date.now() + 20 * 60_000) };
+  const pushEvent = await Event.create(soon);
+  assert.equal((await request("/registrations", pushStudent.cookie, "POST", { eventId: pushEvent._id.toString() })).status, 201);
+  await materializeReminders(pushStudent.user._id.toString());
+  const pushJob = await Outbox.findOne({ channel: "push", userId: pushStudent.user._id, "push.kind": "event_reminder" }).lean();
+  assert.ok(pushJob, "a reminder queues one push for a user with a device");
+  await materializeReminders(pushStudent.user._id.toString());
+  assert.equal(await Outbox.countDocuments({ channel: "push", userId: pushStudent.user._id, "push.kind": "event_reminder" }), 1, "deduplicated");
+  await drain();
+  assert.deepEqual(sent.map((m) => [m.to, m.data.kind]), [[phone, "event_reminder"]]);
+  const sentPush = (await Outbox.findById(pushJob!._id).lean())!;
+  assert.deepEqual([sentPush.status, sentPush.receiptsPending, sentPush.receipts.length], ["sent", true, 1]);
+  // The receipt says the app was uninstalled: the token is pruned.
+  receiptsById[sentPush.receipts[0].ticketId] = { status: "error", details: { error: "DeviceNotRegistered" } };
+  assert.equal(await processPushReceipts({ transport: fakePush, now: new Date(Date.now() + 20 * 60_000) }), 1);
+  assert.equal(await DeviceToken.countDocuments({ token: phone }), 0, "a failed token is pruned");
+  const checked = (await Outbox.findById(pushJob!._id).lean())!;
+  assert.deepEqual([checked.receiptsPending, checked.receipts[0].status], [undefined, "error"]);
+  // A rescheduled event sends no stale push.
+  await request("/devices", pushStudent.cookie, "POST", { token: phone, platform: "android" });
+  const staleKey = `stale-push:${randomUUID()}`;
+  const { enqueuePush } = await import("../lib/push");
+  await enqueuePush({ dedupeKey: staleKey, userId: pushStudent.user._id, to: { email: pushStudent.user.email }, kind: "event_reminder", title: "Old time", body: "x", eventId: pushEvent._id, scheduledFor: pushEvent.date, expiresAt: pushEvent.date });
+  await Event.updateOne({ _id: pushEvent._id }, { $set: { date: new Date(Date.now() + 40 * 60_000) } });
+  sent.length = 0;
+  await drain();
+  assert.deepEqual([(await Outbox.findOne({ dedupeKey: staleKey }).lean())!.status, (await Outbox.findOne({ dedupeKey: staleKey }).lean())!.skipReason, sent.length], ["skipped", "Event rescheduled", 0]);
+  // A cancelled registration sends no push either.
+  const cancelKey = `cancel-push:${randomUUID()}`;
+  await enqueuePush({ dedupeKey: cancelKey, userId: pushStudent.user._id, to: { email: pushStudent.user.email }, kind: "announcement", title: "Note", body: "x", eventId: pushEvent._id, expiresAt: new Date(Date.now() + 3600_000) });
+  assert.equal((await request(`/registrations?eventId=${pushEvent._id}`, pushStudent.cookie, "DELETE")).status, 200);
+  await drain();
+  assert.equal((await Outbox.findOne({ dedupeKey: cancelKey }).lean())!.skipReason, "No longer registered");
+  // Push turned off: skipped, and the stored setting survives an older client's save.
+  const prefsOff = await request("/users/preferences", pushStudent.cookie, "PUT", { reminders: true, email: true, push: false });
+  contracts.apiSuccessSchema(contracts.notificationPreferencesSchema).parse(prefsOff);
+  assert.equal((await request("/users/preferences", pushStudent.cookie, "PUT", { reminders: true, email: true })).data.push, false, "omitting push keeps it");
+  assert.equal((await request("/registrations", pushStudent.cookie, "POST", { eventId: pushEvent._id.toString() })).status, 201);
+  const offKey = `off-push:${randomUUID()}`;
+  await enqueuePush({ dedupeKey: offKey, userId: pushStudent.user._id, to: { email: pushStudent.user.email }, kind: "announcement", title: "Note", body: "x", eventId: pushEvent._id, expiresAt: new Date(Date.now() + 3600_000) });
+  await drain();
+  assert.equal((await Outbox.findOne({ dedupeKey: offKey }).lean())!.skipReason, "Push turned off");
+  await request("/users/preferences", pushStudent.cookie, "PUT", { reminders: true, email: true, push: true });
+  // Signing out removes the device, so nothing is sent to it.
+  assert.equal(await DeviceToken.countDocuments({ userId: pushStudent.user._id }), 1);
+  const signedOut = await fetch(`${base}/api/auth/sign-out`, { method: "POST", headers: { cookie: pushStudent.cookie, Origin: base } });
+  assert.equal(signedOut.status, 200);
+  assert.equal(await DeviceToken.countDocuments({ userId: pushStudent.user._id }), 0, "a signed-out device gets no push");
+  const afterSignOut = `signed-out-push:${randomUUID()}`;
+  await enqueuePush({ dedupeKey: afterSignOut, userId: pushStudent.user._id, to: { email: pushStudent.user.email }, kind: "announcement", title: "Note", body: "x", eventId: pushEvent._id, expiresAt: new Date(Date.now() + 3600_000) });
+  assert.equal(await Outbox.countDocuments({ dedupeKey: afterSignOut }), 0, "no device, no job");
+  // A device whose session expired is pruned at delivery.
+  const expiring = await fixture("student");
+  assert.equal((await request("/registrations", expiring.cookie, "POST", { eventId: pushEvent._id.toString() })).status, 201);
+  await request("/devices", expiring.cookie, "POST", { token: "ExpoPushToken[expired-session]", platform: "ios" });
+  await mongoose.connection.collection("session").updateMany({ userId: expiring.identity }, { $set: { expiresAt: new Date(Date.now() - 1000) } });
+  const expiredKey = `expired-push:${randomUUID()}`;
+  await enqueuePush({ dedupeKey: expiredKey, userId: expiring.user._id, to: { email: expiring.user.email }, kind: "announcement", title: "Note", body: "x", eventId: pushEvent._id, expiresAt: new Date(Date.now() + 3600_000) });
+  sent.length = 0;
+  await drain();
+  assert.deepEqual([(await Outbox.findOne({ dedupeKey: expiredKey }).lean())!.skipReason, sent.length, await DeviceToken.countDocuments({ userId: expiring.user._id })], ["No signed-in device", 0, 0]);
+  assert.ok(contracts.apiSuccessSchema(contracts.deliveryHealthSchema).safeParse(await request("/admin/outbox?status=pending", admin.cookie)).success);
+  console.log("PASS push: deduplicated, sent with receipts, failed tokens pruned, stale/cancelled/opted-out/signed-out get none");
+
+  // --- Phase 5: offline tickets and organizer check-in ---------------------------------
+  const ticketHolder = await fixture("student");
+  const door = await fixture("student");
+  const doorEvent = await Event.create({ ...eventData, title: "Door test", capacity: 5 });
+  assert.equal((await request(`/events/${doorEvent._id}/staff`, owner.cookie, "PUT", { email: door.user.email, role: "volunteer" })).status, 200);
+  assert.equal((await request("/registrations", ticketHolder.cookie, "POST", { eventId: doorEvent._id.toString() })).status, 201);
+  const bundle = contracts.apiSuccessSchema(contracts.offlineTicketBundleSchema).parse(await request("/registrations/tickets", ticketHolder.cookie));
+  assert.equal(bundle.data.tickets.length, 1);
+  const ticket = bundle.data.tickets[0];
+  const { ticketExpiresAt } = await import("../lib/tickets");
+  assert.equal(ticket.expiresAt, ticketExpiresAt({ date: doorEvent.date, endDate: doorEvent.endDate }).toISOString(), "expiry is decided by the backend");
+  assert.equal((await request("/registrations/tickets", ticketHolder.cookie)).data.tickets[0].token, ticket.token, "a stable token while the event is unchanged");
+  assert.equal((await request("/registrations/tickets", "")).status, 401);
+  // A reschedule re-signs the ticket with the new expiry.
+  await Event.updateOne({ _id: doorEvent._id }, { $set: { endDate: new Date(doorEvent.endDate.getTime() + 3600_000) } });
+  const resynced = (await request("/registrations/tickets", ticketHolder.cookie)).data.tickets[0];
+  assert.notEqual(resynced.token, ticket.token);
+  assert.equal(new Date(resynced.expiresAt).getTime() - new Date(ticket.expiresAt).getTime(), 3600_000);
+  // The volunteer runs the door: counts, search, scan, and a manual check-in.
+  const roster = contracts.apiSuccessSchema(contracts.attendanceSchema).parse(await request(`/events/${doorEvent._id}/attendance?search=${encodeURIComponent("test person")}&limit=10`, door.cookie));
+  assert.deepEqual([roster.data.total, roster.data.checkedIn, roster.data.attendees.length, roster.data.pagination!.total], [1, 0, 1, 1]);
+  assert.equal((await request(`/events/${doorEvent._id}/attendance?search=nobody-matches`, door.cookie)).data.attendees.length, 0);
+  assert.equal((await request(`/events/${doorEvent._id}/attendance`, stranger.cookie)).status, 403);
+  assert.equal((await request(`/events/${doorEvent._id}`, door.cookie, "PUT", { title: "Volunteer edit" })).status, 403, "a volunteer cannot edit the event");
+  const scanned = await request("/registrations/check-in", door.cookie, "POST", { token: resynced.token });
+  assert.equal(scanned.status, 200, JSON.stringify(scanned));
+  contracts.apiSuccessSchema(contracts.checkInResultSchema).parse(scanned);
+  assert.equal(scanned.data.attendee.name, "Test Person");
+  assert.equal((await request("/registrations/check-in", door.cookie, "POST", { registrationId: ticket.registrationId })).status, 409);
+  const walkInStudent = await fixture("student");
+  assert.equal((await request("/registrations", walkInStudent.cookie, "POST", { eventId: doorEvent._id.toString() })).status, 201);
+  const walkInRegistration = await Registration.findOne({ eventId: doorEvent._id, studentId: walkInStudent.user._id }).lean();
+  assert.equal((await request("/registrations/check-in", stranger.cookie, "POST", { registrationId: walkInRegistration!._id.toString() })).status, 403);
+  assert.equal((await request("/registrations/check-in", door.cookie, "POST", { registrationId: walkInRegistration!._id.toString() })).status, 200, "manual check-in from search");
+  assert.equal((await request(`/events/${doorEvent._id}/attendance`, door.cookie)).data.checkedIn, 2);
+  // Cancelling revokes the ticket: refused at check-in, gone on the next sync.
+  const leaverTicket = (await request("/registrations/tickets", walkInStudent.cookie)).data.tickets[0];
+  const canceller = await fixture("student");
+  assert.equal((await request("/registrations", canceller.cookie, "POST", { eventId: doorEvent._id.toString() })).status, 201);
+  const revoked = (await request("/registrations/tickets", canceller.cookie)).data.tickets[0];
+  assert.equal((await request(`/registrations?eventId=${doorEvent._id}`, canceller.cookie, "DELETE")).status, 200);
+  assert.equal((await request("/registrations/tickets", canceller.cookie)).data.tickets.length, 0, "revoked on the next sync");
+  assert.equal((await request("/registrations/check-in", door.cookie, "POST", { token: revoked.token })).status, 404, "a cancelled ticket is refused");
+  assert.ok(leaverTicket.checkedIn, "the bundle reports check-in state");
+  console.log("PASS offline tickets: backend expiry, re-sign on reschedule, revocation on cancel; volunteer search and check-in");
+
+  // --- Phase 5: account deletion --------------------------------------------------------
+  const leavingStudent = await fixture("student");
+  const upcoming = await Event.create({ ...eventData, title: "Leaving upcoming", capacity: 3 });
+  const pastEvent = await Event.create({ ...eventData, title: "Leaving past", capacity: 3, date: new Date(Date.now() - 48 * 3600_000), endDate: new Date(Date.now() - 46 * 3600_000), registrationDeadline: new Date(Date.now() - 50 * 3600_000), registeredCount: 1 });
+  assert.equal((await request("/registrations", leavingStudent.cookie, "POST", { eventId: upcoming._id.toString() })).status, 201);
+  await Registration.create({ eventId: pastEvent._id, studentId: leavingStudent.user._id, checkedIn: true, checkedInAt: new Date(pastEvent.date) });
+  await Review.create({ eventId: pastEvent._id, studentId: leavingStudent.user._id, rating: 5, comment: "Great" });
+  await Event.updateOne({ _id: pastEvent._id }, { $set: { reviewCount: 1, averageRating: 5 } });
+  await Message.create({ eventId: pastEvent._id, senderId: leavingStudent.user._id, content: "My phone is 98765" });
+  await Bookmark.create({ userId: leavingStudent.user._id, eventId: upcoming._id });
+  await request("/devices", leavingStudent.cookie, "POST", { token: "ExpoPushToken[leavingStudent]", platform: "android" });
+  assert.equal((await request("/users/me", leavingStudent.cookie, "DELETE", { confirmation: "wrong@example.test" })).status, 400);
+  assert.equal((await request("/users/me", leavingStudent.cookie, "DELETE", {})).status, 400);
+  assert.equal((await request("/users/me", admin.cookie, "DELETE", { confirmation: admin.user.email })).status, 403);
+  const ownerBlocked = await request("/users/me", owner.cookie, "DELETE", { confirmation: owner.user.email.toUpperCase() });
+  assert.equal(ownerBlocked.status, 409, "owned events that have not ended block deletion");
+  assert.ok(ownerBlocked.errors.events.length >= 1);
+  const deletion = await fetch(`${base}/api/users/me`, { method: "DELETE", headers: { cookie: leavingStudent.cookie, "Content-Type": "application/json", Origin: base }, body: JSON.stringify({ confirmation: leavingStudent.user.email }) });
+  assert.equal(deletion.status, 200, await deletion.clone().text());
+  assert.ok(deletion.headers.getSetCookie().some((cookie) => cookie.startsWith("better-auth.session_token=;")), "cookies are cleared");
+  assert.equal((await request("/users/me", leavingStudent.cookie)).status, 401, "the session no longer works");
+  assert.equal(await mongoose.connection.collection("user").countDocuments({ email: leavingStudent.user.email }), 0);
+  assert.equal(await mongoose.connection.collection("session").countDocuments({ userId: leavingStudent.identity }), 0);
+  const tombstone = (await User.findById(leavingStudent.user._id).lean())!;
+  assert.deepEqual([tombstone.firstName, tombstone.email, tombstone.phone, tombstone.collegeId, !!tombstone.deletedAt, tombstone.deletion], ["Deleted", `deleted-${leavingStudent.user._id}@deleted.invalid`, undefined, undefined, true, undefined]);
+  assert.equal(await User.countDocuments({ email: leavingStudent.user.email }), 0, "no profile keeps the real address");
+  assert.equal(await Registration.countDocuments({ eventId: upcoming._id }), 0);
+  await assertSeatsConsistent(upcoming._id, "deleted account frees its seat");
+  assert.equal(await Registration.countDocuments({ eventId: pastEvent._id, studentId: leavingStudent.user._id }), 1, "past attendance stays");
+  assert.equal(await Review.countDocuments({ studentId: leavingStudent.user._id }), 0);
+  assert.equal((await Event.findById(pastEvent._id).lean())!.reviewCount, 0, "ratings are recalculated");
+  const blanked = (await Message.findOne({ senderId: leavingStudent.user._id }).lean())!;
+  assert.deepEqual([blanked.isDeleted, blanked.content.includes("98765")], [true, false]);
+  assert.equal(await Bookmark.countDocuments({ userId: leavingStudent.user._id }), 0);
+  assert.equal(await DeviceToken.countDocuments({ userId: leavingStudent.user._id }), 0);
+  assert.equal((await request("/users?limit=100&search=deleted.invalid", admin.cookie)).data.items.length, 0, "anonymized profiles are not listed");
+  // A deletion whose request died after the marker is finished by the worker.
+  const { recoverAccountDeletions } = await import("../lib/account-deletion");
+  const crashedAccount = await fixture("student");
+  await User.updateOne({ _id: crashedAccount.user._id }, { $set: { deletion: { requestedAt: new Date(Date.now() - 120_000) } } });
+  assert.equal((await request("/users/me", crashedAccount.cookie)).status, 401, "a pending deletion is already signed out");
+  assert.equal(await recoverAccountDeletions({ graceMs: 0 }), 1);
+  assert.equal(await recoverAccountDeletions({ graceMs: 0 }), 0, "idempotent");
+  assert.equal((await User.findById(crashedAccount.user._id).lean())!.email, `deleted-${crashedAccount.user._id}@deleted.invalid`);
+  assert.equal(await mongoose.connection.collection("user").countDocuments({ email: crashedAccount.user.email }), 0);
+  assert.equal((await auditDatabase()).some((issue) => issue.id === leavingStudent.user._id.toString()), false, "the audit accepts anonymized profiles");
+  console.log("PASS account deletion: confirmation, owner/admin blocks, identity removed, data anonymized, crash recovery");
+
+  // --- Phase 5: native Google sign-in ---------------------------------------------------
+  const googleNoConfig = await request("/auth/google-native", "", "POST", { idToken: "x".repeat(40) });
+  assert.equal(googleNoConfig.status, 503, "not configured in this suite");
+  assert.equal((await request("/auth/google-native", "", "POST", {})).status, 400);
+  console.log("PASS native Google sign-in refuses when unconfigured and validates input");
+
+  // --- Mobile paging: notifications and chat ---------------------------------------------
+  const reader = await fixture("student");
+  const sameInstant = new Date(Date.now() - 60_000);
+  await Notification.insertMany(Array.from({ length: 7 }, (_, n) => ({ userId: reader.user._id, type: "announcement", title: `N${n}`, message: "m", createdAt: n < 4 ? sameInstant : new Date(sameInstant.getTime() - n * 1000) })));
+  const seenNotifications: string[] = [];
+  let notificationCursor: string | null = null;
+  do {
+    const pageResult = contracts.apiSuccessSchema(contracts.notificationListSchema).parse(await request(`/notifications?limit=3${notificationCursor ? `&before=${notificationCursor}` : ""}`, reader.cookie));
+    seenNotifications.push(...pageResult.data.items.map((item) => item.id));
+    notificationCursor = pageResult.data.nextCursor;
+  } while (notificationCursor);
+  assert.equal(seenNotifications.length, 7, "every notification once, even with equal timestamps");
+  assert.equal(new Set(seenNotifications).size, 7);
+  assert.equal((await request("/notifications?before=not-an-id", reader.cookie)).status, 400);
+  const chatRoom = await Event.create({ ...eventData, title: "Paged chat", capacity: 5 });
+  await Message.insertMany(Array.from({ length: 7 }, (_, n) => ({ eventId: chatRoom._id, senderId: owner.user._id, content: `M${n}`, createdAt: n < 4 ? sameInstant : new Date(sameInstant.getTime() - n * 1000) })));
+  const seenMessages: string[] = [];
+  let chatCursor: { before: string; beforeId: string } | null = null;
+  do {
+    const query = chatCursor ? `&before=${encodeURIComponent(chatCursor.before)}&beforeId=${chatCursor.beforeId}` : "";
+    const pageResult = contracts.apiSuccessSchema(contracts.chatPageSchema).parse(await request(`/events/${chatRoom._id}/messages?limit=3${query}`, owner.cookie));
+    seenMessages.push(...pageResult.data.messages.map((message) => message._id));
+    chatCursor = pageResult.data.nextCursor;
+  } while (chatCursor);
+  assert.equal(new Set(seenMessages).size, 7, "the (createdAt, id) cursor never skips messages that share a timestamp");
+  assert.equal((await request(`/events/${chatRoom._id}/messages?beforeId=${chatRoom._id}`, owner.cookie)).status, 400, "beforeId needs before");
+  console.log("PASS notification and chat cursors page through equal timestamps without gaps");
 } catch (error) {
   console.error(serverLog.slice(-18000));
   throw error;

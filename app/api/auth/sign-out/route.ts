@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { connectDB } from "@/lib/db";
+import DeviceToken from "@/models/DeviceToken";
 
 /**
  * POST /api/auth/sign-out
@@ -20,7 +22,17 @@ export async function POST(request: NextRequest) {
 
     // Check if sign-out was successful
     if (authResponse.ok) {
-      if (session) globalThis.io?.in(`session:${session.session.id}`).disconnectSockets(true);
+      if (session) {
+        globalThis.io?.in(`session:${session.session.id}`).disconnectSockets(true);
+        // A signed-out device must receive no pushes. Delivery also re-checks the
+        // session, so a failure here only delays the cleanup.
+        try {
+          await connectDB();
+          await DeviceToken.deleteMany({ sessionId: session.session.id });
+        } catch (error) {
+          console.error("Sign-out device cleanup deferred:", error);
+        }
+      }
       // Create custom response with personalized message
       const response = NextResponse.json(
         {

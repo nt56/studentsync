@@ -9,6 +9,8 @@ const footerLinks = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/sign-in", label: "Sign In" },
   { href: "/sign-up", label: "Join StudentSync" },
+  { href: "/privacy", label: "Privacy" },
+  { href: "/support", label: "Support" },
 ];
 
 export function Footer() {

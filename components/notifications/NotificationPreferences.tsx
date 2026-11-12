@@ -11,6 +11,7 @@ export function NotificationPreferences() {
   const [preferences, setPreferences] = useState<{
     reminders: boolean;
     email: boolean;
+    push: boolean;
   } | null>(null);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -100,6 +101,25 @@ export function NotificationPreferences() {
               disabled={saving}
               onCheckedChange={(email) =>
                 setPreferences({ ...preferences, email })
+              }
+            />
+          </div>
+
+          <div className="flex items-center justify-between rounded-xl border border-border/80 bg-background/50 p-4 transition-colors">
+            <div className="space-y-0.5">
+              <p id="push-preference" className="font-display text-sm font-semibold text-foreground">
+                Mobile Push Notifications
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Reminders, seat offers, and announcements on phones where you are signed in to the app.
+              </p>
+            </div>
+            <Switch
+              aria-labelledby="push-preference"
+              checked={preferences.push}
+              disabled={saving}
+              onCheckedChange={(push) =>
+                setPreferences({ ...preferences, push })
               }
             />
           </div>

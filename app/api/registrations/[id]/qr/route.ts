@@ -5,7 +5,8 @@ import { requireAuth } from "@/lib/auth-guard";
 import { successResponse, ApiErrors } from "@/lib/api-response";
 import mongoose from "mongoose";
 import QRCode from "qrcode";
-import { signQrToken, verifyQrToken } from "@/lib/qr";
+import Event, { liveEvent } from "@/models/Event";
+import { issueTicketToken } from "@/lib/tickets";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -47,19 +48,12 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
 
     if (!isOwner && !isAdmin) return ApiErrors.forbidden();
 
-    // Generate (or reuse) the QR token
-    let token = registration.qrToken;
-    if (token) {
-      try { verifyQrToken(token); } catch { token = null; }
-    }
-    if (!token) {
-      token = signQrToken({
-        registrationId: registration._id.toString(),
-        eventId: registration.eventId.toString(),
-        studentId: registration.studentId.toString(),
-      });
-      await Registration.findByIdAndUpdate(id, { qrToken: token });
-    }
+    // Events being deleted are hidden; a ticket for one would be refused at check-in.
+    const event = await Event.findOne({ _id: registration.eventId, ...liveEvent }).select("date endDate").lean<{ date: Date; endDate?: Date } | null>();
+    if (!event) return ApiErrors.notFound("Event");
+
+    // The token expires a few hours after the event ends (offline ticket policy).
+    const { token, expiresAt } = await issueTicketToken(registration, event);
 
     // Render as base64 PNG data URL
     const qrDataUrl = await QRCode.toDataURL(token, {
@@ -73,6 +67,8 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
         qrCode: qrDataUrl,
         checkedIn: registration.checkedIn,
         registrationId: registration._id.toString(),
+        token,
+        expiresAt: expiresAt.toISOString(),
       },
       "QR code generated",
     );

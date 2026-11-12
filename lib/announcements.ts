@@ -8,6 +8,7 @@ import { createNotification, isDuplicateKeyError } from "@/lib/notifications";
 import { sendAnnouncementEmail } from "@/lib/email";
 import { ANNOUNCEMENT_DAILY_LIMIT } from "@/lib/contracts";
 import { ANNOUNCEMENT_WINDOW_MS as DAY_MS } from "@/lib/announcement-cap";
+import { enqueuePush } from "@/lib/push";
 
 export { remainingAnnouncements } from "@/lib/announcement-cap";
 
@@ -88,7 +89,7 @@ async function awaitInFlightSibling(eventId: Id, requestId: string, now: Date): 
 export async function fanOutAnnouncement(announcementId: Id): Promise<void> {
   await connectDB();
   const announcement = await Announcement.findOne({ _id: announcementId, fanoutPending: true }).lean<{
-    _id: Types.ObjectId; eventId: Types.ObjectId; title: string; message: string;
+    _id: Types.ObjectId; eventId: Types.ObjectId; title: string; message: string; createdAt: Date;
   } | null>();
   if (!announcement) return;
   const event = await Event.findOne({ _id: announcement.eventId, deleting: { $ne: true } }).select("title").lean<{ _id: Types.ObjectId; title: string } | null>();
@@ -113,6 +114,11 @@ export async function fanOutAnnouncement(announcementId: Id): Promise<void> {
         dedupeKey: `${key}:${student._id}`, userId: student._id, eventId: event._id,
         type: "announcement", title: `${event.title}: ${announcement.title}`, message: preview, link: `/events/${event._id}`,
       }, { throwOnError: true });
+      await enqueuePush({
+        dedupeKey: `${key}:${student._id}:push`, userId: student._id, to: { email: student.email, name: student.firstName },
+        kind: "announcement", title: `${event.title}: ${announcement.title}`, body: preview, url: `/events/${event._id}`,
+        eventId: event._id, expiresAt: new Date(announcement.createdAt.getTime() + DAY_MS),
+      });
       // Non-essential: the outbox skips users who turned email off.
       await sendAnnouncementEmail(student.email, `${student.firstName} ${student.lastName ?? ""}`.trim(),
         { id: event._id.toString(), title: event.title }, announcement, `${key}:${student._id}:email`);

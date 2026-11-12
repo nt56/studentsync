@@ -263,8 +263,10 @@ export const adminReportSchema = reportSchema.extend({
 export const adminReportListSchema = paginatedSchema(adminReportSchema);
 
 export const OUTBOX_STATUSES = ["pending", "processing", "sent", "failed", "skipped"] as const;
+export const OUTBOX_CHANNELS = ["email", "push"] as const;
 export const outboxJobSchema = z.object({
   id: z.string(),
+  channel: z.enum(OUTBOX_CHANNELS),
   to: z.string(),
   subject: z.string(),
   status: z.enum(OUTBOX_STATUSES),
@@ -279,6 +281,115 @@ export const deliveryHealthSchema = paginatedSchema(outboxJobSchema).extend({
   counts: z.object({ pending: z.number(), processing: z.number(), failed: z.number() }),
   providerConfigured: z.boolean(),
 });
+
+// ── Phase 5: devices, offline tickets, organizer check-in, account ──────────
+
+export const DEVICE_PLATFORMS = ["ios", "android"] as const;
+export const DEVICE_LIMIT = 10;
+/** Push kinds. Each is re-checked against current state just before sending. */
+export const PUSH_KINDS = ["event_reminder", "waitlist_offer", "announcement"] as const;
+export const deviceSchema = z.object({
+  id: z.string(),
+  platform: z.enum(DEVICE_PLATFORMS),
+  createdAt: isoDate,
+  lastSeenAt: isoDate,
+});
+
+/** A ticket stays valid until this long after the event ends. */
+export const TICKET_GRACE_HOURS = 6;
+/** Clients should sync tickets at least this often while online. */
+export const TICKET_REFRESH_HOURS = 6;
+export const offlineTicketSchema = z.object({
+  registrationId: z.string(),
+  token: z.string(),
+  expiresAt: isoDate,
+  checkedIn: z.boolean(),
+  checkedInAt: isoDate.nullable(),
+  event: z.object({
+    id: z.string(), title: z.string(), venue: z.string(),
+    date: isoDate, endDate: isoDate, timeZone: z.string(),
+  }),
+});
+/** The complete set: a ticket the client holds that is missing here was revoked. */
+export const offlineTicketBundleSchema = z.object({
+  tickets: z.array(offlineTicketSchema),
+  syncedAt: isoDate,
+  refreshAfter: isoDate,
+});
+
+export const attendeeSchema = z.object({
+  registrationId: z.string(),
+  checkedIn: z.boolean(),
+  checkedInAt: isoDate.nullable(),
+  registeredAt: isoDate.nullable(),
+  student: z.object({ id: z.string(), name: z.string(), email: z.string(), image: z.string().nullable() }).nullable(),
+});
+export const attendanceSchema = z.object({
+  total: z.number().int().min(0),
+  checkedIn: z.number().int().min(0),
+  attendees: z.array(attendeeSchema),
+  /** Present when `page`/`limit` or `search` were sent; counts the matching attendees. */
+  pagination: paginationSchema.optional(),
+});
+export const checkInResultSchema = z.object({
+  registrationId: z.string(),
+  eventId: z.string(),
+  studentId: z.string().nullable(),
+  checkedInAt: isoDate,
+  attendee: z.object({ name: z.string() }).nullable(),
+});
+
+export const notificationSchema = z.object({
+  id: z.string(),
+  type: z.string(),
+  title: z.string(),
+  message: z.string(),
+  link: z.string().nullable(),
+  isRead: z.boolean(),
+  isVirtual: z.literal(false),
+  createdAt: isoDate,
+});
+/** `nextCursor` is the last item's id: pass it as `?before=` for the next page. */
+export const notificationListSchema = z.object({
+  items: z.array(notificationSchema),
+  unreadCount: z.number().int().min(0),
+  total: z.number().int().min(0),
+  hasMore: z.boolean(),
+  nextCursor: z.string().nullable(),
+});
+
+export const chatMessageSchema = z.object({
+  _id: z.string(),
+  eventId: z.string(),
+  senderId: z.object({
+    _id: z.string(), firstName: z.string(), lastName: z.string().optional(),
+    profileImage: z.string().nullable().optional(), role: z.string(),
+  }).nullable(),
+  content: z.string(),
+  type: z.enum(["text", "system"]),
+  isDeleted: z.boolean(),
+  createdAt: isoDate,
+});
+/** Oldest first. Pass `nextCursor.before` and `nextCursor.beforeId` back for older messages. */
+export const chatPageSchema = z.object({
+  messages: z.array(chatMessageSchema),
+  hasMore: z.boolean(),
+  nextCursor: z.object({ before: isoDate, beforeId: z.string() }).nullable(),
+});
+
+export const notificationPreferencesSchema = z.object({ reminders: z.boolean(), email: z.boolean(), push: z.boolean() });
+
+export type Device = z.infer<typeof deviceSchema>;
+export type OfflineTicket = z.infer<typeof offlineTicketSchema>;
+export type OfflineTicketBundle = z.infer<typeof offlineTicketBundleSchema>;
+export type Attendance = z.infer<typeof attendanceSchema>;
+export type CheckInResult = z.infer<typeof checkInResultSchema>;
+export type NotificationItem = z.infer<typeof notificationSchema>;
+export type NotificationList = z.infer<typeof notificationListSchema>;
+export type ChatMessage = z.infer<typeof chatMessageSchema>;
+export type ChatPage = z.infer<typeof chatPageSchema>;
+export type NotificationPreferencesResponse = z.infer<typeof notificationPreferencesSchema>;
+export type PushKind = (typeof PUSH_KINDS)[number];
 
 export type AuditEntry = z.infer<typeof auditEntrySchema>;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

@@ -146,7 +146,7 @@ export default function DeliveryHealthPage() {
                   <tr key={job.id} className="align-top">
                     <td className="px-4 py-3">
                       <p className="max-w-xs truncate font-medium text-foreground" title={job.subject}>{job.subject}</p>
-                      <p className="text-xs text-muted-foreground">{job.to}{job.essential ? " · essential" : ""}</p>
+                      <p className="text-xs text-muted-foreground">{job.channel === "push" ? "Push · " : ""}{job.to}{job.essential ? " · essential" : ""}</p>
                     </td>
                     <td className="max-w-sm px-4 py-3 text-muted-foreground">{job.lastError ?? "—"}</td>
                     <td className="px-4 py-3 text-muted-foreground">{job.attempts}</td>

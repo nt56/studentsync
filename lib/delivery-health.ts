@@ -4,16 +4,16 @@ import Outbox from "@/models/Outbox";
 import type { OutboxJob } from "@/lib/contracts";
 
 /**
- * Admin view of the email outbox. The HTML body is never returned: queued
- * authentication links are sensitive.
+ * Admin view of the outbox (email and push). The HTML body is never returned:
+ * queued authentication links are sensitive.
  */
 type JobRow = {
-  _id: Types.ObjectId; to: { email: string }; subject: string; status: OutboxJob["status"]; essential?: boolean;
+  _id: Types.ObjectId; channel?: OutboxJob["channel"]; to: { email: string }; subject: string; status: OutboxJob["status"]; essential?: boolean;
   attempts?: number; lastError?: string; availableAt: Date; createdAt: Date; updatedAt: Date;
 };
 export function formatOutboxJob(row: JobRow): OutboxJob {
   return {
-    id: row._id.toString(), to: row.to.email, subject: row.subject, status: row.status,
+    id: row._id.toString(), channel: row.channel ?? "email", to: row.to.email, subject: row.subject, status: row.status,
     essential: !!row.essential, attempts: row.attempts ?? 0, lastError: row.lastError ?? null,
     availableAt: row.availableAt.toISOString(), createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString(),
   };

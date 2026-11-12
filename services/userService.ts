@@ -31,6 +31,11 @@ export const userService = {
     return api.delete(`/users/${id}`, { data: { reason } });
   },
 
+  /** DELETE /api/users/me — delete your own account; `confirmation` is your email */
+  deleteOwnAccount(confirmation: string) {
+    return api.delete("/users/me", { data: { confirmation } });
+  },
+
   /** GET /api/users/me/calendar-feed — whether a private feed link exists */
   getCalendarFeed() {
     return api.get("/users/me/calendar-feed");

@@ -4,6 +4,7 @@ import { NotificationPreferences } from "@/components/notifications/Notification
 import { CalendarFeedSettings } from "@/components/settings/CalendarFeedSettings";
 import { InterestsSettings } from "@/components/settings/InterestsSettings";
 import { SavedSearchesSettings } from "@/components/settings/SavedSearchesSettings";
+import { DeleteAccountSettings } from "@/components/settings/DeleteAccountSettings";
 import { useAppSelector } from "@/store/hooks";
 import { useTheme } from "next-themes";
 import { useSyncExternalStore } from "react";
@@ -151,6 +152,8 @@ export default function SettingsPage() {
           <CalendarFeedSettings />
         </>
       )}
+
+      <DeleteAccountSettings />
     </div>
   );
 }

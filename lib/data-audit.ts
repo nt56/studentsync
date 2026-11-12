@@ -26,7 +26,8 @@ export async function auditDatabase(): Promise<AuditIssue[]> {
       if (missing) issues.push({ model: name, id: row._id.toString(), problem: "Missing required event or user", repair: "delete-orphan" });
     }
   }
-  for await (const user of User.find().cursor()) {
+  // Anonymized (deleted) accounts intentionally have no login identity.
+  for await (const user of User.find({ deletedAt: { $exists: false } }).cursor()) {
     const identity = await mongoose.connection.collection("user").findOne({ email: user.email });
     if (!identity) issues.push({ model: "User", id: user._id.toString(), problem: "Application profile has no login identity; investigate before changing it", repair: "manual" });
     else if (identity.role !== user.role) issues.push({ model: "User", id: user._id.toString(), problem: "Login identity role differs from application role", repair: "sync-role" });

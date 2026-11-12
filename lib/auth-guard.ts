@@ -21,6 +21,34 @@ interface AuthError {
   response: Response;
 }
 
+type AppProfile = { _id: mongoose.Types.ObjectId; role?: string; deletion?: unknown; deletedAt?: Date };
+
+/**
+ * The application profile for a Better Auth user, created on first use (OAuth and
+ * native Google sign-ins have none yet). Returns null when the login identity is
+ * gone (the account was deleted).
+ */
+export async function ensureAppProfile(authUser: { id: string; email: string; name?: string | null }): Promise<AppProfile | null> {
+  await connectDB();
+  const existing = await User.findOne({ email: authUser.email }).select("role deletion deletedAt").lean<AppProfile | null>();
+  if (existing) return existing;
+  const identity = await mongoose.connection.collection("user").findOne({ email: authUser.email });
+  if (!identity) return null;
+  const nameParts = (authUser.name || "").trim().split(/\s+/);
+  return User.findOneAndUpdate({ email: authUser.email }, { $setOnInsert: {
+    firstName: nameParts[0] || "User",
+    lastName: nameParts.slice(1).join(" ") || "",
+    email: authUser.email,
+    // SECURITY: a freshly auto-created profile is ALWAYS a student — never
+    // derive it from session input. Only an admin can promote via
+    // PATCH /api/users/:id. (Mirrors the custom register route.)
+    role: "student",
+    authUserId: authUser.id,
+    // gender, dateOfBirth, phone, collegeId stay empty; the user fills them in later.
+  } }, { upsert: true, returnDocument: "after", runValidators: true })
+    .select("role deletion deletedAt").lean<AppProfile>();
+}
+
 /**
  * Verify authentication and optionally check role
  * Returns session data or error response
@@ -43,28 +71,12 @@ export async function requireAuth(
 
     // Get MongoDB user ID — auto-create for OAuth users who don't have one yet
     await connectDB();
-    let mongoUser = await User.findOne({ email: session.user.email });
+    const mongoUser = await ensureAppProfile(session.user);
+    if (!mongoUser) return { success: false, response: ApiErrors.unauthorized() };
 
-    if (!mongoUser) {
-      const identity = await mongoose.connection.collection("user").findOne({ email: session.user.email });
-      if (!identity) return { success: false, response: ApiErrors.unauthorized() };
-      // OAuth user signing in for the first time — create MongoDB User profile
-      const nameParts = (session.user.name || "").trim().split(/\s+/);
-      const firstName = nameParts[0] || "User";
-      const lastName = nameParts.slice(1).join(" ") || "";
-
-      mongoUser = await User.findOneAndUpdate({ email: session.user.email }, { $setOnInsert: {
-        firstName,
-        lastName,
-        email: session.user.email,
-        // SECURITY: a freshly auto-created profile is ALWAYS a student — never
-        // derive it from session input. Only an admin can promote via
-        // PATCH /api/users/:id. (Mirrors the custom register route.)
-        role: "student",
-        authUserId: session.user.id,
-        // gender, dateOfBirth, phone, collegeId — left empty for OAuth users
-        // They can update these later via PATCH /api/auth/profile
-      } }, { upsert: true, returnDocument: "after", runValidators: true });
+    // An account being deleted (or already anonymized) is signed out everywhere.
+    if (mongoUser.deletion || mongoUser.deletedAt) {
+      return { success: false, response: ApiErrors.unauthorized() };
     }
 
     // Read current privileges from the application profile, not a cached cookie.

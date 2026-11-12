@@ -9,13 +9,23 @@ interface NotificationsState {
   unreadCount: number;
   isLoading: boolean;
   error: string | null;
+  /** Cursor for the next older page; null when everything is loaded. */
+  nextCursor: string | null;
+  /** True once the user loaded older pages, so polling keeps them. */
+  loadedOlder: boolean;
+  isLoadingOlder: boolean;
 }
+
+type NotificationPage = { items: NotificationItem[]; unreadCount: number; total: number; hasMore: boolean; nextCursor: string | null };
 
 const initialState: NotificationsState = {
   items: [],
   unreadCount: 0,
   isLoading: false,
   error: null,
+  nextCursor: null,
+  loadedOlder: false,
+  isLoadingOlder: false,
 };
 
 export const fetchNotifications = createAsyncThunk(
@@ -23,13 +33,21 @@ export const fetchNotifications = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await notificationService.getNotifications();
-      return response.data as {
-        items: NotificationItem[];
-        unreadCount: number;
-        total: number;
-      };
+      return response.data as NotificationPage;
     } catch {
       return rejectWithValue("Failed to fetch notifications");
+    }
+  },
+);
+
+export const fetchOlderNotifications = createAsyncThunk(
+  "notifications/fetchOlder",
+  async (before: string, { rejectWithValue }) => {
+    try {
+      const response = await notificationService.getNotifications(30, before);
+      return response.data as NotificationPage;
+    } catch {
+      return rejectWithValue("Failed to load older notifications");
     }
   },
 );
@@ -92,8 +110,30 @@ const notificationsSlice = createSlice({
       })
       .addCase(fetchNotifications.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.items = action.payload.items;
         state.unreadCount = action.payload.unreadCount;
+        if (state.loadedOlder) {
+          // A poll refreshes the newest page but keeps the older pages already shown.
+          const fresh = new Set(action.payload.items.map((n) => n.id));
+          const oldest = action.payload.items[action.payload.items.length - 1]?.createdAt;
+          const older = state.items.filter((n) => !fresh.has(n.id) && (!oldest || n.createdAt <= oldest));
+          state.items = [...action.payload.items, ...older];
+        } else {
+          state.items = action.payload.items;
+          state.nextCursor = action.payload.nextCursor ?? null;
+        }
+      })
+      .addCase(fetchOlderNotifications.pending, (state) => {
+        state.isLoadingOlder = true;
+      })
+      .addCase(fetchOlderNotifications.fulfilled, (state, action) => {
+        state.isLoadingOlder = false;
+        state.loadedOlder = true;
+        const known = new Set(state.items.map((n) => n.id));
+        state.items = [...state.items, ...action.payload.items.filter((n) => !known.has(n.id))];
+        state.nextCursor = action.payload.nextCursor ?? null;
+      })
+      .addCase(fetchOlderNotifications.rejected, (state) => {
+        state.isLoadingOlder = false;
       })
       .addCase(fetchNotifications.rejected, (state, action) => {
         state.isLoading = false;
@@ -126,6 +166,8 @@ const notificationsSlice = createSlice({
     builder.addCase(clearAllNotifications.fulfilled, (state) => {
       state.items = [];
       state.unreadCount = 0;
+      state.nextCursor = null;
+      state.loadedOlder = false;
     });
   },
 });

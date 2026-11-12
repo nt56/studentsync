@@ -116,6 +116,13 @@ const authSlice = createSlice({
     setLoading: (state, action) => {
       state.isLoading = action.payload;
     },
+    /** The session ended on the server (for example the account was deleted). */
+    signedOut: (state) => {
+      state.user = null;
+      state.isAuthenticated = false;
+      state.isLoading = false;
+      state.initialized = true;
+    },
     patchUser: (state, action: { payload: Partial<AuthUser> }) => {
       if (state.user) {
         state.user = { ...state.user, ...action.payload };
@@ -201,5 +208,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearError, setLoading, patchUser } = authSlice.actions;
+export const { clearError, setLoading, patchUser, signedOut } = authSlice.actions;
 export default authSlice.reducer;

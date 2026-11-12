@@ -13,12 +13,15 @@ export interface NotificationItem {
 
 export const notificationService = {
   /** GET /api/notifications */
-  getNotifications(limit = 30) {
+  /** `before` is a previous page's `nextCursor` (the last item's id). */
+  getNotifications(limit = 30, before?: string) {
     return api.get<{
       items: NotificationItem[];
       unreadCount: number;
       total: number;
-    }>(`/notifications?limit=${limit}`);
+      hasMore: boolean;
+      nextCursor: string | null;
+    }>(`/notifications?limit=${limit}${before ? `&before=${encodeURIComponent(before)}` : ""}`);
   },
 
   /** PATCH /api/notifications/:id — mark one as read */

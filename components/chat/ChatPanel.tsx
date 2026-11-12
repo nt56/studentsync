@@ -37,7 +37,7 @@ export function ChatPanel({
   isOwner = false,
 }: ChatPanelProps) {
   const dispatch = useAppDispatch();
-  const { messages, isLoading, isSending, typingUsers, error } = useAppSelector(
+  const { messages, isLoading, isSending, typingUsers, error, hasMore, nextCursor, isLoadingOlder } = useAppSelector(
     (s) => s.chat,
   );
   const authUser = useAppSelector((s) => s.auth.user);
@@ -64,12 +64,13 @@ export function ChatPanel({
     }
   }, [isOpen, canSend, eventId, dispatch]);
 
-  // Scroll to bottom when new messages arrive
+  // Scroll to bottom when a new message arrives (not when older ones are prepended)
+  const lastMessageId = messages[messages.length - 1]?._id;
   useEffect(() => {
     if (isOpen) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages.length, isOpen]);
+  }, [lastMessageId, isOpen]);
 
   const handleSend = useCallback(
     async (content: string) => {
@@ -223,7 +224,20 @@ export function ChatPanel({
                 </div>
               </div>
             ) : (
-              messages.map((msg) => (
+              <>
+              {hasMore && nextCursor && (
+                <div className="flex justify-center pb-2">
+                  <button
+                    type="button"
+                    onClick={() => dispatch(fetchMessages({ eventId, cursor: nextCursor }))}
+                    disabled={isLoadingOlder}
+                    className="rounded-xl border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-60"
+                  >
+                    {isLoadingOlder ? "Loading…" : "Load earlier messages"}
+                  </button>
+                </div>
+              )}
+              {messages.map((msg) => (
                 <ChatMessage
                   key={msg._id}
                   message={msg}
@@ -232,7 +246,8 @@ export function ChatPanel({
                   canReport={userRole !== "admin"}
                   onDelete={handleDelete}
                 />
-              ))
+              ))}
+              </>
             )}
 
             {/* Typing indicator */}

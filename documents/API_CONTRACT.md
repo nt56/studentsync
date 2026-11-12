@@ -2,7 +2,7 @@
 
 Purpose: a reference for frontend and backend developers describing API inputs, responses, permissions, and failure behavior. This document does not create or configure databases. Keep it alongside the OpenAPI reference when implementing the next phase.
 
-Updated November 12, 2026 (Phase 4). `/api/docs` serves OpenAPI; `npm test` checks every application route/method against it. Better Auth's dynamic catch-all routes are owned by Better Auth and excluded from this coverage test. HTTP integration tests check the critical authenticated flows against MongoDB.
+Updated November 12, 2026 (Phase 5). `/api/docs` serves OpenAPI; `npm test` checks every application route/method against it. Better Auth's dynamic catch-all routes are owned by Better Auth and excluded from this coverage test. HTTP integration tests check the critical authenticated flows against MongoDB.
 
 JSON responses use `{ success, message, data }` on success and `{ success: false, message, errors }` on failure. Axios unwraps the outer HTTP response once; service callers use `response.data` for the payload. ICS downloads return `text/calendar`. Authentication uses Better Auth session cookies. Foreign keys reference the application profile ID.
 
@@ -49,7 +49,7 @@ Duplicating is client-only: `/dashboard/create-event?from={id}` prefills the for
 
 Event responses include `seatsHeld`, the seats held for open waitlist offers. Free seats are `capacity - registrationCount - seatsHeld`. While any student is waiting, `POST /api/registrations` returns 400 ("Join the waitlist") even if a seat is momentarily free, so freed seats go to the queue first. A student holding an open offer who calls `POST /api/registrations` accepts the offer (201).
 
-`POST /api/registrations/check-in` accepts `{ token }`. It returns 200 for the first valid scan, 409 for a repeat, 400 for an invalid/expired ticket, and 403 for an unauthorized scanner. `GET /api/registrations/{id}/qr` requires the ticket owner or admin. `GET /api/events/{id}/attendance` returns `{ total, checkedIn, attendees }` to authorized staff.
+`POST /api/registrations/check-in` accepts `{ token }` (a scanned ticket) or `{ registrationId }` (picked from the attendee search when a ticket cannot be scanned), never both. Either needs the event's `checkIn` permission: owner, editor, volunteer, or admin. It returns 200 for the first check-in with `data.attendee.name` (`checkInResultSchema`), 409 for a repeat ("<name> is already checked in."), 400 for an invalid or expired ticket, 403 for anyone else, and 404 for a cancelled or cancelling registration. `GET /api/registrations/{id}/qr` requires the ticket owner or admin and also returns the raw `token` and its `expiresAt`. `GET /api/events/{id}/attendance` returns `{ total, checkedIn, attendees }` (`attendanceSchema`) to event staff, volunteers included. The totals always cover the whole event and leave out cancelling rows. With `search` (every word must match a first name, last name, or email), `page`, or `limit` (1–200, default 50), `attendees` is one page of matches, and `pagination` counts the matches. Without these parameters every row is returned, as before.
 
 ## Waitlist
 
@@ -94,11 +94,11 @@ Bookmark responses also include `bookmarkedEventIds`, independent of the display
 
 ## Notifications and preferences
 
-`GET /api/notifications?limit=30` returns `{ items, unreadCount, total }`. Limit is an integer from 1 to 50; counts cover all non-dismissed records. Reminders are stored and use normal MongoDB IDs. The legacy `vr_` IDs are no longer accepted. `isVirtual` is always false for compatibility with existing clients.
+`GET /api/notifications?limit=30` returns `{ items, unreadCount, total, hasMore, nextCursor }` (`notificationListSchema`). For older items pass `nextCursor` (the last item's id) as `?before=`. The cursor is `(createdAt, id)`, so items that share a timestamp are never skipped. Reminders are written only for the first page. Limit is an integer from 1 to 50; counts cover all non-dismissed records. Reminders are stored and use normal MongoDB IDs. The legacy `vr_` IDs are no longer accepted. `isVirtual` is always false for compatibility with existing clients.
 
 `PATCH /api/notifications/{id}` marks a record read. `DELETE` dismisses it. Clearing all notifications retains dismissal tombstones; fetching again does not recreate the same reminder. Both operations are scoped to the current user.
 
-`GET /api/users/preferences` returns `{ reminders: boolean, email: boolean }`; `PUT` accepts both booleans and persists them. The email flag applies to nonessential email jobs. Authentication messages remain enabled.
+`GET /api/users/preferences` returns `{ reminders, email, push }` (`notificationPreferencesSchema`; a missing value reads as true). `PUT` requires `reminders` and `email` and accepts an optional `push`. Omitting `push` keeps the stored value, so older clients do not switch it on again. The email flag applies to nonessential email jobs, and authentication messages always go out. The push flag applies to every remote push, and `reminders: false` also stops reminder pushes.
 
 ## Admin oversight: audit log, reports, college decisions, delivery health
 
@@ -114,10 +114,53 @@ Bookmark responses also include `bookmarkedEventIds`, independent of the display
 
 **Delivery health.** `GET /api/admin/outbox?status=failed|pending|processing` (admin) returns `{ items, pagination, counts: { pending, processing, failed }, providerConfigured }` (`deliveryHealthSchema`). Rows show recipient, subject, status, attempts, `lastError`, and times. Email bodies are never returned. `POST /api/admin/outbox/{id}/retry` puts a failed or waiting job back in the queue now with `attempts: 0`. A job that is being sent or is already finished returns 409. `POST /api/admin/outbox/retry-failed` requeues every failed job and returns `{ retried }`. Both are audited (`email.retried`). Delivery stays at least once.
 
+## Mobile-facing backend: push, offline tickets, account deletion, native Google
+
+**Devices.** `POST /api/devices` (signed in) accepts `{ token, platform: "ios" | "android" }`, where `token` is an Expo push token (`ExponentPushToken[…]` or `ExpoPushToken[…]`), and returns `deviceSchema` `{ id, platform, createdAt, lastSeenAt }`. A new token returns 201 and a repeat returns 200, which refreshes it and rebinds it to the current session. A token registered by another account moves to the caller, so one phone never notifies two accounts. Each user keeps at most 10 devices (`DEVICE_LIMIT`), and the least recently seen drop off. `DELETE /api/devices/{id}` revokes one of your devices and returns 200 even if it is already gone; another user's device returns 404. `POST /api/auth/sign-out` deletes the devices registered by that session.
+
+**Push delivery.** These pushes are sent: the 24-hour and 1-hour reminders, waitlist seat offers, and announcements (`PUSH_KINDS`). Each is an outbox job (`channel: "push"`) keyed as the in-app notification key plus `:push`, and queued only when the user has a device. Just before sending it is checked again. Nothing is sent if the job is past its expiry (reminders: the event start; offers: the offer expiry; announcements: 24 hours), the user switched push (or, for reminders, reminders) off, the event was deleted, hidden, or rescheduled, the student is no longer registered, or the offer has closed. Devices whose session has ended get nothing and are removed. The payload is `{ title, body, data: { kind, url, eventId } }`, where `url` is the in-app path such as `/events/<id>`. Receipts are fetched later, and `DeviceNotRegistered` deletes the token. Push jobs appear on the delivery-health page with `channel: "push"` and can be retried like email.
+
+**Offline tickets.** `GET /api/registrations/tickets` returns `offlineTicketBundleSchema` `{ tickets, syncedAt, refreshAfter }`. There is one ticket per registration (not cancelling) whose event is live and ended no more than 6 hours ago (`TICKET_GRACE_HOURS`), with at most 100 tickets, soonest first. Each ticket has `registrationId`, the signed `token` to render as the QR code, `expiresAt` (event end plus 6 hours, decided by the backend), `checkedIn`/`checkedInAt`, and an event summary. The set is authoritative: a ticket the app holds that is missing here has been revoked (cancelled, removed, or the event deleted) and must be discarded on this sync. Check-in refuses a revoked ticket at once, even before the app syncs. A reschedule changes `expiresAt` and the token, and the token stays the same while the event is unchanged. Clients should sync on launch, on focus, and at least every 6 hours (`refreshAfter`), store tickets per account, and clear them on sign-out.
+
+**Organizer mobile.** Door staff use `GET /api/events?staff=me` (assigned events) or `?organizerId=<own id>` (owned events), then `GET /api/events/{id}/attendance` with `search`, then `POST /api/registrations/check-in` with a scanned `token` or a `registrationId`. A volunteer can do all of this but cannot edit the event (`PUT` returns 403). The `permissions` on `GET /api/events/{id}` show what the viewer may do.
+
+**Account deletion.** `DELETE /api/users/me` with `{ confirmation }` equal to your email (compared ignoring case). It is rate limited to 5 per hour. Admins get 403 and are removed by another admin. While you own events that have not ended, including drafts, the response is 409 with `errors.events` listing them; delete them or ask an admin first. On success (200) the session cookies are cleared, and the login identity, sessions, linked accounts, devices, upcoming registrations (seats freed), waitlist entries (held seats passed on), bookmarks, notifications, queued email and push, saved searches, interests, collaborations, staff roles, your reports, and your reviews (ratings rebuilt) are removed, and your chat messages are blanked. The profile is anonymized (`Deleted user`, no email, phone, photo, or college), so past attendance and ended events you organized stay consistent. The admin audit log keeps its email snapshots. Anonymized profiles are left out of user lists and admin totals. A crash part-way is finished by the worker, and the account is signed out from the first step. The same email can register again as a new account.
+
+**Native Google sign-in.** `POST /api/auth/google-native` with `{ idToken, nonce? }` from the native Google SDK. Better Auth verifies the token's signature, issuer, expiry, age (at most 1 hour), the nonce when sent, and an audience of `GOOGLE_CLIENT_ID` or one of `GOOGLE_NATIVE_CLIENT_IDS`. It then creates the account or links it to an existing one, and returns the session cookie in `Set-Cookie`, like `/api/auth/login`. The response is `{ user }`. New accounts are students. Errors: 400 for invalid input, 401 when the token is rejected, 409 when an email/password account with that address cannot be linked automatically, 503 when Google is not configured, and 429 when rate limited (10 per minute per IP).
+
+**Privacy and support.** `/privacy` and `/support` are public web pages for store listings and the app's settings. `NEXT_PUBLIC_SUPPORT_EMAIL` sets the contact address shown there.
+
+**Chat history.** `GET /api/events/{id}/messages?limit=50` returns `{ messages, hasMore, nextCursor }` (`chatPageSchema`), oldest first. For earlier messages pass `nextCursor.before` and `nextCursor.beforeId` back. The `(createdAt, id)` cursor never skips messages that share a timestamp, and `before` alone still works for older clients. New messages arrive over Socket.IO (`new-message`).
+
+## Mobile app: which API each screen uses
+
+Students and organizers use the same endpoints as the web app, with the session cookie from `/api/auth/login`, `/api/auth/register`, or `/api/auth/google-native`.
+
+| Screen | Endpoints |
+| --- | --- |
+| Sign-in, sign-up, verification, reset | `POST /api/auth/login`, `POST /api/auth/register`, `POST /api/auth/google-native`, Better Auth email/reset routes, `POST /api/auth/sign-out` |
+| Browse, search, deep links | `GET /api/events` (same URL parameters as the web), `GET /api/events/recommended`, `GET /api/colleges` |
+| Event detail | `GET /api/events/{id}` (with `permissions`), `GET /api/events/{id}/conflicts`, `GET /api/events/{id}/ics`, `GET/POST/DELETE /api/events/{id}/waitlist`, `POST /api/events/{id}/waitlist/accept` |
+| Register, cancel, my events | `POST /api/registrations`, `DELETE /api/registrations?eventId=`, `GET /api/registrations` (includes an event summary) |
+| Tickets (offline) | `GET /api/registrations/tickets`, `GET /api/registrations/{id}/qr` |
+| Saved events | `GET/POST /api/bookmarks`, `DELETE /api/bookmarks/{eventId}` |
+| Chat | `GET/POST /api/events/{id}/messages`, Socket.IO at `/api/socket`, `DELETE /api/messages/{id}` (staff) |
+| Reviews, reports | `GET/POST /api/events/{id}/reviews`, `DELETE /api/reviews/{reviewId}`, `POST /api/reports` |
+| Notifications and push | `GET /api/notifications`, `PATCH/DELETE /api/notifications/{id}`, `POST /api/notifications/mark-all-read`, `POST /api/devices`, `DELETE /api/devices/{id}` |
+| Profile and settings | `GET /api/users/me`, `PATCH /api/auth/profile`, `POST /api/upload`, `GET/PUT /api/users/preferences`, `/api/users/me/interests`, `/api/users/me/saved-searches`, `/api/users/me/calendar-feed`, `DELETE /api/users/me`, `/privacy`, `/support` |
+| Student analytics | `GET /api/analytics/student` |
+| Organizer: my events | `GET /api/events?organizerId=<own id>&includeDrafts=true`, `GET /api/events?staff=me` |
+| Organizer: create, edit, publish | `POST /api/events`, `PUT /api/events/{id}`, `POST /api/events/{id}/publish`, `DELETE /api/events/{id}`, `POST /api/upload` (duplicating an event is a prefilled create) |
+| Organizer: door | `GET /api/events/{id}/attendance?search=`, `POST /api/registrations/check-in` (`token` or `registrationId`) |
+| Organizer: team and outreach | `GET/PUT /api/events/{id}/staff`, `GET/POST /api/events/{id}/announcements`, `/api/collaborations` |
+| Organizer: insight | `GET /api/analytics/organizer`, `GET /api/events/{id}/attendance/export` (CSV, better opened on the web) |
+
+Admin tools stay web-only.
+
 ## Failures and retries
 
 There are no database transactions. Each mutation is a sequence of atomic single-document writes in a fixed order (see [OPERATIONS.md](OPERATIONS.md)). A request that fails part-way returns a 5xx and leaves a state the worker repairs: seat counters and review totals are reconciled, and the worker finishes interrupted registration effects, cancellations, role notices, event-update emails, waitlist offers and accepts, and event deletions (a deleting event is already hidden, and its reviews return 404). Notifications and email jobs are deduplicated by key, so retrying never sends one twice. `DELETE /api/events/{id}` returns 200 once the event is hidden, even if the cleanup is still pending. `PUT /api/events/{id}` and `PATCH /api/users/{id}` likewise return 200 once the change is saved, even if their emails are still pending. A lost HTTP response still requires the client to reload state before retrying; there is no general idempotency-key API in this phase.
 
 ## Shared response contracts
 
-The shapes of event, registration, pagination, event-permission, announcement, waitlist, schedule-conflict, calendar-feed, interest, recommendation, saved-search, audit-entry, report, college, and delivery-health responses are defined once as Zod schemas in `lib/contracts/index.ts`. The web types derive from them, `npm test` and the integration suite parse real responses with them, and the mobile app can copy that file (it depends only on `zod`) or `z.infer` its own types from it. Change the schema first when a response changes.
+The shapes of event, registration, pagination, event-permission, announcement, waitlist, schedule-conflict, calendar-feed, interest, recommendation, saved-search, audit-entry, report, college, delivery-health, device, offline-ticket, attendance, check-in, notification, chat-page, and notification-preference responses are defined once as Zod schemas in `lib/contracts/index.ts`. The web types derive from them, `npm test` and the integration suite parse real responses with them, and the mobile app can copy that file (it depends only on `zod`) or `z.infer` its own types from it. Change the schema first when a response changes.

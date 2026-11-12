@@ -33,7 +33,10 @@ export async function GET(
 
     const limit = Number(request.nextUrl.searchParams.get("limit") ?? "50");
     const before = request.nextUrl.searchParams.get("before");
-    if (!Number.isInteger(limit) || limit < 1 || limit > 100 || (before && Number.isNaN(Date.parse(before)))) {
+    // With `beforeId`, the cursor is (createdAt, _id): messages sharing a timestamp are never skipped.
+    const beforeId = request.nextUrl.searchParams.get("beforeId");
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100 || (before && Number.isNaN(Date.parse(before)))
+      || (beforeId && (!before || !mongoose.Types.ObjectId.isValid(beforeId)))) {
       return ApiErrors.badRequest("Invalid chat pagination parameters");
     }
 
@@ -41,18 +44,27 @@ export async function GET(
       eventId: new mongoose.Types.ObjectId(eventId),
       isDeleted: false,
     };
-    if (before) {
+    if (before && beforeId) {
+      query.$or = [
+        { createdAt: { $lt: new Date(before) } },
+        { createdAt: new Date(before), _id: { $lt: new mongoose.Types.ObjectId(beforeId) } },
+      ];
+    } else if (before) {
       query.createdAt = { $lt: new Date(before) };
     }
 
     const messages = await Message.find(query)
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1, _id: -1 })
       .limit(limit)
       .populate("senderId", "firstName lastName profileImage role")
       .lean();
 
     return successResponse(
-      { messages: messages.reverse(), hasMore: messages.length === limit },
+      {
+        messages: messages.reverse(), hasMore: messages.length === limit,
+        // Pass both back as `before` and `beforeId` to load older messages.
+        nextCursor: messages.length === limit ? { before: (messages[0].createdAt as Date).toISOString(), beforeId: messages[0]._id.toString() } : null,
+      },
       "Messages retrieved",
     );
   } catch (error) {

@@ -35,14 +35,20 @@ export interface QrPayload {
   studentId: string;
 }
 
-export function signQrToken(payload: QrPayload): string {
-  return jwt.sign(payload, getQrSecret(), { expiresIn: "30d" });
+/**
+ * Without `expiresAt` the token lasts 30 days (older tickets). Offline tickets
+ * pass the expiry the backend decided (see lib/tickets.ts).
+ */
+export function signQrToken(payload: QrPayload, expiresAt?: Date): string {
+  const claims = { registrationId: payload.registrationId, eventId: payload.eventId, studentId: payload.studentId };
+  if (expiresAt) return jwt.sign({ ...claims, exp: Math.floor(expiresAt.getTime() / 1000) }, getQrSecret(), { algorithm: "HS256" });
+  return jwt.sign(claims, getQrSecret(), { expiresIn: "30d", algorithm: "HS256" });
 }
 
-export function verifyQrToken(token: string): QrPayload {
-  const payload = jwt.verify(token, getQrSecret(), { algorithms: ["HS256"] });
+export function verifyQrToken(token: string, { ignoreExpiration = false }: { ignoreExpiration?: boolean } = {}): QrPayload & { exp?: number } {
+  const payload = jwt.verify(token, getQrSecret(), { algorithms: ["HS256"], ignoreExpiration });
   if (typeof payload === "string" || ![payload.registrationId, payload.eventId, payload.studentId].every((id) => typeof id === "string" && /^[a-f\d]{24}$/i.test(id))) {
     throw new Error("Invalid QR payload");
   }
-  return payload as QrPayload;
+  return payload as QrPayload & { exp?: number };
 }

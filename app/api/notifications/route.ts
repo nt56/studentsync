@@ -25,12 +25,24 @@ export async function GET(request: NextRequest) {
     const parsed = z.coerce.number().int().min(1).max(50).safeParse(request.nextUrl.searchParams.get("limit") || "30");
     if (!parsed.success) return ApiErrors.badRequest("Limit must be an integer from 1 to 50");
     const limit = parsed.data;
-    await materializeReminders(authResult.mongoUserId);
+    // Optional cursor: the `id` of the last item already shown (`nextCursor`).
+    const before = request.nextUrl.searchParams.get("before");
+    if (before && !mongoose.Types.ObjectId.isValid(before)) return ApiErrors.badRequest("Invalid notification cursor");
+    if (!before) await materializeReminders(authResult.mongoUserId);
     const filter = { userId, dismissedAt: { $exists: false } };
-    const stored = await Notification.find(filter)
-      .sort({ createdAt: -1 })
-      .limit(limit)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const page: any = { ...filter };
+    if (before) {
+      const anchor = await Notification.findOne({ _id: before, userId }).select("createdAt").lean<{ createdAt: Date } | null>();
+      if (!anchor) return ApiErrors.badRequest("Invalid notification cursor");
+      page.$or = [{ createdAt: { $lt: anchor.createdAt } }, { createdAt: anchor.createdAt, _id: { $lt: new mongoose.Types.ObjectId(before) } }];
+    }
+    const rows = await Notification.find(page)
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(limit + 1)
       .lean();
+    const hasMore = rows.length > limit;
+    const stored = rows.slice(0, limit);
 
     const storedFormatted = stored.map((n) => ({
       id: n._id.toString(),
@@ -47,7 +59,7 @@ export async function GET(request: NextRequest) {
     const unreadCount = await Notification.countDocuments({ ...filter, isRead: false });
     const total = await Notification.countDocuments(filter);
     return successResponse(
-      { items: storedFormatted, unreadCount, total },
+      { items: storedFormatted, unreadCount, total, hasMore, nextCursor: hasMore ? storedFormatted[storedFormatted.length - 1].id : null },
       "Notifications retrieved successfully",
     );
   } catch (error) {

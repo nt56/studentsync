@@ -14,7 +14,14 @@ const UserSchema = new Schema(
     notificationPreferences: {
       reminders: { type: Boolean, default: true },
       email: { type: Boolean, default: true },
+      // Remote push to the mobile app. Missing means on.
+      push: { type: Boolean, default: true },
     },
+    // Self-service account deletion. `requestedAt` is set first and blocks the
+    // account; the worker finishes a deletion whose request died part-way.
+    // `deletedAt` marks the anonymized profile left behind (see lib/account-deletion).
+    deletion: { _id: false, type: { requestedAt: Date } },
+    deletedAt: { type: Date },
     firstName: {
       type: String,
       required: true,
@@ -98,6 +105,7 @@ UserSchema.index({ role: 1 });
 UserSchema.index({ collegeId: 1 });
 UserSchema.index({ "pendingRoleNotice.at": 1 }, { sparse: true });
 UserSchema.index({ "calendarFeed.tokenHash": 1 }, { unique: true, sparse: true });
+UserSchema.index({ "deletion.requestedAt": 1 }, { sparse: true });
 
 const User = models.User || model("User", UserSchema);
 export default User;

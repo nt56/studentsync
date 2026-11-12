@@ -2,161 +2,170 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { format } from "date-fns";
-import { CheckCircle2, Clock, Users, UserCheck } from "lucide-react";
+import { CheckCircle2, Clock, Loader2, Search } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import api from "@/services/api";
 import { toast } from "sonner";
-
-interface Attendee {
-  registrationId: string;
-  checkedIn: boolean;
-  checkedInAt: string | null;
-  registeredAt: string | null;
-  student: {
-    id: string;
-    name: string;
-    email: string;
-    image: string | null;
-  } | null;
-}
-
-interface AttendanceData {
-  total: number;
-  checkedIn: number;
-  attendees: Attendee[];
-}
+import type { Attendance } from "@/lib/contracts";
 
 interface AttendanceListProps {
   eventId: string;
   refresh?: number; // bump to reload
 }
 
-export default function AttendanceList({
-  eventId,
-  refresh,
-}: AttendanceListProps) {
-  const [data, setData] = useState<AttendanceData | null>(null);
+const PAGE_SIZE = 200;
+
+/**
+ * Door roster for event staff (volunteers included): event-wide counts, a
+ * server-side name/email search, and manual check-in for attendees whose
+ * ticket cannot be scanned.
+ */
+export default function AttendanceList({ eventId, refresh }: AttendanceListProps) {
+  const [data, setData] = useState<Attendance | null>(null);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [search, setSearch] = useState("");
+  const [query, setQuery] = useState("");
+  const [checkingIn, setCheckingIn] = useState<string | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setQuery(search.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/events/${eventId}/attendance`);
-      setData(res.data as AttendanceData);
+      const res = await api.get(`/events/${eventId}/attendance`, { params: { limit: PAGE_SIZE, ...(query ? { search: query } : {}) } });
+      setData(res.data as Attendance);
+      setFailed(false);
     } catch {
-      toast.error("Failed to load attendance.");
+      setFailed(true);
     } finally {
       setLoading(false);
     }
-  }, [eventId]);
+  }, [eventId, query]);
 
   useEffect(() => {
     load();
   }, [load, refresh]);
 
-  if (loading) {
+  async function checkIn(registrationId: string, name: string) {
+    setCheckingIn(registrationId);
+    try {
+      await api.post("/registrations/check-in", { registrationId });
+      toast.success(`${name} checked in`);
+      await load();
+    } catch (err) {
+      const message = (err as { response?: { data?: { message?: string } } }).response?.data?.message;
+      toast.error(message ?? "Check-in failed. Please try again.");
+      await load();
+    } finally {
+      setCheckingIn(null);
+    }
+  }
+
+  if (loading && !data) {
     return (
-      <div className="space-y-3">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="h-14 rounded-2xl bg-secondary animate-pulse" />
-        ))}
+      <div className="space-y-3" aria-busy="true">
+        {[1, 2, 3].map((i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-muted/40" />)}
+      </div>
+    );
+  }
+
+  if (failed && !data) {
+    return (
+      <div role="alert" className="surface-card space-y-3 rounded-xl p-6 text-sm">
+        <p className="text-destructive">Could not load attendance.</p>
+        <Button variant="outline" className="rounded-xl" onClick={load}>Try again</Button>
       </div>
     );
   }
 
   if (!data) return null;
 
-  const rate =
-    data.total > 0 ? Math.round((data.checkedIn / data.total) * 100) : 0;
+  const rate = data.total > 0 ? Math.round((data.checkedIn / data.total) * 100) : 0;
+  const matched = data.pagination?.total ?? data.attendees.length;
 
   return (
     <div className="space-y-5">
-      {/* Summary KPI Cards */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="text-center p-3.5 rounded-2xl bg-card border border-border/80 shadow-2xs">
-          <div className="flex items-center justify-center gap-1.5 text-muted-foreground mb-1">
-            <Users className="h-3.5 w-3.5" />
-            <span className="text-[10px] font-bold uppercase tracking-wider">Total</span>
+        {[
+          { label: "Registered", value: data.total },
+          { label: "Checked in", value: data.checkedIn },
+          { label: "Turnout", value: `${rate}%` },
+        ].map((stat) => (
+          <div key={stat.label} className="surface-card rounded-xl p-3.5 text-center">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{stat.label}</p>
+            <p className="font-display text-2xl font-bold text-foreground">{stat.value}</p>
           </div>
-          <p className="font-display text-2xl font-extrabold text-foreground">{data.total}</p>
-        </div>
+        ))}
+      </div>
+      <p className="sr-only">{data.checkedIn} of {data.total} registered attendees are checked in ({rate}%).</p>
 
-        <div className="text-center p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 shadow-2xs">
-          <div className="flex items-center justify-center gap-1.5 text-emerald-600 dark:text-emerald-400 mb-1">
-            <UserCheck className="h-3.5 w-3.5" />
-            <span className="text-[10px] font-bold uppercase tracking-wider">Checked In</span>
-          </div>
-          <p className="font-display text-2xl font-extrabold text-emerald-600 dark:text-emerald-400">{data.checkedIn}</p>
-        </div>
-
-        <div className="text-center p-3.5 rounded-2xl bg-primary/10 border border-primary/25 shadow-2xs">
-          <div className="flex items-center justify-center gap-1.5 text-primary mb-1">
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            <span className="text-[10px] font-bold uppercase tracking-wider">Turnout</span>
-          </div>
-          <p className="font-display text-2xl font-extrabold text-primary">{rate}%</p>
-        </div>
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+        <Input
+          type="search"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search by name or email"
+          aria-label="Search attendees by name or email"
+          maxLength={100}
+          className="rounded-xl pl-9"
+        />
       </div>
 
-      {/* Turnout Progress Bar */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
-          <span>Overall Attendance</span>
-          <span className="font-semibold text-foreground">{data.checkedIn} of {data.total} checked in</span>
-        </div>
-        <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-primary to-emerald-500 rounded-full transition-all duration-500"
-            style={{ width: `${rate}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Attendee Roster */}
-      <div className="rounded-2xl border border-border/80 bg-card/60 backdrop-blur-md overflow-hidden">
+      <div className="surface-card overflow-hidden rounded-xl">
         {data.attendees.length === 0 ? (
-          <div className="p-8 text-center text-sm text-muted-foreground">
-            No attendees registered yet.
-          </div>
+          <p className="p-8 text-center text-sm text-muted-foreground">
+            {query ? `No attendees match "${query}".` : "No attendees registered yet."}
+          </p>
         ) : (
-          <div className="divide-y divide-border/60 max-h-[360px] overflow-y-auto">
-            {data.attendees.map((a) => (
-              <div key={a.registrationId} className="flex items-center gap-3.5 p-3 hover:bg-secondary/40 transition-colors">
-                <Avatar className="h-9 w-9 shrink-0 ring-1 ring-border/80">
-                  <AvatarImage src={a.student?.image ?? undefined} />
-                  <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
-                    {(a.student?.name ?? "?").charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-foreground truncate">
-                    {a.student?.name ?? "Unknown Attendee"}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground truncate">
-                    {a.student?.email ?? ""}
-                  </p>
-                </div>
-
-                <div className="text-right shrink-0">
+          <ul className="max-h-[420px] divide-y divide-border overflow-y-auto" aria-label="Attendees">
+            {data.attendees.map((a) => {
+              const name = a.student?.name ?? "Unknown attendee";
+              return (
+                <li key={a.registrationId} className="flex items-center gap-3 p-3">
+                  <Avatar className="size-9 shrink-0">
+                    <AvatarImage src={a.student?.image ?? undefined} alt="" />
+                    <AvatarFallback className="bg-muted text-xs font-semibold">{name.charAt(0).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">{name}</p>
+                    <p className="truncate text-xs text-muted-foreground">{a.student?.email ?? ""}</p>
+                  </div>
                   {a.checkedIn ? (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                      <CheckCircle2 className="h-3 w-3" />
-                      <span>{a.checkedInAt ? format(new Date(a.checkedInAt), "hh:mm a") : "In"}</span>
+                    <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                      <CheckCircle2 className="size-3.5" aria-hidden="true" />
+                      {a.checkedInAt ? format(new Date(a.checkedInAt), "hh:mm a") : "Checked in"}
                     </span>
                   ) : (
-                    <Badge variant="outline" className="text-[11px] rounded-full gap-1 border-border/70 text-muted-foreground">
-                      <Clock className="h-3 w-3" />
-                      <span>Pending</span>
-                    </Badge>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="shrink-0 rounded-xl"
+                      disabled={checkingIn !== null}
+                      onClick={() => checkIn(a.registrationId, name)}
+                      aria-label={`Check in ${name}`}
+                    >
+                      {checkingIn === a.registrationId
+                        ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+                        : <Clock className="size-3.5" aria-hidden="true" />}
+                      Check in
+                    </Button>
                   )}
-                </div>
-              </div>
-            ))}
-          </div>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </div>
+      {matched > data.attendees.length && (
+        <p className="text-xs text-muted-foreground">Showing {data.attendees.length} of {matched}. Search to narrow the list.</p>
+      )}
     </div>
   );
 }

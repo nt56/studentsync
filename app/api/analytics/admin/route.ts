@@ -22,7 +22,7 @@ export async function GET() {
     // Platform totals
   const [totalUsers, totalEvents, totalRegistrations, totalColleges] =
     await Promise.all([
-      User.countDocuments(),
+      User.countDocuments({ deletedAt: { $exists: false } }),
       Event.countDocuments({ ...publishedEvent }),
       Registration.countDocuments(),
       College.countDocuments(),
@@ -30,6 +30,7 @@ export async function GET() {
 
   // Users by role
   const usersByRoleRaw = await User.aggregate([
+    { $match: { deletedAt: { $exists: false } } },
     { $group: { _id: "$role", count: { $sum: 1 } } },
   ]);
   const usersByRole = usersByRoleRaw.map((r) => ({
@@ -92,7 +93,7 @@ export async function GET() {
 
   // User growth (by createdAt) — last 30 days
   const userGrowthRaw = await User.aggregate([
-    { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+    { $match: { createdAt: { $gte: thirtyDaysAgo }, deletedAt: { $exists: false } } },
     {
       $group: {
         _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
