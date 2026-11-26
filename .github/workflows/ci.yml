@@ -5,9 +5,13 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+# Cancel superseded pull request runs only; a run on main may be mid-deploy.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   verify:
@@ -38,7 +42,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci
@@ -61,3 +65,55 @@ jobs:
 
       - name: Integration tests (plain mongod)
         run: npm run test:integration
+
+  # Catches Dockerfile breakage. Builds the image only; nothing is pushed.
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t studentsync:ci .
+
+  # Continuous deployment: only on pushes to main, and only after `verify` passes.
+  # Render's own auto-deploy must be set to "Off" (or "After CI checks pass"),
+  # otherwise Render also deploys on every push and this job duplicates it.
+  deploy:
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    environment: production
+
+    steps:
+      - name: Trigger Render deploy
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "::error::Secret RENDER_DEPLOY_HOOK_URL is not set"; exit 1
+          fi
+          # ref pins the deploy to the commit that passed CI.
+          curl --fail --silent --show-error --retry 3 -X POST "$RENDER_DEPLOY_HOOK_URL&ref=$GITHUB_SHA" > /dev/null
+          echo "Deploy triggered for ${GITHUB_SHA::7}"
+
+      # Optional: set the repo variable RENDER_APP_URL (e.g. https://yourapp.onrender.com)
+      # to wait until /api/health reports this commit (the old version keeps
+      # serving while the new one builds, so a plain 200 proves nothing).
+      - name: Wait for the new version
+        if: vars.RENDER_APP_URL != ''
+        env:
+          APP_URL: ${{ vars.RENDER_APP_URL }}
+        run: |
+          for i in $(seq 1 60); do
+            body=$(curl -s --max-time 20 "${APP_URL%/}/api/health" || true)
+            if echo "$body" | grep -q "\"commit\":\"$GITHUB_SHA\""; then
+              echo "Live: ${GITHUB_SHA::7}"; exit 0
+            fi
+            echo "attempt $i: not live yet"
+            sleep 15
+          done
+          echo "::error::${GITHUB_SHA::7} did not become healthy in time; check the Render logs"
+          exit 1

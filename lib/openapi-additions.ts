@@ -13,6 +13,7 @@ function operation(summary: string, authenticated = true, extra: Record<string, 
   };
 }
 export const additionalPaths: Record<string, Record<string, unknown>> = {
+  "/api/health": { get: operation("Public health check: database ping and the deployed commit", false, { responses: { "200": { description: "Healthy" }, "503": { description: "Database unavailable" } } }) },
   "/api/bookmarks": {
     get: operation("Paginated saved events plus complete bookmarkedEventIds membership", true, { parameters: page }),
     post: operation("Save an existing event", true, { requestBody: body(object({ eventId: string })), responses: { "201": { description: "Bookmark created" }, "400": { description: "Invalid ID or already bookmarked" }, "401": { description: "Authentication required" } } }),
