@@ -6,7 +6,7 @@ Updated November 12, 2026 (Phase 4). This guide explains how to run StudentSync,
 
 **Project constraint:** one plain standalone `mongod`. No replica set, no backup database, no secondary members, and no second copy of the data. The app needs nothing else: it uses no transactions or sessions, and both Compose files run a plain `mongo:7`.
 
-Development and production Compose are separate stacks with separate volumes. Run only the stack you intend to use; starting both would create two independent application databases. Development: `docker compose up -d --build`. Production: `docker compose -f docker-compose.prod.yml up -d --build` (requires `MONGO_PASSWORD`; if it contains URI-reserved characters, use a properly encoded runtime connection URI).
+Development and production Compose are separate stacks with separate volumes. Run only the stack you intend to use; starting both would create two independent application databases. Development: `docker compose up -d --build`. Production: `docker compose -f docker-compose.prod.yml up -d --build` (requires `MONGO_PASSWORD` and `REDIS_PASSWORD`; if it contains URI-reserved characters, use a properly encoded runtime connection URI).
 
 Connection strings carry no replica-set options: `mongodb://mongo:27017/studentsync` inside Compose, `mongodb://127.0.0.1:27017/studentsync` from the host. The development MongoDB port is bound to loopback only.
 

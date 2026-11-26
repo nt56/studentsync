@@ -44,6 +44,7 @@ FROM base AS runner
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
+ENV NODE_OPTIONS=--disable-warning=DEP0205
 
 # Run as a non-root user
 RUN groupadd -g 1001 nodejs \

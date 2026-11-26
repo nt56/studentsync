@@ -9,7 +9,8 @@ services:
     ports:
       - "3000:3000"
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       NODE_ENV: development
       HOSTNAME: 0.0.0.0
@@ -49,7 +50,7 @@ services:
     container_name: studentsync-redis
     command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis-data:/data
     healthcheck:
