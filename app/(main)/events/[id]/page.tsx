@@ -236,10 +236,6 @@ export default function EventDetailPage() {
     ? (event.collegeId as { name?: string })
     : null;
   const collegeName = collegeObj?.name || null;
-  const canManageStaff =
-    !!event.permissions?.includes("edit") ||
-    user?.role === "organizer" ||
-    user?.role === "admin";
 
   return (
     <div className="relative min-h-[calc(100vh-140px)] overflow-hidden px-4 pb-24 pt-6 sm:px-6 lg:px-8">
@@ -508,14 +504,6 @@ export default function EventDetailPage() {
               </div>
             </section>
 
-            {/* Announcements Broadcasts */}
-            {id && (canManageStaff || isAuthenticated) && (
-              <EventAnnouncements
-                eventId={id}
-                registrationCount={count}
-              />
-            )}
-
             {/* Live Campus Event Chat */}
             {isAuthenticated && id && (
               <ChatPanel
@@ -525,11 +513,6 @@ export default function EventDetailPage() {
                 userRole={user?.role ?? "student"}
                 isOwner={!!event.permissions?.includes("moderate")}
               />
-            )}
-
-            {/* Event Staff Management (Organizer / Admin / Editor) */}
-            {canManageStaff && id && (
-              <EventStaff eventId={id} />
             )}
 
             {/* Location Map */}
