@@ -22,6 +22,7 @@ Object.assign(process.env, {
   MONGODB_URI: mongoUri, REDIS_URL: "",
   BETTER_AUTH_URL: base, NEXT_PUBLIC_APP_URL: base, BETTER_AUTH_SECRET: secret,
   QR_JWT_SECRET: secret, OUTBOX_WORKER_ENABLED: "false", BREVO_API_KEY: "", REQUIRE_EMAIL_VERIFICATION: "false",
+  GEMINI_API_KEY: "",
   GOOGLE_CLIENT_ID: "", GOOGLE_CLIENT_SECRET: "", GITHUB_CLIENT_ID: "", GITHUB_CLIENT_SECRET: "",
 });
 const server = spawn(process.execPath, ["--import", "tsx", "server.ts"], { env: process.env, stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
@@ -1207,6 +1208,84 @@ try {
   assert.equal(new Set(seenMessages).size, 7, "the (createdAt, id) cursor never skips messages that share a timestamp");
   assert.equal((await request(`/events/${chatRoom._id}/messages?beforeId=${chatRoom._id}`, owner.cookie)).status, 400, "beforeId needs before");
   console.log("PASS notification and chat cursors page through equal timestamps without gaps");
+
+  // --- Campus assistant: lookups keep the app's visibility rules ------------------------
+  const { runAssistantTool } = await import("../lib/assistant-tools");
+  const { runAssistant } = await import("../lib/assistant");
+  const { resetGeminiCooldowns } = await import("../lib/gemini");
+  const asker = await fixture("student");
+  const aiOutsider = await fixture("student");
+  const aiOwner = await fixture("organizer");
+  const inHours = (hours: number) => new Date(Date.now() + hours * 3600_000);
+  const aiPublic = await Event.create({ ...eventData, title: "Assistant zorblax meetup", description: "Robots and snacks", capacity: 10, date: inHours(48), endDate: inHours(50), registrationDeadline: inHours(40), publishedAt: new Date() });
+  const aiDraft = await Event.create({ ...eventData, title: "Assistant quuxhidden plan", organizerId: aiOwner.user._id, capacity: 10, draft: true, date: inHours(48), endDate: inHours(50), registrationDeadline: inHours(40) });
+  await Registration.create({ eventId: aiPublic._id, studentId: asker.user._id });
+  await Announcement.create({ eventId: aiPublic._id, authorId: owner.user._id, requestId: randomUUID(), title: "Room change", message: "We moved to Hall B", slotAt: new Date() });
+  const toolCtx = (user: { user: { _id: mongoose.Types.ObjectId } }, role: "student" | "organizer" | "admin") => ({ userId: user.user._id.toString(), role, now: new Date(), timeZone: "Asia/Kolkata" });
+
+  const found = await runAssistantTool("search_events", { query: "zorblax" }, toolCtx(asker, "student"));
+  assert.deepEqual((found.data.events as { title: string; youAreRegistered: boolean }[]).map((e) => [e.title, e.youAreRegistered]), [["Assistant zorblax meetup", true]]);
+  const partial = await runAssistantTool("search_events", { query: "zorbl" }, toolCtx(asker, "student"));
+  assert.equal((partial.data.events as unknown[]).length, 1, "partial words fall back to a pattern match");
+  const draftSearch = await runAssistantTool("search_events", { query: "quuxhidden" }, toolCtx(aiOwner, "organizer"));
+  assert.equal((draftSearch.data.events as unknown[]).length, 0, "search only returns published events, even to the owner");
+  assert.equal((await runAssistantTool("get_event_details", { eventId: aiDraft._id.toString() }, toolCtx(asker, "student"))).data.error !== undefined, true, "drafts are hidden from students");
+  assert.equal((await runAssistantTool("get_event_details", { eventId: aiDraft._id.toString() }, toolCtx(aiOwner, "organizer"))).data.title, "Assistant quuxhidden plan", "the owner can see their draft");
+  assert.equal((await runAssistantTool("get_event_details", { eventId: "not-an-id" }, toolCtx(asker, "student"))).data.error !== undefined, true);
+  const details = await runAssistantTool("get_event_details", { eventId: aiPublic._id.toString() }, toolCtx(asker, "student"));
+  assert.equal((details.data.you as { registered: boolean }).registered, true);
+  assert.equal(JSON.stringify(details.data).includes("@example.test"), false, "no emails in tool output");
+  const asAttendee = await runAssistantTool("get_event_announcements", { eventId: aiPublic._id.toString() }, toolCtx(asker, "student"));
+  assert.equal((asAttendee.data.announcements as { title: string }[])[0].title, "Room change");
+  const asOutsider = await runAssistantTool("get_event_announcements", { eventId: aiPublic._id.toString() }, toolCtx(aiOutsider, "student"));
+  assert.equal(asOutsider.data.announcements, undefined, "announcements are for attendees and organizers");
+  const mine = await runAssistantTool("get_my_events", {}, toolCtx(asker, "student"));
+  assert.deepEqual((mine.data.registered as { title: string }[]).map((e) => e.title), ["Assistant zorblax meetup"]);
+  const outsiderMine = await runAssistantTool("get_my_events", {}, toolCtx(aiOutsider, "student"));
+  assert.equal((outsiderMine.data.registered as unknown[]).length, 0, "only the caller's own registrations");
+  const organized = await runAssistantTool("get_my_events", { timeframe: "all" }, toolCtx(aiOwner, "organizer"));
+  assert.ok((organized.data.events as { title: string }[]).some((e) => e.title === "Assistant quuxhidden plan"), "organizers see their drafts in their own list");
+  assert.equal((await runAssistantTool("get_recommendations", {}, toolCtx(owner, "organizer"))).data.error !== undefined, true);
+  assert.equal((await runAssistantTool("drop_database", {}, toolCtx(admin, "admin"))).data.error, "Unknown tool drop_database");
+
+  // The full loop with a fake Gemini: the first model is overloaded, the second looks up and answers.
+  process.env.GEMINI_API_KEY = "integration-fake-key";
+  process.env.GEMINI_MODEL = "fake-primary";
+  process.env.GEMINI_FALLBACK_MODEL = "fake-fallback";
+  resetGeminiCooldowns();
+  const geminiCalls: { model: string; body: { contents: { role: string; parts: Record<string, unknown>[] }[]; systemInstruction: { parts: { text: string }[] } } }[] = [];
+  const fakeGemini = (async (url: string | URL, init?: RequestInit) => {
+    const model = /models\/([^:]+):/.exec(String(url))![1];
+    const body = JSON.parse(String(init!.body));
+    geminiCalls.push({ model, body });
+    assert.equal((init!.headers as Record<string, string>)["x-goog-api-key"], "integration-fake-key");
+    if (model === "fake-primary") return new Response(JSON.stringify({ error: { status: "UNAVAILABLE" } }), { status: 503 });
+    const answered = body.contents.at(-1).parts.some((part: { functionResponse?: unknown }) => part.functionResponse);
+    const parts = answered
+      ? [{ text: "You're registered for **Assistant zorblax meetup**. It's at Test Hall." }]
+      : [{ functionCall: { name: "get_my_events", args: {}, id: "c1" }, thoughtSignature: "sig" }];
+    return new Response(JSON.stringify({ candidates: [{ content: { role: "model", parts } }] }), { status: 200 });
+  }) as typeof fetch;
+  const reply = await runAssistant({ messages: [{ role: "user", text: "What am I registered for?" }], timeZone: "Asia/Kolkata" }, { userId: asker.user._id.toString(), role: "student" }, { fetchImpl: fakeGemini });
+  contracts.assistantReplySchema.parse(reply);
+  assert.match(reply.reply, /zorblax meetup/);
+  assert.deepEqual(reply.events.map((e) => e.title), ["Assistant zorblax meetup"], "events named in the reply become links");
+  assert.deepEqual(geminiCalls.map((call) => call.model), ["fake-primary", "fake-fallback", "fake-fallback"]);
+  const toolTurn = geminiCalls[2].body.contents;
+  assert.equal(toolTurn.at(-2)!.parts[0].thoughtSignature, "sig", "the model's turn is sent back unchanged");
+  assert.equal((toolTurn.at(-1)!.parts[0].functionResponse as { id: string }).id, "c1");
+  geminiCalls.length = 0;
+  await runAssistant({ messages: [{ role: "user", text: "Tell me about this event" }], eventId: aiDraft._id.toString() }, { userId: asker.user._id.toString(), role: "student" }, { fetchImpl: fakeGemini });
+  assert.equal(geminiCalls[0].model, "fake-fallback", "an overloaded model is skipped for a while");
+  assert.equal(geminiCalls[0].body.systemInstruction.parts[0].text.includes("Assistant quuxhidden plan"), false, "a draft the user can't see is not put in the prompt");
+  delete process.env.GEMINI_API_KEY;
+
+  // HTTP: the suite's server has no key, so the button stays hidden and asking is refused politely.
+  assert.equal((await request("/assistant")).status, 401);
+  assert.equal((await request("/assistant", asker.cookie)).data.enabled, false);
+  assert.equal((await request("/assistant", asker.cookie, "POST", { messages: [{ role: "user", text: "hi" }] })).status, 503);
+  assert.equal((await request("/assistant", "", "POST", { messages: [{ role: "user", text: "hi" }] })).status, 401);
+  console.log("PASS campus assistant: lookups keep visibility rules, model fallback, tool loop, unconfigured server");
 } catch (error) {
   console.error(serverLog.slice(-18000));
   throw error;

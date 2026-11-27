@@ -13,6 +13,17 @@ function operation(summary: string, authenticated = true, extra: Record<string, 
   };
 }
 export const additionalPaths: Record<string, Record<string, unknown>> = {
+  "/api/assistant": {
+    get: operation("Whether the campus assistant (Gemini) is configured on this server: `{ enabled }`"),
+    post: operation("Ask the campus assistant. Read-only and stateless: send the visible conversation (newest message from the user, at most 20), plus `eventId` on an event page and the browser `timeZone`. Returns `{ reply, events }`; `events` are links for events named in the reply", true, {
+      requestBody: body(object({
+        messages: { type: "array", maxItems: 20, items: object({ role: { type: "string", enum: ["user", "assistant"] }, text: { type: "string", maxLength: 4000 } }) },
+        eventId: string,
+        timeZone: string,
+      }, ["messages"])),
+      responses: { "200": { description: "Reply" }, "400": { description: "Invalid conversation" }, "401": { description: "Authentication required" }, "429": { description: "Rate limit exceeded (8 a minute, 60 a day per user)" }, "503": { description: "Assistant not configured, busy, or out of quota" } },
+    }),
+  },
   "/api/health": { get: operation("Public health check: database ping and the deployed commit", false, { responses: { "200": { description: "Healthy" }, "503": { description: "Database unavailable" } } }) },
   "/api/bookmarks": {
     get: operation("Paginated saved events plus complete bookmarkedEventIds membership", true, { parameters: page }),

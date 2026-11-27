@@ -8,3 +8,4 @@ export * from "./utils";
 export * from "./discovery.schema";
 export * from "./admin.schema";
 export * from "./mobile.schema";
+export * from "./assistant.schema";

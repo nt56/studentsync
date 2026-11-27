@@ -62,6 +62,30 @@ export async function rateLimit(
   }
 }
 
+const globalForLimits = globalThis as typeof globalThis & { _localRateLimits?: Map<string, { count: number; resetAt: number }> };
+const localWindows = (globalForLimits._localRateLimits ??= new Map());
+
+/**
+ * Per-process fixed window that never fails open. Use it next to `rateLimit`
+ * where a request costs money or quota (AI calls): Redis shares the count
+ * across instances, and this still holds when Redis is missing or down.
+ */
+export function localRateLimit(identifier: string, opts: { limit: number; windowSec: number }, now = Date.now()): RateLimitResult {
+  if (localWindows.size > 10_000) {
+    for (const [key, window] of localWindows) if (window.resetAt <= now) localWindows.delete(key);
+  }
+  let window = localWindows.get(identifier);
+  if (!window || window.resetAt <= now) {
+    window = { count: 0, resetAt: now + opts.windowSec * 1000 };
+    localWindows.set(identifier, window);
+  }
+  window.count += 1;
+  const retryAfter = Math.ceil((window.resetAt - now) / 1000);
+  return window.count > opts.limit
+    ? { success: false, remaining: 0, retryAfter }
+    : { success: true, remaining: opts.limit - window.count, retryAfter: 0 };
+}
+
 /**
  * Convenience guard for route handlers. Returns a 429 Response when the limit
  * is exceeded, or null when the request may proceed.

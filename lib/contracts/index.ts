@@ -403,6 +403,30 @@ export type AdminReport = z.infer<typeof adminReportSchema>;
 export type OutboxJob = z.infer<typeof outboxJobSchema>;
 export type DeliveryHealth = z.infer<typeof deliveryHealthSchema>;
 
+// ── Campus assistant ────────────────────────────────────────────────────────
+
+/** Request limits for POST /api/assistant. The client sends the visible conversation each time. */
+export const ASSISTANT_LIMITS = { maxMessages: 20, maxUserChars: 1000, maxAssistantChars: 4000 } as const;
+
+export const assistantStatusSchema = z.object({ enabled: z.boolean() });
+
+/** An event the reply talks about, shown as a link under the answer. */
+export const assistantEventLinkSchema = z.object({
+  id: z.string().regex(/^[a-f\d]{24}$/i),
+  title: z.string(),
+  date: isoDate,
+  venue: z.string(),
+});
+
+export const assistantReplySchema = z.object({
+  reply: z.string().min(1),
+  events: z.array(assistantEventLinkSchema),
+});
+
+export type AssistantStatus = z.infer<typeof assistantStatusSchema>;
+export type AssistantEventLink = z.infer<typeof assistantEventLinkSchema>;
+export type AssistantReply = z.infer<typeof assistantReplySchema>;
+
 export type SavedSearchFilters = z.infer<typeof savedSearchFiltersSchema>;
 export type SavedSearch = z.infer<typeof savedSearchSchema>;
 export type Recommendation = z.infer<typeof recommendationSchema>;

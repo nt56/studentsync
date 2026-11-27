@@ -6,6 +6,7 @@ import ThemeProvider from "@/components/providers/ThemeProvider";
 import MotionProvider from "@/components/providers/MotionProvider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
+import { CampusAssistant } from "@/components/assistant/CampusAssistant";
 
 const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
@@ -42,6 +43,7 @@ export default function RootLayout({
           <ReduxProvider>
             <TooltipProvider delayDuration={200}>
               {children}
+              <CampusAssistant />
               <Toaster richColors position="top-right" />
             </TooltipProvider>
           </ReduxProvider>
